@@ -6,21 +6,21 @@ oyunlar…); bu kurallar yalnız bu klasördeki **xmpp.py projesi** içindir.
 
 ## xmpp.py — Tkinter + slixmpp XMPP istemcisi (Türkçe arayüz)
 
-Dosyalar: `xmpp.py` (facade, ~14K satır) · `xmppcore/` (config, storage, i18n, theme, helpers,
+Dosyalar: `xmpp.py` (facade, ~12,8K satır) · `xmppcore/` (config, storage, i18n, theme, helpers,
 XMPPBot mixin'leri, `ai.py`) · `ui/` (durumsuz Tk görünüm katmanı: `chat/`, `dialogs/`,
 `sidebar.py`…) · `jingle_ft.py` (P2P dosya aktarımı) · `xmpp_mcp.py` (MCP sunucusu) ·
 `tests/` · `tools/` (uçtan uca betikler) · `docs/` (tasarım belgeleri) · `xmpp-client.sh`
 (başlatıcı) · `_arsiv/` (eski yedekler; git dışı).
 
-> Dikkat: Klasör Ekim 2026'da diskin kökünden buraya taşındı; git'te eski kök yollar
-> silinmiş, `xmpp-istemcisi/` izlenmiyor görünür. Commit atarken yalnız bu klasörü ve
-> eski xmpp yollarının silinmesini seç; diğer projelerin değişikliklerine dokunma.
+> Dikkat: Klasör Ekim 2026'da diskin kökünden buraya taşındı (taşıma commit'i `90f32f8f`).
+> Depo başka projelerin commit edilmemiş değişikliklerini de barındırır: commit atarken
+> yalnız bu klasörü seç (`git add -- xmpp-istemcisi/`); diğer projelere dokunma.
 
 ### Çalıştırma ve test
 ```bash
 ./xmpp-client.sh                                   # uygulama (.venv-xmpp içindeki Python)
 cd /run/media/albas/albas/xmpp-istemcisi && \
-  .venv-xmpp/bin/python -m pytest tests/ -q        # ~1280 test, ~30 sn, ağ kullanmaz
+  .venv-xmpp/bin/python -m pytest tests/ -q        # ~1480 test, ~35 sn, ağ kullanmaz
 ```
 Paket kurulumu: `.venv-xmpp/bin/python -m pip install <paket>`. "Test geçti" demek için testi
 gerçekten çalıştır.
@@ -48,8 +48,12 @@ gerçekten çalıştır.
 
 ### Geliştirme kuralları
 1. OMEMO/PGP davranışına dokunma.
-2. MainWindow'u bölme/refactor etme; yeni kod mevcut desenleri izler (ince MainWindow
-   metodu + durumsuz `ui/` görünümü + Tk'sız `xmppcore/` mantığı).
+2. MainWindow tek facade sınıf kalır (mixin'lere/modüllere bölünmez); yeni kod mevcut
+   desenleri izler (ince MainWindow metodu + durumsuz `ui/` görünümü + Tk'sız `xmppcore/`
+   mantığı). Büyük pencereler bu desenle `ui/`'a taşınabilir: görünüm veri (`cfg`, `state`)
+   ve callback (`actions`, `on_save`) alır; bot/config/thread işleri MainWindow'da kalır.
+   Örnek: `_settings_dialog` → `ui/dialogs/settings.py` (+ `_settings_state`,
+   `_settings_actions`, `_settings_apply`). Taşımada davranış birebir korunur.
 3. Hata düzeltmesinden önce deterministik bir regresyon testi yaz. Kapsam dışı "fırsatçı"
    düzeltme yapma; böyle bir şey görürsen raporla.
 4. Bulguları `Claim → Evidence → Verdict (P0–P3)` biçiminde raporla.
@@ -69,6 +73,12 @@ gerçekten çalıştır.
 - Tk'sız pencere çifti: `object.__new__(xmpp.MainWindow)` + gereken öznitelikler;
   `_load_chat` için hazır `_win()` → `tests/test_history_window_bounds.py`.
 - Testler arası import serbest (`from test_history_window_bounds import _win`).
+- Sahte MainWindow (`MagicMock` dönen `__getattr__`) ile pencere testinde gerçek metotlar
+  çalışabilir ve diske yazabilir (ör. `_export_chat` çalışma dizinine dosya bırakır); tetiklenen
+  hedef metotları örnek üzerinde `MagicMock` ile değiştir. Gizli kök altındaki pencere çizilmez;
+  Tk çizilmemiş widget'a fare olayı iletmez (`ttk.Button.invoke` çalışır).
+- Kaldırılan özellikler (sesli arama, ekran paylaşımı, eklenti sistemi, webhook) geri
+  gelmemeli: `tests/test_removed_features.py`.
 
 ### AI asistanı (`xmppcore/ai.py`, `ui/dialogs/ai.py`, MainWindow `_ai_*`)
 - **Özellikler:** sohbet ve okunmamış özeti, ses→metin (faster-whisper), mesaj çevirisi,
