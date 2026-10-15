@@ -122,13 +122,6 @@ def _verify_pin(stored: str, entered: str) -> bool:
     return _decode_pw(stored) == entered
 
 
-def _find_webhook(webhooks: list, key: str) -> dict | None:
-    """Anahtara göre webhook kaydını bul."""
-    for wh in webhooks or []:
-        if wh.get("key") == key:
-            return wh
-    return None
-
 def _account_password(acc: dict) -> str:
     """Hesap kaydındaki parolayı çöz (eski düz metin kayıtlarını da destekler)."""
     pw = acc.get("password", "")

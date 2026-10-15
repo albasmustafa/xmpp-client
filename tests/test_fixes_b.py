@@ -403,15 +403,6 @@ def test_parse_tenor_results():
     assert len(out) == 2
 
 
-# ── B29: webhook kaydı bulma ────────────────────────────────────────────────
-
-def test_find_webhook():
-    whs = [{"name": "ci", "jid": "x@y.z", "key": "k1", "events": "message"}]
-    assert xmpp._find_webhook(whs, "k1")["jid"] == "x@y.z"
-    assert xmpp._find_webhook(whs, "yok") is None
-    assert xmpp._find_webhook([], "k1") is None
-
-
 # ── B31: hesap parolası çözme ───────────────────────────────────────────────
 
 def test_account_password_decodes_encoded(monkeypatch):

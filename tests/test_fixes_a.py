@@ -612,34 +612,6 @@ def test_stop_location_reports(monkeypatch):
     assert any("konum" in str(m).lower() for _, m in bot.gui_q.items)
 
 
-# ── A22: plugin kapatma ─────────────────────────────────────────────────────
-
-def test_plugin_disable_calls_stop_and_unloads(monkeypatch):
-    import types as _types
-
-    class _Db:
-        def execute(self, *a):
-            pass
-
-        def commit(self):
-            pass
-
-    monkeypatch.setattr(xmpp, "_get_db", lambda: _Db())
-    win = object.__new__(xmpp.MainWindow)
-    stopped = []
-    mod = _types.SimpleNamespace(
-        plugin_stop=lambda bot, gui: stopped.append(gui))
-    win._loaded_plugins = {"p1": mod}
-    win.bot = object()
-    xmpp.MainWindow._set_plugin_enabled(win, "p1", False)
-    assert stopped == [win]
-    assert "p1" not in win._loaded_plugins
-
-    win._loaded_plugins = {"p1": mod}
-    xmpp.MainWindow._set_plugin_enabled(win, "p1", True)
-    assert stopped == [win]  # etkinleştirmede stop çağrılmaz
-
-
 # ── A24: PIN doğrulama ──────────────────────────────────────────────────────
 
 def test_verify_pin_roundtrip_and_legacy(monkeypatch):

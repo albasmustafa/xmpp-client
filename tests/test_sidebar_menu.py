@@ -22,7 +22,7 @@ def test_sidebar_spec_all_actions_present():
     assert keys == [
         "search_users", "groups",
         "discover_rooms", "bookmarks",
-        "gif", "msg_search", "plugins", "log", "rest_api",
+        "gif", "msg_search", "log", "rest_api",
         "reconnect", "theme", "settings",
     ]
 

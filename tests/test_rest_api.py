@@ -45,8 +45,7 @@ def _window():
 @pytest.fixture()
 def api(monkeypatch):
     win = _window()
-    monkeypatch.setattr(xmpp, "_load_config", lambda: {"webhooks": [
-        {"key": "known-key", "target": "peer@example.com", "enabled": True}]})
+    monkeypatch.setattr(xmpp, "_load_config", lambda: {})
     monkeypatch.setattr(xmpp, "_API_REQUEST_TIMEOUT", 0.1, raising=False)
     win._start_rest_api(0)
     deadline = time.monotonic() + 5
@@ -123,19 +122,6 @@ def test_failed_send_returns_service_unavailable(api):
     api.bot.send_chat = failed_send
     assert _post(api, b'{"to":"peer@example.com","message":"hi"}')[0] == 503
     assert api.gui_q.empty()
-
-
-def test_webhook_non_object_json_returns_bad_request(api):
-    assert _post(api, b"[]", path="/api/webhook/known-key")[0] == 400
-    assert api.sent == []
-
-
-def test_webhook_plaintext_fallback_is_preserved(api):
-    status, payload = _post(api, "selam dünya".encode(), path="/api/webhook/known-key")
-
-    assert status == 200
-    assert payload == {"status": "delivered", "to": "peer@example.com"}
-    assert api.sent == [("peer@example.com", "🔔 [webhook] selam dünya")]
 
 
 def test_second_start_does_not_rotate_running_api_token(api):

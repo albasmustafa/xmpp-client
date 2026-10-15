@@ -3,7 +3,7 @@
 Bağlantı tekil durumu (_db_conn) ve yol sabiti (_DB_PATH) facade
 uzayında yaşar; erişim çağrı sırasında yapılır. Bağlantı
 check_same_thread=False ile açılır; tüm işlemler _db_lock altında
-serileştirilir (GUI + REST/webhook worker thread'leri ortak kullanır).
+serileştirilir (GUI + REST worker thread'leri ortak kullanır).
 """
 import sqlite3
 import threading
@@ -54,18 +54,6 @@ def _init_db():
         conn.execute("ALTER TABLE messages ADD COLUMN local_path TEXT DEFAULT ''")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_jid ON messages(jid)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_ts ON messages(timestamp)")
-    conn.execute("""CREATE TABLE IF NOT EXISTS plugins (
-        name TEXT PRIMARY KEY,
-        path TEXT NOT NULL,
-        enabled INTEGER DEFAULT 1
-    )""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS webhooks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        url TEXT NOT NULL,
-        events TEXT DEFAULT 'message',
-        enabled INTEGER DEFAULT 1
-    )""")
     # AI türetilmiş verisi: mesaj gömmeleri (anlamsal arama) ve pahalı
     # sonuç önbelleği (ses→metin, görsel açıklama). Kaynak mesaj silinir ya
     # da değişirse türetilmiş satır da silinir (aşağıdaki mutasyonlar).

@@ -1,8 +1,7 @@
-"""MAM arşiv akışı ve plugin yükleme sözleşmeleri (refactor regression ağı).
+"""MAM arşiv akışı sözleşmeleri (refactor regression ağı).
 
-Refactor sırasında MAM sayfalama payload'ı (bot → gui_q → _handle) ve
-plugin yükleme/çalıştırma davranışı (importlib, plugin_init çağrısı,
-hata yutma) değişmemelidir.
+Refactor sırasında MAM sayfalama payload'ı (bot → gui_q → _handle)
+değişmemelidir.
 """
 
 import asyncio
@@ -228,101 +227,6 @@ def test_handle_mam_results_bos_liste_devam_etmez():
 
     assert win._mam_has_more["ali@example.com"] is False
     assert win.chats == {}
-
-
-# ── Plugin yükleme (xmpp.py:12579-12591) ────────────────────────────────────
-
-def _plugin_win():
-    win = object.__new__(xmpp.MainWindow)
-    win._loaded_plugins = {}
-    win.bot = object()
-    toasts = []
-    win._show_toast = lambda title, msg, **k: toasts.append((title, msg))
-    return win, toasts
-
-
-def test_execute_plugin_plugin_init_bot_ve_gui_alir(tmp_path):
-    """Mevcut davranış: plugin dosyası importlib ile yüklenir,
-    plugin_init(self.bot, self) çağrılır ve modül kayıtlı kalır."""
-    plugin = tmp_path / "p1.py"
-    plugin.write_text(
-        "def plugin_init(bot, gui):\n"
-        "    gui.plugin_called = (bot, gui)\n",
-        encoding="utf-8")
-    win, toasts = _plugin_win()
-
-    xmpp.MainWindow._execute_plugin(win, "p1", str(plugin))
-
-    assert win.plugin_called == (win.bot, win)
-    assert win._loaded_plugins["p1"].__name__ == "p1"
-    assert toasts == [("🔌 Plugin", "p1 yüklendi")]
-
-
-def test_execute_plugin_hatasi_kaydetmez_ve_bildirir(tmp_path):
-    """Mevcut davranış: plugin_init hatası yakalanır, modül kaydedilmez."""
-    plugin = tmp_path / "p2.py"
-    plugin.write_text(
-        "def plugin_init(bot, gui):\n"
-        "    raise RuntimeError('patladı')\n",
-        encoding="utf-8")
-    win, toasts = _plugin_win()
-
-    xmpp.MainWindow._execute_plugin(win, "p2", str(plugin))
-
-    assert win._loaded_plugins == {}
-    assert toasts == [("⚠ Plugin", "p2: patladı")]
-
-
-def test_execute_plugin_sozdizimi_hatasi_istisna_sizdirmaz(tmp_path):
-    """Mevcut davranış: bozuk plugin dosyası uygulamayı çökertmez."""
-    plugin = tmp_path / "p3.py"
-    plugin.write_text("def (bozuk\n", encoding="utf-8")
-    win, toasts = _plugin_win()
-
-    xmpp.MainWindow._execute_plugin(win, "p3", str(plugin))
-
-    assert win._loaded_plugins == {}
-    assert toasts and toasts[0][0] == "⚠ Plugin"
-
-
-# ── Başlangıçta etkin plugin'ler (xmpp.py:12625-12635) ──────────────────────
-
-def test_load_enabled_plugins_sadece_var_olan_dosyalari_yukler(
-        tmp_path, monkeypatch):
-    """Mevcut davranış: DB'deki kayıtlardan yalnızca diskte var olan
-    dosyalar yüklenir; kayıp yol atlanır."""
-    plugin = tmp_path / "ok.py"
-    plugin.write_text("def plugin_init(bot, gui): pass\n", encoding="utf-8")
-    rows = [("ok", str(plugin)), ("yok", str(tmp_path / "yok.py"))]
-
-    class _Cur:
-        def fetchall(self):
-            return rows
-
-    class _Db:
-        def execute(self, *args):
-            return _Cur()
-
-    monkeypatch.setattr(xmpp, "_get_db", lambda: _Db())
-    calls = []
-    monkeypatch.setattr(xmpp.MainWindow, "_execute_plugin",
-                        lambda self, name, path: calls.append((name, path)))
-    win = object.__new__(xmpp.MainWindow)
-
-    xmpp.MainWindow._load_enabled_plugins(win)
-
-    assert calls == [("ok", str(plugin))]
-
-
-def test_load_enabled_plugins_db_hatasini_yutar(monkeypatch):
-    """Mevcut davranış: plugin listesi okunamazsa başlangıç çökmez."""
-
-    def _patlat():
-        raise RuntimeError("db yok")
-
-    monkeypatch.setattr(xmpp, "_get_db", _patlat)
-    win = object.__new__(xmpp.MainWindow)
-    assert xmpp.MainWindow._load_enabled_plugins(win) is None
 
 
 def test_fetch_mam_bos_arsiv_bos_liste_doner(monkeypatch):

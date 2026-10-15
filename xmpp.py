@@ -81,7 +81,6 @@ from xmppcore.archive import ArchiveMixin
 from xmppcore.config import (
     _account_password,
     _encode_pw,
-    _find_webhook,
     _load_config,
     _save_config,
     _saved_login,
@@ -145,9 +144,9 @@ from xmppcore.storage import (
     _db_unanswered,
     _db_update_msg_body,
     _db_update_msg_reply,
-    _get_db,
 )
 from xmppcore.storage import _db_search_msgs as _db_search_msgs
+from xmppcore.storage import _get_db as _get_db
 from xmppcore.theme import _THEMES
 from xmppcore.transfers import TransferMixin
 
@@ -430,7 +429,6 @@ def _sidebar_menu_spec(has_active_chat: bool) -> list[tuple]:
         spec.append(("item", f"🎭  {_t('sticker_gif')}", "gif"))
     spec += [
         ("item", f"🔎  {_t('msg_search')}", "msg_search"),
-        ("item", f"🔌  {_t('plugins')}", "plugins"),
         ("item", f"📋  {_t('log')}", "log"),
         ("item", f"🌐  {_t('rest_api')}", "rest_api"),
         ("item", f"🔄  {_t('reconnect')}", "reconnect"),
@@ -2477,8 +2475,6 @@ class MainWindow:
         self._ai_refresh_flags()
         # Otomatik tema geçişi
         self._auto_theme_check()
-        # Plugin'leri yükle
-        self._load_enabled_plugins()
         # Virtualization
         self._virtual_offset = 0
         self.chat_canvas.bind("<Button-4>", lambda e: self._load_more_messages(e))
@@ -2763,7 +2759,6 @@ class MainWindow:
             "bookmarks":      self._bookmarks_dialog,
             "gif":            self._show_gif_panel,
             "msg_search":     self._search_messages_dialog,
-            "plugins":        self._plugin_manager_dialog,
             "log":            self._log_viewer_dialog,
             "rest_api":       self._rest_api_dialog,
             "reconnect":      self._retry_connection,
@@ -9945,17 +9940,6 @@ class MainWindow:
         proxy_btn.pack(anchor="w", pady=(4, 0))
         proxy_btn.bind("<Button-1>", lambda _: self._proxy_dialog())
 
-        # ── Webhook ──
-        _section(t_conn, "WEBHOOK BİLDİRİMLERİ")
-        wh_count = len(cfg.get("webhooks", []))
-        tk.Label(t_conn, text=f"🔗 {wh_count} webhook tanımlı",
-                 font=(FONT, 8), fg=FG_DIM, bg=BG_CARD).pack(anchor="w")
-        wh_btn = tk.Label(t_conn, text="🔗 Webhook Yönet…",
-                           font=(FONT, 9), fg=ACCENT, bg=BG_CARD,
-                           cursor="hand2")
-        wh_btn.pack(anchor="w", pady=(4, 0))
-        wh_btn.bind("<Button-1>", lambda _: self._webhook_dialog())
-
         # ── Otomatik Tema Geçişi ──
         _section(t_conn, "OTOMATİK TEMA GEÇİŞİ")
         auto_theme = cfg.get("auto_theme", False)
@@ -12000,108 +11984,6 @@ class MainWindow:
         else:
             self._append(f"Bilinmeyen komut: {cmd}\n/help yazarak yardım alabilirsiniz", "sys")
 
-    # ── Webhook bildirimleri ─────────────────────────────────────────────────
-    def _webhook_dialog(self):
-        cfg = _load_config()
-        webhooks = cfg.get("webhooks", [])
-
-        dlg = tk.Toplevel(self.root)
-        dlg.title("Webhook Bildirimleri")
-        dlg.configure(bg=BG_CARD)
-        dlg.geometry("440x380")
-        dlg.transient(self.root)
-        _safe_grab_set(dlg)
-
-        tk.Label(dlg, text="🔗 Webhook Bildirimleri", font=(FONT, 12, "bold"),
-                 fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
-        tk.Label(dlg, text="Dış servislerden gelen bildirimleri XMPP'ye yönlendirin",
-                 font=(FONT, 8), fg=FG_DIM, bg=BG_CARD).pack(padx=16, pady=(0, 8))
-
-        list_f = tk.Frame(dlg, bg=BG_CARD)
-        list_f.pack(fill="both", expand=True, padx=16)
-
-        def _refresh():
-            for w in list_f.winfo_children():
-                w.destroy()
-            for i, wh in enumerate(webhooks):
-                wf = tk.Frame(list_f, bg=BG_HOVER, padx=10, pady=6)
-                wf.pack(fill="x", pady=2)
-                tk.Label(wf, text=f"🔗 {wh.get('name', 'Webhook')}",
-                         font=(FONT, 9, "bold"), fg=FG, bg=BG_HOVER).pack(
-                             side="left")
-                tk.Label(wf, text=f"→ {wh.get('target', '?')}",
-                         font=(FONT, 7), fg=FG_DIM, bg=BG_HOVER).pack(
-                             side="left", padx=(8, 0))
-                rm = tk.Label(wf, text="✕", font=(FONT, 9), fg=RED,
-                              bg=BG_HOVER, cursor="hand2")
-                rm.pack(side="right")
-                rm.bind("<Button-1>", lambda _, idx=i: (
-                    webhooks.pop(idx), _refresh()))
-            if not webhooks:
-                tk.Label(list_f, text="Webhook tanımlı değil",
-                         font=(FONT, 8), fg=FG_DIM, bg=BG_CARD).pack(anchor="w")
-
-        _refresh()
-
-        def _add_webhook():
-            pop = tk.Toplevel(dlg)
-            pop.title("Webhook Ekle")
-            pop.configure(bg=BG_CARD)
-            pop.geometry("340x240")
-            pop.transient(dlg)
-
-            tk.Label(pop, text="Webhook Adı:", font=(FONT, 9),
-                     fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=12, pady=(12, 0))
-            name_var = tk.StringVar()
-            ttk.Entry(pop, textvariable=name_var, font=(FONT, 10)).pack(
-                fill="x", padx=12, ipady=4)
-
-            tk.Label(pop, text="Hedef JID (bildirim alıcısı):", font=(FONT, 9),
-                     fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=12, pady=(8, 0))
-            target_var = tk.StringVar(value=self.jid)
-            ttk.Entry(pop, textvariable=target_var, font=(FONT, 10)).pack(
-                fill="x", padx=12, ipady=4)
-
-            tk.Label(pop, text="Anahtar (URL'de kullanılacak):", font=(FONT, 9),
-                     fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=12, pady=(8, 0))
-            import secrets
-            key_var = tk.StringVar(value=secrets.token_urlsafe(16))
-            ttk.Entry(pop, textvariable=key_var, font=(FONT, 9)).pack(
-                fill="x", padx=12, ipady=4)
-
-            def _save_wh():
-                webhooks.append({
-                    "name": name_var.get().strip() or "Webhook",
-                    "target": target_var.get().strip(),
-                    "key": key_var.get().strip(),
-                })
-                pop.destroy()
-                _refresh()
-
-            ttk.Button(pop, text="Ekle", command=_save_wh).pack(
-                fill="x", padx=12, ipady=4, pady=12)
-
-        tk.Label(dlg, text="POST  http://127.0.0.1:<REST port>/api/webhook/<anahtar>\n"
-                           'JSON: {"sender": "ad", "message": "metin"}',
-                 font=(FONT, 7), fg=FG_DIM, bg=BG_CARD,
-                 justify="left").pack(anchor="w", padx=16)
-        note = tk.Label(dlg, text="ℹ Webhook alıcısı için REST API çalışıyor olmalı",
-                        font=(FONT, 7), fg=AWAY, bg=BG_CARD)
-        note.pack(anchor="w", padx=16, pady=(2, 0))
-
-        btn_f = tk.Frame(dlg, bg=BG_CARD, padx=16)
-        btn_f.pack(fill="x", pady=8)
-        ttk.Button(btn_f, text="+ Webhook Ekle", command=_add_webhook).pack(
-            side="left")
-
-        def _save_all():
-            cfg = _load_config()
-            cfg["webhooks"] = webhooks
-            _save_config(cfg)
-            dlg.destroy()
-
-        ttk.Button(btn_f, text="Kaydet", command=_save_all).pack(side="right")
-
     # ── Çoklu sohbet sekmeleri ───────────────────────────────────────────────
     def _tab_evict_oldest_row(self, rows):
         """[2H] Detaylı sekme canlı satır sınırı: ekleme ÖNCESİ cap altına in.
@@ -12766,7 +12648,7 @@ class MainWindow:
                                source=f"🔌 {data.get('source') or 'REST API'}")
 
         elif kind == "api_store":
-            # REST/webhook thread'inden gelen kayıt — GUI thread'inde _store
+            # REST thread'inden gelen kayıt — GUI thread'inde _store
             self._store(data["target"], data["body"],
                         tag=data.get("tag", "them"),
                         sender=data.get("sender", ""),
@@ -13206,147 +13088,6 @@ class MainWindow:
         _ui_rooms.show_common_groups(
             self.root, name, jid, self.rooms, self.room_members)
 
-    # ── Plugin sistemi ───────────────────────────────────────────────────────
-    def _plugin_manager_dialog(self):
-        dlg = tk.Toplevel(self.root)
-        dlg.title("🔌 Plugin Yöneticisi")
-        dlg.configure(bg=BG_CARD)
-        dlg.geometry("440x400")
-        dlg.transient(self.root)
-
-        tk.Label(dlg, text="🔌 Plugin Yöneticisi", font=(FONT, 12, "bold"),
-                 fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
-
-        # Plugin listesi
-        plugins_f = tk.Frame(dlg, bg=BG_CARD)
-        plugins_f.pack(fill="both", expand=True, padx=16)
-
-        self._loaded_plugins = getattr(self, '_loaded_plugins', {})
-
-        def _refresh():
-            for w in plugins_f.winfo_children():
-                w.destroy()
-            # DB'den oku
-            try:
-                db = _get_db()
-                rows = db.execute("SELECT name, path, enabled FROM plugins").fetchall()
-            except Exception:
-                rows = []
-            if not rows and not self._loaded_plugins:
-                tk.Label(plugins_f, text="Yüklü plugin yok\n\nPlugin eklemek için .py dosyası seçin",
-                         font=(FONT, 9), fg=FG_DIM, bg=BG_CARD).pack(pady=20)
-                return
-            for name, path, enabled in rows:
-                pf = tk.Frame(plugins_f, bg=BG_HOVER, padx=10, pady=6)
-                pf.pack(fill="x", pady=2)
-                dot = "🟢" if enabled else "⚫"
-                tk.Label(pf, text=f"{dot} {name}", font=(FONT, 9, "bold"),
-                         fg=FG, bg=BG_HOVER).pack(side="left")
-                tk.Label(pf, text=os.path.basename(path), font=(FONT, 7),
-                         fg=FG_DIM, bg=BG_HOVER).pack(side="left", padx=(8, 0))
-                # Toggle
-                toggle_txt = "Kapat" if enabled else "Aç"
-                tog = tk.Label(pf, text=toggle_txt, font=(FONT, 8),
-                               fg=ACCENT, bg=BG_HOVER, cursor="hand2")
-                tog.pack(side="right")
-                tog.bind("<Button-1>", lambda _, n=name, e=enabled: (
-                    _toggle_plugin(n, not e), _refresh()))
-                # Sil
-                rm = tk.Label(pf, text="✕", font=(FONT, 9), fg=RED,
-                              bg=BG_HOVER, cursor="hand2", padx=4)
-                rm.pack(side="right")
-                rm.bind("<Button-1>", lambda _, n=name: (_remove_plugin(n), _refresh()))
-
-        def _toggle_plugin(name, enabled):
-            self._set_plugin_enabled(name, enabled)
-
-        def _remove_plugin(name):
-            self._remove_plugin_entry(name)
-
-        def _add_plugin():
-            from tkinter import filedialog
-            path = filedialog.askopenfilename(parent=dlg,
-                filetypes=[("Python", "*.py")], title="Plugin Seç")
-            if not path:
-                return
-            name = os.path.splitext(os.path.basename(path))[0]
-            try:
-                db = _get_db()
-                db.execute("INSERT OR REPLACE INTO plugins (name, path, enabled) VALUES (?, ?, 1)",
-                           (name, path))
-                db.commit()
-                # Plugin'i yükle
-                self._execute_plugin(name, path)
-                _refresh()
-            except Exception as e:
-                messagebox.showerror("Plugin Hatası", str(e), parent=dlg)
-
-        _refresh()
-        btn_f = tk.Frame(dlg, bg=BG_CARD)
-        btn_f.pack(fill="x", padx=16, pady=8)
-        ttk.Button(btn_f, text="+ Plugin Ekle", command=_add_plugin).pack(fill="x", ipady=4)
-
-        tk.Label(dlg, text="Plugin API: plugin_init(bot, gui) çağrılır",
-                 font=(FONT, 7), fg=FG_DIM, bg=BG_CARD).pack(pady=(0, 8))
-
-    def _execute_plugin(self, name, path):
-        """Plugin dosyasını yükle ve çalıştır."""
-        try:
-            import importlib.util
-            spec = importlib.util.spec_from_file_location(name, path)
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            if hasattr(mod, 'plugin_init'):
-                mod.plugin_init(self.bot, self)
-            self._loaded_plugins[name] = mod
-            self._show_toast("🔌 Plugin", f"{name} yüklendi")
-        except Exception as e:
-            self._show_toast("⚠ Plugin", f"{name}: {e}")
-
-    def _unload_plugin(self, name):
-        """Plugin'i bellekten düşür ve varsa plugin_stop kancasını çağır."""
-        mod = self._loaded_plugins.pop(name, None)
-        stop = getattr(mod, "plugin_stop", None)
-        if callable(stop):
-            try:
-                stop(self.bot, self)
-            except Exception:
-                _log.error("plugin_stop hatası: %s", name, exc_info=True)
-
-    def _set_plugin_enabled(self, name, enabled):
-        """Plugin etkinlik durumunu kaydet; kapatınca bellekten düşür."""
-        try:
-            db = _get_db()
-            db.execute("UPDATE plugins SET enabled=? WHERE name=?",
-                       (int(enabled), name))
-            db.commit()
-        except Exception:
-            _log.error("Plugin durumu güncellenemedi: %s", name, exc_info=True)
-        if not enabled:
-            self._unload_plugin(name)
-
-    def _remove_plugin_entry(self, name):
-        """Plugin kaydını DB'den ve bellekten sil."""
-        try:
-            db = _get_db()
-            db.execute("DELETE FROM plugins WHERE name=?", (name,))
-            db.commit()
-        except Exception:
-            _log.error("Plugin silinemedi: %s", name, exc_info=True)
-        self._unload_plugin(name)
-
-    def _load_enabled_plugins(self):
-        """Etkin plugin'leri başlangıçta yükle."""
-        try:
-            db = _get_db()
-            rows = db.execute(
-                "SELECT name, path FROM plugins WHERE enabled=1").fetchall()
-            for name, path in rows:
-                if os.path.isfile(path):
-                    self._execute_plugin(name, path)
-        except Exception:
-            pass
-
     # ── Log görüntüleyici (XML debug) ────────────────────────────────────────
     def _log_viewer_dialog(self):
         dlg = tk.Toplevel(self.root)
@@ -13616,47 +13357,7 @@ class MainWindow:
                 else:
                     self._send_json({"error": "not found"}, 404)
 
-            def _handle_webhook(self):
-                """Anahtar tabanlı webhook alıcısı (Bearer gerekmez)."""
-                key = self.path[len("/api/webhook/"):]
-                cfg = _load_config()
-                wh = _find_webhook(cfg.get("webhooks", []), key)
-                if not wh or not wh.get("enabled", True):
-                    self._send_json({"error": "unknown or disabled webhook"}, 404)
-                    return
-                if "message" not in str(wh.get("events", "message")):
-                    self._send_json({"error": "message event not enabled"}, 403)
-                    return
-                body = self._read_body()
-                if body is None:
-                    return
-                try:
-                    data = json.loads(body) if body else {}
-                except (ValueError, UnicodeError):
-                    data = {"message": body.decode("utf-8", "replace")}
-                if not isinstance(data, dict):
-                    self._send_json({"error": "JSON object required"}, 400)
-                    return
-                text = str(data.get("message") or data.get("text") or "").strip()
-                if not text:
-                    self._send_json({"error": "message required"}, 400)
-                    return
-                sender = str(data.get("sender") or "webhook")
-                payload = f"🔔 [{sender}] {text}"
-                target = wh.get("target") or wh.get("jid") or main_win.jid
-                if not self._forward(target, payload):
-                    return
-                main_win.gui_q.put(("api_store", {
-                    "target": target, "body": payload, "tag": "them",
-                    "sender": f"🔔 {sender}"}))
-                _log.info("Webhook iletildi: %s → %s", key, target)
-                self._send_json({"status": "delivered", "to": target})
-
             def do_POST(self):
-                # Webhook uçları kendi anahtarıyla doğrulanır
-                if self.path.startswith("/api/webhook/"):
-                    self._handle_webhook()
-                    return
                 if not self._check_auth():
                     return
                 body = self._read_body()
