@@ -22,10 +22,10 @@ def show_status(parent, on_apply):
              font=(A.FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")
 
     status_var = tk.StringVar()
-    A.PlaceholderEntry(pop, placeholder="Durum yazın...",
-                       textvariable=status_var,
-                       font=(A.FONT, 10), style="Modern.TEntry").pack(
-                           fill="x", padx=16, pady=(0, 12))
+    status_entry = A.PlaceholderEntry(pop, placeholder="Durum yazın...",
+                                      textvariable=status_var,
+                                      font=(A.FONT, 10), style="Modern.TEntry")
+    status_entry.pack(fill="x", padx=16, pady=(0, 12))
 
     show_var = tk.StringVar(value="chat")
     sf = tk.Frame(pop, bg=A.BG_CARD)
@@ -38,7 +38,8 @@ def show_status(parent, on_apply):
                            side="left", padx=(0, 8))
 
     def _apply():
-        on_apply(status_var.get(), show_var.get())
+        # get_value: boş alanda ipucu ("Durum yazın...") değer değildir
+        on_apply(status_entry.get_value(), show_var.get())
         pop.destroy()
 
     ttk.Button(pop, text="Uygula", command=_apply).pack(
@@ -69,16 +70,16 @@ def show_location(parent, on_publish, on_stop):
         tk.Label(f, text=label, fg=A.FG_DIM, bg=A.BG_CARD,
                  font=(A.FONT, 8), width=10, anchor="e").pack(side="left")
         v = tk.StringVar()
-        A.PlaceholderEntry(f, placeholder=ph, textvariable=v,
-                           font=(A.FONT, 9), style="Modern.TEntry").pack(
-                               side="left", fill="x", expand=True, padx=(8, 0))
-        fields[key] = v
+        e = A.PlaceholderEntry(f, placeholder=ph, textvariable=v,
+                               font=(A.FONT, 9), style="Modern.TEntry")
+        e.pack(side="left", fill="x", expand=True, padx=(8, 0))
+        fields[key] = e     # get_value: boş alanda ipucu değer değildir
 
     def _send():
         try:
-            lat = float(fields["lat"].get())
-            lon = float(fields["lon"].get())
-            desc = fields["desc"].get()
+            lat = float(fields["lat"].get_value())
+            lon = float(fields["lon"].get_value())
+            desc = fields["desc"].get_value()
             on_publish(lat, lon, desc)
             pop.destroy()
         except ValueError:

@@ -196,10 +196,10 @@ def show_settings(parent, cfg, state, actions, on_save):
     status_f = tk.Frame(t1, bg=A.BG_CARD)
     status_f.pack(fill="x")
     status_var = tk.StringVar(value=cfg.get("status_text", ""))
-    A.PlaceholderEntry(status_f, placeholder="Durum yazın...",
-                       textvariable=status_var,
-                       font=(A.FONT, 9), style="Modern.TEntry").pack(
-                           fill="x", ipady=4)
+    status_entry = A.PlaceholderEntry(status_f, placeholder="Durum yazın...",
+                                      textvariable=status_var,
+                                      font=(A.FONT, 9), style="Modern.TEntry")
+    status_entry.pack(fill="x", ipady=4)
 
     show_var = tk.StringVar(value=cfg.get("presence_show", "chat"))
     show_f = tk.Frame(t1, bg=A.BG_CARD)
@@ -870,7 +870,8 @@ def show_settings(parent, cfg, state, actions, on_save):
         on_save({
             "notifications": notify_var.get(),
             "sounds": sound_var.get(),
-            "status_text": status_var.get(),
+            # get_value: boş alanda ipucu ("Durum yazın...") değer değildir
+            "status_text": status_entry.get_value(),
             "presence_show": show_var.get(),
             "accounts": accounts,
             "remember_pw": remember_var.get(),

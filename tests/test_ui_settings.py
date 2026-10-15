@@ -141,3 +141,17 @@ def test_omemo_device_info_goes_through_safe_after(settings, monkeypatch):
     callback({"device_id": 7, "fingerprint": "aa bb", "other_devices": []})
     args = w._safe_after.call_args[0]
     assert args[0] == 0 and args[2]["device_id"] == 7
+
+
+def test_cleared_status_is_saved_empty_not_placeholder(settings):
+    """Kullanıcı durum metnini silip kaydedince ipucu yayınlanmamalı."""
+    w, top, saved = settings
+    entry = next(x for x in _walk(top) if isinstance(x, xmpp.PlaceholderEntry))
+    entry._on_focus_in()
+    entry.delete(0, "end")
+    entry._on_focus_out()                       # ipucu geri gelir
+    save = next(x for x in _walk(top) if x.winfo_class() == "TButton"
+                and x.cget("text").strip() == "Kaydet ve Kapat")
+    save.invoke()
+    assert saved[0]["status_text"] == ""
+    w.bot.set_status_message.assert_called_once_with("", "chat")
