@@ -5,6 +5,8 @@ import os
 import sys
 import types
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import xmpp  # noqa: E402
@@ -387,3 +389,42 @@ def test_refresh_members_delegates_and_stores_map(monkeypatch):
 
     assert calls == [("LB", "LBL", {"ali": {}})]
     assert win._member_index_map == {"x": "y"}
+
+
+# ── Ctrl+K hızlı geçiş: pencere ui/sidebar'da, gezinme MainWindow'da ────────
+
+def test_quick_switch_delegates_targets_and_navigation(monkeypatch):
+    captured = []
+    monkeypatch.setattr(ui_sidebar, "show_quick_switch",
+                        lambda parent, targets, on_go:
+                            captured.append((parent, targets, on_go)))
+    win = object.__new__(xmpp.MainWindow)
+    win.root = "ROOT"
+    win._contacts = {"ali@x": "Ali"}
+    win.rooms = {"oda@conf": {}}
+    calls = []
+    win._show_members = lambda jid: calls.append(("members", jid))
+    win._hide_members = lambda: calls.append(("hide",))
+    win._load_chat = lambda jid: calls.append(("load", jid))
+    win._filter_sidebar = lambda: calls.append(("filter",))
+
+    assert xmpp.MainWindow._quick_switch_dialog(win) == "break"
+    parent, targets, on_go = captured[0]
+    assert parent == "ROOT"
+    # Eşleşmeler her çağrıda canlı state'ten hesaplanır
+    assert [t[0] for t in targets("ali")] == ["ali@x"]
+    win._contacts["ayse@x"] = "Ayşe"
+    assert [t[0] for t in targets("ayşe")] == ["ayse@x"]
+
+    on_go("oda@conf", True)
+    on_go("ali@x", False)
+    assert calls == [("members", "oda@conf"), ("load", "oda@conf"), ("filter",),
+                     ("hide",), ("load", "ali@x"), ("filter",)]
+
+
+def test_quick_switch_skipped_while_closing(monkeypatch):
+    monkeypatch.setattr(ui_sidebar, "show_quick_switch",
+                        lambda *a: pytest.fail("kapanırken pencere açılmamalı"))
+    win = object.__new__(xmpp.MainWindow)
+    win._closing = True
+    assert xmpp.MainWindow._quick_switch_dialog(win) == "break"

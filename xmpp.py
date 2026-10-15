@@ -9009,129 +9009,40 @@ class MainWindow:
 
     # ── Dialog: Ayarlar ──────────────────────────────────────────────────────
     def _change_avatar_dialog(self):
-        """Profil fotoğrafı değiştirme diyaloğu."""
-        dlg = tk.Toplevel(self.root)
-        dlg.title("Profil Fotoğrafı")
-        dlg.configure(bg=SHADOW)
-        dlg.resizable(False, False)
-        dlg.transient(self.root)
-        _safe_grab_set(dlg)
+        """Profil fotoğrafı değiştirme diyaloğu (ui/profile)."""
+        _ui_profile.show_avatar_dialog(
+            self.root, self.jid, self._avatars.get(self.jid), self._photo_refs,
+            on_publish=self._avatar_publish,
+            on_forget=self._avatar_forget_local,
+            on_removed=self._avatar_publish_removal)
 
-        shadow = tk.Frame(dlg, bg=SHADOW, padx=3, pady=3)
-        shadow.pack(padx=20, pady=20)
-        card = tk.Frame(shadow, bg=BG_CARD, padx=28, pady=24)
-        card.pack()
+    def _avatar_publish(self, photo_bytes, on_result):
+        """Yeni fotoğrafı kaydet ve yayınla; sonuç `on_result(ok)` ile GUI
+        thread'inde bildirilir. Yayın başarısızsa eski fotoğrafa dönülür."""
+        old_data = self._avatars.get(self.jid)
 
-        tk.Label(card, text="Profil Fotoğrafı",
-                 font=(FONT, 14, "bold"),
-                 fg=FG, bg=BG_CARD).pack(anchor="w")
-        tk.Label(card, text="Fotoğrafınızı değiştirin veya kaldırın",
-                 font=(FONT, 8), fg=FG_DIM,
-                 bg=BG_CARD).pack(anchor="w", pady=(2, 16))
+        def _done(ok):
+            def _ui():
+                if not ok:
+                    self._restore_avatar(self.jid, old_data)
+                on_result(ok)
+            self._safe_after(0, _ui)
+        self._avatars[self.jid] = photo_bytes
+        _save_avatar_cache(self.jid, photo_bytes)
+        self._update_sidebar_avatar()
+        self.bot.publish_avatar(photo_bytes, "image/png", _done)
 
-        # Önizleme
-        preview_f = tk.Frame(card, bg=BG_CARD)
-        preview_f.pack(pady=(0, 16))
-        own_data = self._avatars.get(self.jid)
-        preview = _avatar(preview_f, 96, self.jid[0], ACCENT2, BG_CARD,
-                          photo_data=own_data, _photo_refs=self._photo_refs)
-        preview.pack()
+    def _avatar_forget_local(self):
+        """Fotoğrafı bellekten ve diskteki önbellekten sil."""
+        self._avatars.pop(self.jid, None)
+        path = _avatar_cache_path(self.jid)
+        if os.path.exists(path):
+            os.remove(path)
 
-        status_lbl = tk.Label(card, text="", font=(FONT, 8),
-                              fg=ACCENT_G, bg=BG_CARD)
-        status_lbl.pack(pady=(0, 8))
-
-        def _pick():
-            if not HAS_PIL:
-                messagebox.showwarning("Pillow Gerekli",
-                    "Fotoğraf desteği için Pillow gerekli:\npip install Pillow",
-                    parent=dlg)
-                return
-            from tkinter import filedialog
-            path = filedialog.askopenfilename(
-                parent=dlg,
-                title="Fotoğraf Seç",
-                filetypes=[
-                    ("Resim Dosyaları", "*.png *.jpg *.jpeg *.gif *.webp *.bmp"),
-                    ("Tüm Dosyalar", "*.*"),
-                ])
-            if not path:
-                return
-            try:
-                img = Image.open(path)
-                try:
-                    from PIL import ImageOps
-                    img = ImageOps.exif_transpose(img)
-                except Exception:
-                    pass
-                # Kare kırp (ortadan)
-                w, h = img.size
-                s = min(w, h)
-                left = (w - s) // 2
-                top = (h - s) // 2
-                img = img.crop((left, top, left + s, top + s))
-                img = img.resize((256, 256), Image.LANCZOS)
-                buf = io.BytesIO()
-                img.save(buf, format="PNG")
-                photo_bytes = buf.getvalue()
-
-                status_lbl.config(text="Yükleniyor…", fg=ACCENT)
-
-                # Önizlemeyi güncelle
-                preview.delete("all")
-                pi = img.resize((94, 94), Image.LANCZOS)
-                from PIL import ImageDraw
-                mask = Image.new("L", (94, 94), 0)
-                ImageDraw.Draw(mask).ellipse((0, 0, 94, 94), fill=255)
-                pi.putalpha(mask)
-                pho = ImageTk.PhotoImage(pi)
-                preview.create_image(48, 48, image=pho)
-                preview._photo = pho
-                self._photo_refs.append(pho)
-
-                # Yayınla — hata olursa eski fotoğrafa dön
-                old_data = self._avatars.get(self.jid)
-
-                def _done(ok):
-                    def _ui():
-                        if not ok:
-                            self._restore_avatar(self.jid, old_data)
-                        if dlg.winfo_exists():
-                            status_lbl.config(
-                                text="✓ Güncellendi" if ok else
-                                     "⚠ Yayınlanamadı — eski fotoğraf korundu",
-                                fg=ACCENT_G if ok else RED)
-                    self._safe_after(0, _ui)
-                self._avatars[self.jid] = photo_bytes
-                _save_avatar_cache(self.jid, photo_bytes)
-                self._update_sidebar_avatar()
-                self.bot.publish_avatar(photo_bytes, "image/png", _done)
-
-            except Exception as e:
-                status_lbl.config(text=f"Hata: {e}", fg=RED)
-
-        def _remove():
-            self._avatars.pop(self.jid, None)
-            path = _avatar_cache_path(self.jid)
-            if os.path.exists(path):
-                os.remove(path)
-            preview.delete("all")
-            preview.create_oval(2, 2, 94, 94, fill=ACCENT2, outline="")
-            preview.create_text(48, 48, text=self.jid[0].upper(),
-                fill=FG_ME, font=(FONT, 32, "bold"))
-            self._update_sidebar_avatar()
-            self.bot.publish_avatar(b"", "image/png")
-            status_lbl.config(text="✓ Kaldırıldı", fg=ACCENT_G)
-
-        bf = tk.Frame(card, bg=BG_CARD)
-        bf.pack(fill="x")
-        ttk.Button(bf, text="📷  Fotoğraf Seç",
-                   command=_pick).pack(side="left", ipadx=8, ipady=3)
-        if own_data:
-            ttk.Button(bf, text="Kaldır", style="Ghost.TButton",
-                       command=_remove).pack(side="right", ipadx=8, ipady=3)
-
-        dlg.lift()
+    def _avatar_publish_removal(self):
+        """Fotoğrafın kaldırıldığını kenar çubuğuna ve sunucuya yansıt."""
+        self._update_sidebar_avatar()
+        self.bot.publish_avatar(b"", "image/png")
 
     def _settings_dialog(self):
         """Ayarlar penceresi (ui/dialogs/settings); kayıt _settings_apply'da."""
@@ -10237,97 +10148,24 @@ class MainWindow:
             return
 
     def _quick_switch_dialog(self, event=None):
-        """Ctrl+K: Hızlı kişi/oda arama ve geçiş."""
+        """Ctrl+K: Hızlı kişi/oda arama ve geçiş (ui/sidebar)."""
         if getattr(self, "_closing", False):
             return "break"
-        pop = tk.Toplevel(self.root)
-        pop.title(_t("quick_switch"))
-        pop.configure(bg=BG_CARD)
-        pop.geometry("380x320")
-        pop.transient(self.root)
-        _safe_grab_set(pop)
-        pop.attributes("-topmost", True)
 
-        tk.Label(pop, text=f"⚡ {_t('quick_switch')} (Ctrl+K)", font=(FONT, 10, "bold"),
-                 fg=FG, bg=BG_CARD).pack(padx=12, pady=(12, 6))
-
-        filter_var = tk.StringVar()
-        fe = ttk.Entry(pop, textvariable=filter_var, font=(FONT, 10))
-        fe.pack(fill="x", padx=12, ipady=5)
-        fe.focus_set()
-
-        lb = tk.Listbox(pop, bg=BG_PANEL, fg=FG, selectbackground=SEL_BG,
-                         selectforeground=SEL_FG, font=(FONT, 9), relief="flat",
-                         highlightthickness=0, activestyle="none")
-        lb.pack(fill="both", expand=True, padx=12, pady=(6, 12))
-
-        hint = tk.Label(pop, text=_t("quick_switch_hint"), font=(FONT, 8),
-                        fg=FG_DIM, bg=BG_CARD)
-        hint.pack(fill="x", padx=12, pady=(0, 8))
-        matches = []
-
-        def _select(index):
-            if not matches:
-                return "break"
-            index = max(0, min(index, len(matches) - 1))
-            lb.selection_clear(0, "end")
-            lb.selection_set(index)
-            lb.activate(index)
-            lb.see(index)
-            return "break"
-
-        def _move(delta):
-            selected = lb.curselection()
-            return _select((selected[0] if selected else 0) + delta)
-
-        def _filter(*_):
-            nonlocal matches
-            matches = _ui_sidebar.quick_switch_targets(
+        def _targets(query):
+            return _ui_sidebar.quick_switch_targets(
                 self._contacts, self.rooms, getattr(self, "_pinned_chats", []),
-                getattr(self, "_unread_counts", {}), filter_var.get())
-            lb.delete(0, "end")
-            for _jid, label, _is_room in matches:
-                lb.insert("end", f"  {label}")
-            hint.config(text=_t("quick_switch_hint") if matches else _t("no_chats_found"))
-            _select(0)
+                getattr(self, "_unread_counts", {}), query)
 
-        trace_id = filter_var.trace_add("write", _filter)
+        def _go(jid, is_room):
+            if is_room:
+                self._show_members(jid)
+            else:
+                self._hide_members()
+            self._load_chat(jid)
+            self._filter_sidebar()
 
-        def _cleanup(event):
-            if event.widget is pop:
-                filter_var.trace_remove("write", trace_id)
-
-        pop.bind("<Destroy>", _cleanup, add="+")
-        _filter()
-
-        def _go(event=None):
-            if not matches:
-                return "break"
-            sel = lb.curselection()
-            idx = sel[0] if sel else 0
-            if 0 <= idx < len(matches):
-                jid, _label, is_room = matches[idx]
-                pop.destroy()
-                if is_room:
-                    self._show_members(jid)
-                else:
-                    self._hide_members()
-                self._load_chat(jid)
-                self._filter_sidebar()
-            return "break"
-
-        lb.bind("<Double-1>", _go)
-        lb.bind("<Return>", _go)
-        fe.bind("<Return>", _go)
-        fe.bind("<Down>", lambda _: _move(1))
-        fe.bind("<Up>", lambda _: _move(-1))
-        fe.bind("<Control-k>", lambda _: "break")
-
-        def _close(event=None):
-            pop.destroy()
-            return "break"
-
-        pop.bind("<Escape>", _close)
+        _ui_sidebar.show_quick_switch(self.root, _targets, _go)
         return "break"
 
     def _shortcuts_dialog(self):

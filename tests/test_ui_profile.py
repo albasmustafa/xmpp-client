@@ -5,6 +5,8 @@ import os
 import sys
 import types
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import xmpp  # noqa: E402
@@ -88,3 +90,100 @@ def test_profile_modulu_protocol_cagrisi_yapmaz():
     for token in ("self.bot", "set_status_message", "publish_mood",
                   "publish_avatar", "_db_", "run_coroutine_threadsafe"):
         assert token not in src, f"domain sızıntısı: {token}"
+
+
+# ── Profil fotoğrafı penceresi: seçim/önizleme ui/profile'da, yayın owner'da ─
+
+def test_change_avatar_dialog_delegates(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ui_profile, "show_avatar_dialog",
+                        lambda *a, **k: calls.append((a, k)))
+    win = object.__new__(xmpp.MainWindow)
+    win.root, win.jid = "ROOT", "ben@x"
+    win._avatars, win._photo_refs = {"ben@x": b"png"}, ["REF"]
+    xmpp.MainWindow._change_avatar_dialog(win)
+    (args, kw), = calls
+    assert args == ("ROOT", "ben@x", b"png", ["REF"])
+    assert kw["on_publish"] == win._avatar_publish
+    assert kw["on_forget"] == win._avatar_forget_local
+    assert kw["on_removed"] == win._avatar_publish_removal
+
+
+def _avatar_win(monkeypatch, tmp_path):
+    win = object.__new__(xmpp.MainWindow)
+    win.jid, win._avatars = "ben@x", {"ben@x": b"eski"}
+    calls = []
+    win._safe_after = lambda ms, fn, *a: fn(*a)
+    win._update_sidebar_avatar = lambda: calls.append(("sidebar",))
+    win._restore_avatar = lambda jid, data: calls.append(("restore", jid, data))
+    published = []
+    win.bot = types.SimpleNamespace(
+        publish_avatar=lambda data, mime, cb=None: published.append((data, cb)))
+    monkeypatch.setattr(xmpp, "_save_avatar_cache",
+                        lambda jid, data: calls.append(("cache", jid, data)))
+    monkeypatch.setattr(xmpp, "_avatar_cache_path",
+                        lambda jid: str(tmp_path / "avatar.png"))
+    return win, calls, published
+
+
+@pytest.mark.parametrize("ok", [True, False])
+def test_avatar_publish_reports_result_and_restores_on_failure(
+        monkeypatch, tmp_path, ok):
+    win, calls, published = _avatar_win(monkeypatch, tmp_path)
+    results = []
+    xmpp.MainWindow._avatar_publish(win, b"yeni", results.append)
+    assert win._avatars["ben@x"] == b"yeni"
+    assert calls == [("cache", "ben@x", b"yeni"), ("sidebar",)]
+    (data, done), = published
+    assert data == b"yeni"
+    done(ok)                                    # sunucu yanıtı
+    assert results == [ok]
+    assert (("restore", "ben@x", b"eski") in calls) is (not ok)
+
+
+def test_avatar_remove_clears_cache_then_publishes_empty(monkeypatch, tmp_path):
+    win, calls, published = _avatar_win(monkeypatch, tmp_path)
+    (tmp_path / "avatar.png").write_bytes(b"x")
+    xmpp.MainWindow._avatar_forget_local(win)
+    assert "ben@x" not in win._avatars
+    assert not (tmp_path / "avatar.png").exists()
+    xmpp.MainWindow._avatar_publish_removal(win)
+    assert calls == [("sidebar",)] and published[0][0] == b""
+
+
+def test_avatar_dialog_pick_crops_to_256_png(monkeypatch, tmp_path):
+    if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
+        pytest.skip("Tk testleri bir ekran veya Xvfb gerektiriyor")
+    import io
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+
+    from PIL import Image
+
+    src = tmp_path / "genis.png"
+    Image.new("RGB", (640, 480), "red").save(src)
+    monkeypatch.setattr(filedialog, "askopenfilename", lambda **k: str(src))
+    monkeypatch.setattr(xmpp, "_safe_grab_set", lambda *a, **k: None)
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        xmpp._apply_theme()
+        sent = []
+        dlg = ui_profile.show_avatar_dialog(
+            root, "ben@x", None, [], on_publish=lambda b, cb: sent.append((b, cb)),
+            on_forget=lambda: None, on_removed=lambda: None)
+
+        def _walk(w):
+            yield w
+            for c in w.winfo_children():
+                yield from _walk(c)
+        btns = {b.cget("text"): b for b in _walk(dlg) if isinstance(b, ttk.Button)}
+        assert "Kaldır" not in btns                 # fotoğraf yokken gizli
+        btns["📷  Fotoğraf Seç"].invoke()
+        (data, on_result), = sent
+        assert Image.open(io.BytesIO(data)).size == (256, 256)
+        on_result(False)
+        status = [w.cget("text") for w in _walk(dlg) if isinstance(w, tk.Label)]
+        assert "⚠ Yayınlanamadı — eski fotoğraf korundu" in status
+    finally:
+        root.destroy()

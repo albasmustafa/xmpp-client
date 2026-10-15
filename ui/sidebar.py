@@ -7,8 +7,9 @@ roster/presence verisi parametreyle gelir.
 
 Tema/renk haritası canlı `xmpp` modülünden çağrı anında okunur.
 """
-import tkinter as tk  # noqa: F401  (widget tipleri için tip bağımsız)
+import tkinter as tk
 import unicodedata
+from tkinter import ttk
 
 _ONLINE_STATUS = {"available", "", "online", "chat", "away", "dnd", "xa"}
 
@@ -124,6 +125,98 @@ def quick_switch_targets(contacts, rooms, pinned=(), unread_counts=None, query="
         badge = f" ({unread})" if unread > 0 else ""
         targets.append((jid, f"{pin_icon}{icon} {name}{badge}", is_room))
     return targets
+
+
+def show_quick_switch(parent, targets, on_go):
+    """Ctrl+K hızlı geçiş penceresi (MainWindow._quick_switch_dialog).
+
+    `targets(query)` → [(jid, etiket, is_room)] her tuşta canlı veriden
+    hesaplanır (bkz. quick_switch_targets); seçim `on_go(jid, is_room)` ile
+    owner'a gider. Pencere seçimden önce kapanır.
+    """
+    A = _app()
+    pop = tk.Toplevel(parent)
+    pop.title(A._t("quick_switch"))
+    pop.configure(bg=A.BG_CARD)
+    pop.geometry("380x320")
+    pop.transient(parent)
+    A._safe_grab_set(pop)
+    pop.attributes("-topmost", True)
+
+    tk.Label(pop, text=f"⚡ {A._t('quick_switch')} (Ctrl+K)", font=(A.FONT, 10, "bold"),
+             fg=A.FG, bg=A.BG_CARD).pack(padx=12, pady=(12, 6))
+
+    filter_var = tk.StringVar()
+    fe = ttk.Entry(pop, textvariable=filter_var, font=(A.FONT, 10))
+    fe.pack(fill="x", padx=12, ipady=5)
+    fe.focus_set()
+
+    lb = tk.Listbox(pop, bg=A.BG_PANEL, fg=A.FG, selectbackground=A.SEL_BG,
+                    selectforeground=A.SEL_FG, font=(A.FONT, 9), relief="flat",
+                    highlightthickness=0, activestyle="none")
+    lb.pack(fill="both", expand=True, padx=12, pady=(6, 12))
+
+    hint = tk.Label(pop, text=A._t("quick_switch_hint"), font=(A.FONT, 8),
+                    fg=A.FG_DIM, bg=A.BG_CARD)
+    hint.pack(fill="x", padx=12, pady=(0, 8))
+    matches = []
+
+    def _select(index):
+        if not matches:
+            return "break"
+        index = max(0, min(index, len(matches) - 1))
+        lb.selection_clear(0, "end")
+        lb.selection_set(index)
+        lb.activate(index)
+        lb.see(index)
+        return "break"
+
+    def _move(delta):
+        selected = lb.curselection()
+        return _select((selected[0] if selected else 0) + delta)
+
+    def _filter(*_):
+        nonlocal matches
+        matches = targets(filter_var.get())
+        lb.delete(0, "end")
+        for _jid, label, _is_room in matches:
+            lb.insert("end", f"  {label}")
+        hint.config(text=A._t("quick_switch_hint") if matches else A._t("no_chats_found"))
+        _select(0)
+
+    trace_id = filter_var.trace_add("write", _filter)
+
+    def _cleanup(event):
+        if event.widget is pop:
+            filter_var.trace_remove("write", trace_id)
+
+    pop.bind("<Destroy>", _cleanup, add="+")
+    _filter()
+
+    def _go(event=None):
+        if not matches:
+            return "break"
+        sel = lb.curselection()
+        idx = sel[0] if sel else 0
+        if 0 <= idx < len(matches):
+            jid, _label, is_room = matches[idx]
+            pop.destroy()
+            on_go(jid, is_room)
+        return "break"
+
+    lb.bind("<Double-1>", _go)
+    lb.bind("<Return>", _go)
+    fe.bind("<Return>", _go)
+    fe.bind("<Down>", lambda _: _move(1))
+    fe.bind("<Up>", lambda _: _move(-1))
+    fe.bind("<Control-k>", lambda _: "break")
+
+    def _close(event=None):
+        pop.destroy()
+        return "break"
+
+    pop.bind("<Escape>", _close)
+    return pop
 
 
 def update_sidebar_avatar(canvas, jid, data, photo_refs=None):
