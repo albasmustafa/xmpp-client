@@ -9,8 +9,11 @@ from slixmpp.exceptions import PresenceError
 
 from xmppcore.constants import _log
 from xmppcore.helpers import (
+    _CORRECTION,
+    _RETRACTS,
     _add_origin_id,
     _get_xep,
+    _has_child,
     _normalize_room_jid,
     _spawn_task,
     _stanza_msg_id,
@@ -106,6 +109,11 @@ class MucMixin:
         # PGP şifreli mi? → _on_pgp_message zaten işliyor
         if msg.xml.find("{jabber:x:encrypted}x") is not None:
             return
+        # Geri çekme ve düz düzeltmenin kendi olayları var (messages.py ile
+        # aynı kural); şifreli düzeltme çözülünce düzeltme olarak iletilir
+        if _has_child(msg.xml, *_RETRACTS):
+            return
+        is_correction = _has_child(msg.xml, _CORRECTION)
         if not msg["body"] and not self._omemo_enabled():
             return
         # OMEMO şifreli mi kontrol et
@@ -118,7 +126,7 @@ class MucMixin:
             except Exception as e:
                 # Şifreli oda mesajı sessizce düşmesin (messages.py ile tutarlı)
                 _log.warning("OMEMO şifreli-mesaj denetimi başarısız: %s", e)
-        if not msg["body"]:
+        if not msg["body"] or is_correction:
             return
         sender = str(msg["from"].resource)
         room   = str(msg["from"].bare)

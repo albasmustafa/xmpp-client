@@ -109,8 +109,10 @@ from xmppcore.format import (
 )
 from xmppcore.format import _room_result_line as _room_result_line
 from xmppcore.helpers import (
+    _CORRECTION,
     _add_origin_id,
     _get_xep,
+    _has_child,
     _new_msg_id,
     _normalize_room_jid,
     _normalize_user_jid,
@@ -1323,6 +1325,23 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                     plaintext_msg, _device_info = await xep.decrypt_message(msg)
                     body = plaintext_msg["body"] or ""
                     if not body:
+                        return
+                    # Şifreli düzeltme (XEP-0308): <replace> şifresiz kısımda
+                    # durur; çözülen metin orijinal mesaja uygulanır
+                    orig_id = ""
+                    if _has_child(msg.xml, _CORRECTION):
+                        try:
+                            orig_id = str(msg["replace"]["id"] or "")
+                        except Exception:
+                            orig_id = ""
+                    if orig_id:
+                        self.gui_q.put(("msg_correction", {
+                            "from": str(msg["from"].bare),
+                            "orig_id": orig_id,
+                            "body": (body if mtype == "groupchat"
+                                     else _strip_quoted_fallback(msg, body)),
+                            "nick": str(msg["from"].resource or msg["from"].user),
+                        }))
                         return
                     if mtype == "groupchat":
                         sender = str(msg["from"].resource)

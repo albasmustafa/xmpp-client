@@ -192,6 +192,22 @@ def _get_xep(xmpp_obj, name: str):
         return xmpp_obj[name]
 
 
+# Mesaj üstverisi: düzeltme (XEP-0308), geri çekme (0424), tepki (0444),
+# okundu işareti (0333) ve OMEMO yükü (eski + OMEMO 2)
+_CORRECTION = "{urn:xmpp:message-correct:0}replace"
+_RETRACTS = ("{urn:xmpp:message-retract:1}retract",
+             "{urn:xmpp:message-retract:0}retract")
+_REACTIONS = "{urn:xmpp:reactions:0}reactions"
+_DISPLAYED = "{urn:xmpp:chat-markers:0}displayed"
+_OMEMO_TAGS = ("{eu.siacs.conversations.axolotl}encrypted",
+               "{urn:xmpp:omemo:2}encrypted")
+
+
+def _has_child(xml, *tags) -> bool:
+    """Stanza'nın doğrudan çocuklarından biri verilen etiketlerden biri mi?"""
+    return xml is not None and any(xml.find(t) is not None for t in tags)
+
+
 def _stanza_is_encrypted(xml) -> bool:
     """Stanza XML'inde OMEMO veya PGP şifreli yük var mı?"""
     if xml is None:

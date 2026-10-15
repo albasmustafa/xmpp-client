@@ -13,18 +13,18 @@ import xml.etree.ElementTree as ET
 from xmppcore.constants import _log
 from xmppcore.format import _reply_preview
 from xmppcore.helpers import (
+    _CORRECTION,
+    _DISPLAYED,
+    _OMEMO_TAGS,
+    _REACTIONS,
+    _RETRACTS,
     _add_origin_id,
     _get_xep,
+    _has_child,
     _spawn_task,
     _stanza_msg_id,
     _strip_quoted_fallback,
 )
-
-_CORRECTION = "{urn:xmpp:message-correct:0}replace"
-_RETRACTS = ("{urn:xmpp:message-retract:1}retract",
-             "{urn:xmpp:message-retract:0}retract")
-_REACTIONS = "{urn:xmpp:reactions:0}reactions"
-_DISPLAYED = "{urn:xmpp:chat-markers:0}displayed"
 
 
 class MessagesMixin:
@@ -64,6 +64,13 @@ class MessagesMixin:
         # PGP şifreli mi? → _on_pgp_message zaten işliyor, burada atla
         if msg.xml.find("{jabber:x:encrypted}x") is not None:
             return
+        # Geri çekmenin kendi olayı var (message_retract); mobil istemcilerin
+        # eklediği yedek gövde ("…attempted to retract…") mesaj değildir
+        if _has_child(msg.xml, *_RETRACTS):
+            return
+        # Düz düzeltmeyi message_correction işler; şifreli düzeltme aşağıda
+        # çözülür ve düzeltme olarak iletilir (_decrypt_and_deliver)
+        is_correction = _has_child(msg.xml, _CORRECTION)
         # OMEMO şifreli mi kontrol et
         encrypted = False
         if self._omemo_enabled():
@@ -76,6 +83,8 @@ class MessagesMixin:
                 # [2P-BUG B] Yutulan except yerine observable log: şifreli
                 # mesaj sessizce düşmeyecek; hassas materyal sızdırılmaz.
                 _log.warning("OMEMO şifreli-mesaj denetimi başarısız: %s", e)
+        if is_correction:
+            return
         if msg["body"]:
             oob = self._extract_oob(msg)
             self.gui_q.put(("msg", {
@@ -111,11 +120,13 @@ class MessagesMixin:
             return          # oda özel mesajı (MUC PM): oda akışında değil
         # Düzeltme/geri çekme/tepki yeni mesaj değildir: kendi işleyicisine
         xml = inner.xml
-        if xml.find(_CORRECTION) is not None:
+        if _has_child(xml, _CORRECTION):
             self._on_message_correction(inner)
-        elif any(xml.find(tag) is not None for tag in _RETRACTS):
+            if _has_child(xml, *_OMEMO_TAGS):
+                self._on_message(inner)     # şifreli düzeltme: çözülüp uygulanır
+        elif _has_child(xml, *_RETRACTS):
             self._on_message_retract(inner)
-        elif xml.find(_REACTIONS) is not None:
+        elif _has_child(xml, _REACTIONS):
             self._on_reactions(inner)
         else:
             self._on_message(inner)
@@ -131,12 +142,11 @@ class MessagesMixin:
                 or to in getattr(self, "my_nicks", {})):
             return
         xml = inner.xml
-        if xml.find(_DISPLAYED) is not None:
+        if _has_child(xml, _DISPLAYED):
             # Telefonda okundu → masaüstünde de okunmamış kalmasın
             self.gui_q.put(("read_elsewhere", to))
             return
-        if (xml.find(_CORRECTION) is not None or xml.find(_REACTIONS) is not None
-                or any(xml.find(tag) is not None for tag in _RETRACTS)):
+        if _has_child(xml, _CORRECTION, _REACTIONS, *_RETRACTS):
             return          # telefondaki düzeltme/geri çekme/tepki: yeni mesaj değil
         if xml.find("{jabber:x:encrypted}x") is not None:
             return          # PGP kopyası kendi anahtarımızla çözülemez
@@ -284,7 +294,10 @@ class MessagesMixin:
             self.gui_q.put(("marker_displayed", {"from": frm, "mid": mid}))
 
     def _on_message_correction(self, msg):
-        """Gelen mesaj düzeltmesi (XEP-0308)."""
+        """Gelen mesaj düzeltmesi (XEP-0308). OMEMO'lu düzeltmenin gövdesi
+        yalnız yedek metindir: çözülünce _decrypt_and_deliver iletir."""
+        if _has_child(msg.xml, *_OMEMO_TAGS):
+            return
         frm = str(msg["from"].bare)
         orig_id = ""
         try:
