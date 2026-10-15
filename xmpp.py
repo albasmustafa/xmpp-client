@@ -466,8 +466,6 @@ def _chat_header_menu_spec(*, is_room: bool, compact: bool) -> list[tuple]:
         ("sep",),
         ("menu", "💬 Sohbet", chat),
         ("menu", "📤 Paylaşım", [
-            ("item", "🖥 Ekran Paylaş", "screen_share"),
-            ("sep",),
             ("item", "📍 Konum Paylaş", "location"),
             ("item", "📊 Anket Oluştur", "poll"),
             ("item", "📖 Hikaye Paylaş", "story"),
@@ -4384,7 +4382,6 @@ class MainWindow:
             "export": self._export_chat,
             "clear_history": self._clear_history_dialog,
             "room_admin": self._room_admin_dialog,
-            "screen_share": self._screen_share_dialog,
             "location": self._location_dialog,
             "poll": self._poll_dialog,
             "story": self._story_dialog,
@@ -12893,78 +12890,6 @@ class MainWindow:
         new_height = self.msg_frame.winfo_height()
         if new_height > 0:
             self.chat_canvas.yview_moveto((new_height - old_height) / new_height)
-
-    # ── Ekran paylaşımı ─────────────────────────────────────────────────────
-    def _screen_share_dialog(self):
-        if not self.active or not self.bot:
-            return
-        dlg = tk.Toplevel(self.root)
-        dlg.title("🖥 Ekran Paylaşımı")
-        dlg.configure(bg=BG_CARD)
-        dlg.geometry("360x200")
-        dlg.transient(self.root)
-
-        tk.Label(dlg, text="🖥 Ekran Paylaşımı", font=(FONT, 12, "bold"),
-                 fg=FG, bg=BG_CARD).pack(pady=(16, 8))
-
-        self._sharing_screen = False
-        status = tk.Label(dlg, text="Hazır", font=(FONT, 9),
-                          fg=FG_DIM, bg=BG_CARD)
-        status.pack()
-
-        def _capture_and_send():
-            if not HAS_PIL:
-                status.config(text="Pillow gerekli", fg=RED)
-                return
-            try:
-                from PIL import ImageGrab
-                self._sharing_screen = True
-                status.config(text="📡 Paylaşılıyor…", fg=ONLINE)
-
-                shot_files = []
-
-                def _loop():
-                    if not self._sharing_screen or not dlg.winfo_exists():
-                        return
-                    try:
-                        img = ImageGrab.grab()
-                        img.thumbnail((800, 600))
-                        buf = io.BytesIO()
-                        img.save(buf, format="JPEG", quality=40)
-                        # Geçici dosya olarak kaydet ve HTTP Upload ile gönder
-                        tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
-                        tmp.write(buf.getvalue())
-                        tmp.close()
-                        self._remember_temp(tmp.name)
-                        shot_files.append(tmp.name)
-                        # Eski kareleri temizle (son 2 kare kalsın)
-                        while len(shot_files) > 2:
-                            old = shot_files.pop(0)
-                            try:
-                                if os.path.isfile(old):
-                                    os.remove(old)
-                            except OSError:
-                                pass
-                        mtype = "groupchat" if self.active in self.rooms else "chat"
-                        self.bot.send_file(self.active, tmp.name, mtype)
-                    except Exception:
-                        _log.warning("Ekran görüntüsü gönderilemedi", exc_info=True)
-                    _after_alive(dlg, 5000, _loop)  # 5sn arayla
-
-                _loop()
-            except ImportError:
-                status.config(text="ImageGrab bulunamadı", fg=RED)
-
-        def _stop():
-            self._sharing_screen = False
-            status.config(text="Durduruldu", fg=FG_DIM)
-
-        btn_f = tk.Frame(dlg, bg=BG_CARD)
-        btn_f.pack(pady=16)
-        ttk.Button(btn_f, text="▶ Başlat", command=_capture_and_send).pack(
-            side="left", padx=4)
-        ttk.Button(btn_f, text="⏹ Durdur", command=_stop).pack(
-            side="left", padx=4)
 
     # ── Anket oluşturma ─────────────────────────────────────────────────────
     def _poll_dialog(self):

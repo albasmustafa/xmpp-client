@@ -1,9 +1,10 @@
 """⋮ sohbet başlığı menüsü: sadeleştirme hiçbir komutu kaybetmez.
 
 Kanıtlar:
-- Eski düz menüdeki her komut (24 + ✨ AI alt menüsü) yeni gruplu yapıda
+- Eski düz menüdeki her komut (23 + ✨ AI alt menüsü) yeni gruplu yapıda
   aynı etiketle ve aynı hedef metoda bağlı olarak durur; fazlası yoktur.
-  (Sesli arama medya akışı olmadığı için kaldırıldı: test_removed_features.)
+  (Sesli arama ve ekran paylaşımı çalışmadığı için kaldırıldı:
+  test_removed_features.)
 - Üst düzey kısa kalır (sık kullanılanlar + konu başlıklı alt menüler).
 - Oda yönetimi yalnız odada, kompakt mod etiketi duruma göre görünür.
 """
@@ -40,7 +41,6 @@ OLD_MENU = {
     "🔧 Oda Yönetimi": "_room_admin_dialog",
     "📺 Yeni Sekmede Aç": "_open_chat_tab",
     "📺 Bölünmüş Ekran": "_split_view_dialog",
-    "🖥 Ekran Paylaş": "_screen_share_dialog",
     "📊 Anket Oluştur": "_poll_dialog",
     "📖 Hikaye Paylaş": "_story_dialog",
 }
