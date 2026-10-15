@@ -82,6 +82,7 @@ from xmppcore import tts as _tts
 from xmppcore.archive import ArchiveMixin
 from xmppcore.config import (
     _account_password,
+    _auto_login_enabled,
     _encode_pw,
     _load_config,
     _save_config,
@@ -2228,9 +2229,11 @@ class LoginWindow:
             e.pack(fill="x", ipady=8, padx=2, pady=2)
             return e
 
-        # Kayıtlı bilgilerle doldur (otomatik giriş başarısız olduysa düzeltilsin)
+        # Kayıtlı bilgilerle doldur ("Şifremi hatırla" açıkken ya da otomatik
+        # giriş başarısız olduysa düzeltilsin)
+        cfg = _load_config()
         saved_jid, saved_pw, saved_port, saved_srv = (
-            _saved_login(_load_config()) or ("", "", 5222, ""))
+            _saved_login(cfg) or ("", "", 5222, ""))
         self.jid_var  = tk.StringVar(value=saved_jid)
         self.pw_var   = tk.StringVar(value=saved_pw)
         self.srv_var  = tk.StringVar(value=saved_srv)
@@ -2256,11 +2259,6 @@ class LoginWindow:
         tk.Checkbutton(chk_row, text="Göster", variable=show_pw,
                        command=_toggle_pw, **chk_kw).pack(side="left")
 
-        self.remember_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(chk_row, text="Beni hatırla",
-                       variable=self.remember_var,
-                       **chk_kw).pack(side="left", padx=(10, 0))
-
         # Gelişmiş toggle
         adv_var = tk.BooleanVar(value=False)
         self._adv_frame = tk.Frame(card, bg=BG_CARD)
@@ -2271,6 +2269,25 @@ class LoginWindow:
                 self._adv_frame.pack_forget()
         tk.Checkbutton(chk_row, text="Gelişmiş", variable=adv_var,
                        command=_toggle_adv, **chk_kw).pack(side="right")
+
+        # Şifremi hatırla (varsayılan açık: eski sürüm kutuyu boş açıp
+        # "remember": False yazıyordu, o kayıt bir tercih değil) ve otomatik
+        # giriş (yalnız hatırlanan bilgilerle; eski kayıtlarda açık). Aynı
+        # satırda: ayrı satır kartı 620 px pencereden taşırıyordu.
+        self.remember_var = tk.BooleanVar(value=True)
+        self.auto_login_var = tk.BooleanVar(
+            value=_auto_login_enabled(cfg) if cfg.get("remember") else True)
+        auto_cb = tk.Checkbutton(chk_row, text="Otomatik giriş",
+                                 variable=self.auto_login_var, **chk_kw)
+
+        def _sync_auto():
+            auto_cb.config(state="normal" if self.remember_var.get()
+                           else "disabled")
+        tk.Checkbutton(chk_row, text="Şifremi hatırla",
+                       variable=self.remember_var, command=_sync_auto,
+                       **chk_kw).pack(side="left", padx=(10, 0))
+        auto_cb.pack(side="left", padx=(10, 0))
+        _sync_auto()
 
         _field(self._adv_frame, "🖧", "Sunucu (boş = SRV)", self.srv_var)
         _field(self._adv_frame, "🔌", "Port", self.port_var)
@@ -2327,9 +2344,10 @@ class LoginWindow:
                                    "JID formatı: kullanıcı@sunucu.tld")
             return
 
-        # Beni hatırla — giriş bilgilerini kaydet / sil (açıkken otomatik giriş)
+        # Şifremi hatırla — giriş bilgilerini kaydet / sil; otomatik giriş seçimi
         cfg = _load_config()
-        _store_login(cfg, self.remember_var.get(), jid, pw, port, srv)
+        _store_login(cfg, self.remember_var.get(), jid, pw, port, srv,
+                     auto_login=self.auto_login_var.get())
         _save_config(cfg)
 
         self.root.destroy()
@@ -9130,11 +9148,12 @@ class MainWindow:
 
     def _settings_dialog(self):
         """Ayarlar penceresi (ui/dialogs/settings); kayıt _settings_apply'da."""
+        cfg = _load_config()
         _ui_settings.show_settings(
-            self.root, _load_config(), self._settings_state(),
+            self.root, cfg, self._settings_state(cfg),
             self._settings_actions(), self._settings_apply)
 
-    def _settings_state(self):
+    def _settings_state(self, cfg):
         """Ayarlar penceresinin gösterdiği çalışma zamanı bilgisi."""
         omemo_ok = HAS_OMEMO and self.bot.omemo_ready
         pgp_ok = self.bot.pgp_available()
@@ -9189,6 +9208,7 @@ class MainWindow:
 
         return {
             "jid": self.jid,
+            "auto_login": _auto_login_enabled(cfg),
             "avatar_data": self._avatars.get(self.jid),
             "photo_refs": self._photo_refs,
             "compact_mode": self._compact_mode,
@@ -9286,7 +9306,7 @@ class MainWindow:
         cfg["status_text"] = v["status_text"]
         cfg["presence_show"] = v["presence_show"]
         cfg["accounts"] = v["accounts"]
-        self._apply_auto_login(cfg, v["auto_login"])
+        self._apply_login_prefs(cfg, v["remember_pw"], v["auto_login"])
         # Görünüm
         cfg["theme"] = v["theme"]
         cfg["font_size"] = v["font_size"]
@@ -12659,14 +12679,18 @@ class MainWindow:
             messagebox.showerror("Hesap", f"Hesap değiştirilemedi: {e}",
                                  parent=self.root)
 
-    def _apply_auto_login(self, cfg: dict, enabled: bool):
-        """Ayarlar → otomatik giriş: açınca bu oturumun bilgileri saklanır,
-        kapatınca kayıtlı şifre silinir; değişmediyse kayda dokunulmaz."""
-        if enabled == bool(cfg.get("remember")):
+    def _apply_login_prefs(self, cfg: dict, remember: bool, auto_login: bool):
+        """Ayarlar → giriş: "Şifremi hatırla" açılınca bu oturumun bilgileri
+        saklanır, kapatılınca kayıtlı şifre silinir; değişmediyse kayıtlı
+        sunucu/port ezilmez, yalnız otomatik giriş seçimi güncellenir."""
+        if remember == bool(cfg.get("remember")):
+            if remember:
+                cfg["auto_login"] = bool(auto_login)
             return
         host, port = getattr(self.bot, "custom_address", None) or ("", 5222)
-        _store_login(cfg, enabled, self.jid,
-                     getattr(self.bot, "password", ""), port, host)
+        _store_login(cfg, remember, self.jid,
+                     getattr(self.bot, "password", ""), port, host,
+                     auto_login=auto_login)
 
     def _switch_and_relogin(self):
         self._relogin = True
@@ -12924,7 +12948,9 @@ def main():
         def on_login(jid, pw, port, srv=""):
             result["args"] = (jid, pw, port, srv)
 
-        saved = _saved_login(_load_config()) if auto else None
+        cfg = _load_config()
+        saved = (_saved_login(cfg)
+                 if auto and _auto_login_enabled(cfg) else None)
         if saved:
             _log.info("Otomatik giriş yapılıyor: %s", saved[0])
             on_login(*saved)

@@ -155,20 +155,20 @@ def _settings_win(custom_address=None):
 
 def test_settings_enable_auto_login_stores_session_credentials(key):
     cfg = {"remember": False}
-    xmpp.MainWindow._apply_auto_login(
-        _settings_win(("gw.example", 5223)), cfg, True)
+    xmpp.MainWindow._apply_login_prefs(
+        _settings_win(("gw.example", 5223)), cfg, True, True)
     assert xmpp._saved_login(cfg) == ("ben@example.com", "gizli", 5223, "gw.example")
 
 
 def test_settings_enable_auto_login_default_server(key):
     cfg = {}
-    xmpp.MainWindow._apply_auto_login(_settings_win(), cfg, True)
+    xmpp.MainWindow._apply_login_prefs(_settings_win(), cfg, True, True)
     assert xmpp._saved_login(cfg) == ("ben@example.com", "gizli", 5222, "")
 
 
 def test_settings_disable_auto_login_forgets_password(key):
     cfg = _saved_cfg()
-    xmpp.MainWindow._apply_auto_login(_settings_win(), cfg, False)
+    xmpp.MainWindow._apply_login_prefs(_settings_win(), cfg, False, False)
     assert "pw" not in cfg and cfg["remember"] is False
 
 
@@ -176,7 +176,7 @@ def test_settings_unchanged_auto_login_keeps_saved_values(key):
     """Açık kalan anahtar kayıtlı sunucu/portu oturum değerleriyle ezmemeli."""
     cfg = _saved_cfg()
     before = dict(cfg)
-    xmpp.MainWindow._apply_auto_login(_settings_win(), cfg, True)
+    xmpp.MainWindow._apply_login_prefs(_settings_win(), cfg, True, True)
     assert cfg == before
 
 
@@ -188,6 +188,7 @@ def test_connect_saves_credentials_when_remember_checked(monkeypatch, key):
     var = lambda v: types.SimpleNamespace(get=lambda: v)  # noqa: E731
     lw.jid_var, lw.pw_var = var("ben@example.com"), var("gizli")
     lw.srv_var, lw.port_var, lw.remember_var = var(""), var("5222"), var(True)
+    lw.auto_login_var = var(True)
     lw.root = types.SimpleNamespace(destroy=lambda: None)
     lw.on_login = lambda *a: logins.append(a)
     monkeypatch.setattr(xmpp, "_load_config", lambda: {})
@@ -232,3 +233,91 @@ def test_login_form_remember_checked_by_default(monkeypatch, tk_root):
     lw = _build_form(monkeypatch, tk_root, {"remember": False})
     assert lw.pw_var.get() == ""
     assert lw.remember_var.get() is True
+
+
+# ── "Şifremi hatırla" ve "Otomatik giriş" ayrı seçenekler ───────────────────
+
+def test_remember_without_auto_login_prefills_but_shows_form(monkeypatch, key):
+    cfg = {}
+    xmpp._store_login(cfg, True, "ben@example.com", "gizli", 5222, "",
+                      auto_login=False)
+    assert cfg["remember"] is True and cfg["auto_login"] is False
+    assert xmpp._saved_login(cfg) == ("ben@example.com", "gizli", 5222, "")
+    assert xmpp._auto_login_enabled(cfg) is False
+    forms, _starts = _run_main(monkeypatch, cfg, [False])
+    assert forms == [1]                        # form açılır (şifre dolu gelir)
+
+
+def test_old_config_without_auto_login_key_keeps_auto_login(key):
+    """Eski sürümde "Beni hatırla" otomatik giriş demekti: davranış korunur."""
+    cfg = _saved_cfg()
+    cfg.pop("auto_login", None)
+    assert xmpp._auto_login_enabled(cfg) is True
+
+
+def test_forgetting_password_also_disables_auto_login(key):
+    cfg = _saved_cfg()
+    xmpp._store_login(cfg, False)
+    assert xmpp._auto_login_enabled(cfg) is False and "pw" not in cfg
+
+
+def test_connect_saves_auto_login_choice(monkeypatch, key):
+    saved = {}
+    lw = object.__new__(xmpp.LoginWindow)
+    var = lambda v: types.SimpleNamespace(get=lambda: v)  # noqa: E731
+    lw.jid_var, lw.pw_var = var("ben@example.com"), var("gizli")
+    lw.srv_var, lw.port_var = var(""), var("5222")
+    lw.remember_var, lw.auto_login_var = var(True), var(False)
+    lw.root = types.SimpleNamespace(destroy=lambda: None)
+    lw.on_login = lambda *a: None
+    monkeypatch.setattr(xmpp, "_load_config", lambda: {})
+    monkeypatch.setattr(xmpp, "_save_config", lambda cfg: saved.update(cfg))
+    xmpp.LoginWindow._connect(lw)
+    assert xmpp._saved_login(saved) is not None
+    assert xmpp._auto_login_enabled(saved) is False
+
+
+def _checkbox(lw, text):
+    def _walk(w):
+        yield w
+        for c in w.winfo_children():
+            yield from _walk(c)
+    return next(w for w in _walk(lw.root) if isinstance(w, tk.Checkbutton)
+                and w.cget("text") == text)
+
+
+@pytest.mark.parametrize("auto", [True, False])
+def test_login_form_shows_saved_auto_login_choice(monkeypatch, key, tk_root, auto):
+    cfg = _saved_cfg()
+    cfg["auto_login"] = auto
+    lw = _build_form(monkeypatch, tk_root, cfg)
+    assert lw.remember_var.get() is True
+    assert lw.auto_login_var.get() is auto
+
+
+def test_auto_login_option_needs_remember(monkeypatch, tk_root):
+    lw = _build_form(monkeypatch, tk_root, {})
+    auto_cb = _checkbox(lw, "Otomatik giriş")
+    assert str(auto_cb.cget("state")) == "normal"
+    _checkbox(lw, "Şifremi hatırla").invoke()          # hatırlama kapandı
+    assert lw.remember_var.get() is False
+    assert str(auto_cb.cget("state")) == "disabled"
+    _checkbox(lw, "Şifremi hatırla").invoke()
+    assert str(auto_cb.cget("state")) == "normal"
+
+
+def test_settings_toggle_auto_login_keeps_saved_password(key):
+    cfg = _saved_cfg()
+    xmpp.MainWindow._apply_login_prefs(_settings_win(), cfg, True, False)
+    assert xmpp._saved_login(cfg) == ("ben@example.com", "gizli", 5223, "gw.example")
+    assert xmpp._auto_login_enabled(cfg) is False
+    xmpp.MainWindow._apply_login_prefs(_settings_win(), cfg, True, True)
+    assert xmpp._auto_login_enabled(cfg) is True
+
+
+def test_login_card_fits_window(monkeypatch, tk_root):
+    """Seçenekler ayrı satıra konunca kart 620 px pencereden taşıyordu."""
+    _build_form(monkeypatch, tk_root, {})
+    tk_root.update_idletasks()
+    card = tk_root.winfo_children()[0]          # gölge çerçevesi + kart
+    assert card.winfo_reqheight() <= 620

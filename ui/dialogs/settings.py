@@ -7,7 +7,7 @@ değerleri `on_save(values)` ile owner'a verir, ardından pencere kapanır.
 Tema/widget yardımcıları canlı `xmpp` modülünden okunur.
 
 state anahtarları:
-  jid, avatar_data, photo_refs (owner'ın listesi), compact_mode, wallpaper,
+  jid, auto_login, avatar_data, photo_refs (owner'ın listesi), compact_mode, wallpaper,
   current_lang, tray_active, has_omemo, omemo_ok, pgp_ok, pgp_keys,
   has_qrcode, ping_ms, connected, contacts_count, rooms_count,
   about [(etiket, değer)], libs [metin]
@@ -213,9 +213,17 @@ def show_settings(parent, cfg, state, actions, on_save):
 
     # ── Giriş ──
     _section(t1, "GİRİŞ")
-    auto_login_var = tk.BooleanVar(value=bool(cfg.get("remember")))
-    tk.Checkbutton(t1, text="Açılışta otomatik giriş (şifreyi hatırla)",
-                   variable=auto_login_var, **chk_kw).pack(anchor="w")
+    remember_var = tk.BooleanVar(value=bool(cfg.get("remember")))
+    auto_login_var = tk.BooleanVar(value=state["auto_login"])
+    auto_cb = tk.Checkbutton(t1, text="Açılışta otomatik giriş (formu atla)",
+                             variable=auto_login_var, **chk_kw)
+
+    def _sync_auto():
+        auto_cb.config(state="normal" if remember_var.get() else "disabled")
+    tk.Checkbutton(t1, text="Şifremi hatırla", variable=remember_var,
+                   command=_sync_auto, **chk_kw).pack(anchor="w")
+    auto_cb.pack(anchor="w", padx=(20, 0))
+    _sync_auto()
 
     # ── Çoklu Hesap ──
     _section(t1, "ÇOKLU HESAP")
@@ -865,6 +873,7 @@ def show_settings(parent, cfg, state, actions, on_save):
             "status_text": status_var.get(),
             "presence_show": show_var.get(),
             "accounts": accounts,
+            "remember_pw": remember_var.get(),
             "auto_login": auto_login_var.get(),
             "theme": theme_var.get(),
             "font_size": font_var.get(),

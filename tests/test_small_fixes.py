@@ -257,6 +257,7 @@ def test_login_ignores_placeholder_text(monkeypatch):
     var = lambda v: types.SimpleNamespace(get=lambda: v)  # noqa: E731
     lw.jid_var, lw.pw_var = var("kullanici@sunucu.tld"), var("gizli")
     lw.srv_var, lw.port_var, lw.remember_var = var(""), var("5222"), var(False)
+    lw.auto_login_var = var(False)
     lw._jid_entry = types.SimpleNamespace(_showing_ph=True)
     lw.root = types.SimpleNamespace(destroy=lambda: None)
     lw.on_login = lambda *a: logins.append(a)

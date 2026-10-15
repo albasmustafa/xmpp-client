@@ -107,7 +107,8 @@ def test_connected_handler_restores_status():
 def _settings_values(**over):
     """ui/dialogs/settings'in "Kaydet"te topladığı değerler."""
     v = {"notifications": True, "sounds": True, "status_text": "",
-         "presence_show": "chat", "accounts": [], "auto_login": False,
+         "presence_show": "chat", "accounts": [], "remember_pw": False,
+         "auto_login": False,
          "theme": "koyu", "font_size": 10, "font_family": "Cantarell",
          "language": "tr", "send_read_receipts": True, "send_typing": True,
          "default_disappear": 0, "auto_rejoin": True, "idle_after_min": 5,
@@ -126,7 +127,7 @@ def _apply_settings(monkeypatch, values, w=None):
     monkeypatch.setattr(xmpp, "_current_lang", "tr")
     w = w or _w()
     w.bot = None
-    w._apply_auto_login = lambda cfg, on: None
+    w._apply_login_prefs = lambda cfg, remember, auto: None
     w._refresh_theme = lambda: None
     w._apply_font_settings = lambda **k: None
     xmpp.MainWindow._settings_apply(w, values)

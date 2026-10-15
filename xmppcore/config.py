@@ -131,18 +131,28 @@ def _account_password(acc: dict) -> str:
 
 
 def _store_login(cfg: dict, remember: bool, jid: str = "", pw: str = "",
-                 port: int = 5222, server: str = "") -> None:
-    """Beni hatırla: giriş bilgilerini cfg'ye şifreli yaz ya da sil."""
+                 port: int = 5222, server: str = "",
+                 auto_login: bool = True) -> None:
+    """Şifremi hatırla: giriş bilgilerini cfg'ye şifreli yaz ya da sil.
+    `auto_login`: açılışta formu atlayıp bu bilgilerle bağlan."""
     if remember and jid and pw:
         cfg["jid"] = jid
         cfg["pw"] = _encode_pw(pw)
         cfg["server"] = server
         cfg["port"] = port
         cfg["remember"] = True
+        cfg["auto_login"] = bool(auto_login)
     else:
         for k in ("jid", "pw", "server", "port"):
             cfg.pop(k, None)
         cfg["remember"] = False
+        cfg["auto_login"] = False
+
+
+def _auto_login_enabled(cfg: dict) -> bool:
+    """Açılışta form atlanıp kayıtlı bilgilerle mi bağlanılsın? Eski
+    kayıtlarda anahtar yoksa "Beni hatırla" otomatik giriş demekti → açık."""
+    return bool(cfg.get("remember")) and bool(cfg.get("auto_login", True))
 
 
 def _saved_login(cfg: dict):
