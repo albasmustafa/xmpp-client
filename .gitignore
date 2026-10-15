@@ -1,0 +1,9 @@
+# Sanal ortam ve araç önbellekleri (yeniden üretilir)
+.venv-xmpp/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Eski yedekler ve önbellek arşivi (git dışında saklanır)
+_arsiv/

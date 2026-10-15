@@ -1,0 +1,12 @@
+slixmpp>=1.10
+slixmpp-omemo>=1.0
+aiohttp>=3.9
+Pillow>=10.0
+cryptography>=42.0
+pyaudio>=0.2.14
+tkinterdnd2>=0.4
+pystray>=0.19
+qrcode>=7.4
+anthropic>=1.12     # AI asistanı: isteğe bağlı bulut sağlayıcı (Claude)
+# İsteğe bağlı — AI asistanı yerel ses→metin (büyük indirme, ~300 MB):
+# faster-whisper>=1.1
