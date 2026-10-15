@@ -16,14 +16,6 @@ def find_row_by_mid(rows, mid):
     return None
 
 
-def find_last_outgoing_without_mid(rows):
-    """sent_mid yaması için: reversed taramada son _is_me ve _mid'siz row."""
-    for w in reversed(rows):
-        if getattr(w, "_is_me", False) and not getattr(w, "_mid", ""):
-            return w
-    return None
-
-
 def find_last_message_row(rows, mine):
     """Bu sohbetteki son (benim/gelen), retracted olmayan mid'li satır."""
     for w in reversed(rows):

@@ -138,13 +138,13 @@ from xmppcore.storage import (
     _db_clear_my_reactions,
     _db_clear_reactions_mid,
     _db_load_msgs,
-    _db_load_reactions,
     _db_save_reaction,
     _db_store_msg,
     _db_unanswered,
     _db_update_msg_body,
     _db_update_msg_reply,
 )
+from xmppcore.storage import _db_load_reactions as _db_load_reactions
 from xmppcore.storage import _db_search_msgs as _db_search_msgs
 from xmppcore.storage import _get_db as _get_db
 from xmppcore.theme import _THEMES
@@ -358,7 +358,6 @@ SHADOW    = "#020207"   # gölge efekti
 RED       = "#f43f5e"   # hata / dnd (rose-500)
 ONLINE    = "#10b981"   # emerald-500
 AWAY      = "#f59e0b"   # amber-500
-GLASS     = "#ffffff08" # glassmorphism overlay
 GLOW      = "#7c3aed"   # neon glow efekti (Tk 8 haneli RGBA desteklemez)
 
 # Linux uyumlu font zinciri
@@ -1546,9 +1545,6 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             pass
         loop.call_soon_threadsafe(fn)
 
-    def _on_auth_fail_flag(self, _):
-        self._auth_failed = True
-
     def _send_pgp(self, to, body, mtype, mid=None):
         """XEP-0027 PGP şifreli mesaj gönder."""
         try:
@@ -2473,9 +2469,6 @@ class MainWindow:
         self._ai_refresh_flags()
         # Otomatik tema geçişi
         self._auto_theme_check()
-        # Virtualization
-        self._virtual_offset = 0
-        self.chat_canvas.bind("<Button-4>", lambda e: self._load_more_messages(e))
         self._poll()
         # Pencere kurulurken bağlantı tamamlanmış olabilir; o halde zaman
         # aşımı kurulmaz (aksi halde "connected" olayı AttributeError ile
@@ -3244,10 +3237,6 @@ class MainWindow:
             lambda: _safe_open_url(path),
             lambda: _safe_open_url(os.path.dirname(path) or "."))
 
-    def _download_and_show_image(self, url, holder, bg_color):
-        """Geriye dönük ad — bkz. `_request_image` + `_image_fetch_worker`."""
-        self._request_image(url, holder, bg_color)
-
     def _image_fetch_worker(self, url):
         """Worker thread: resmi indir, thumbnail üret, abonelere dağıt."""
         MAX_W, MAX_H = 320, 280
@@ -3347,10 +3336,6 @@ class MainWindow:
             _media_ui.place_photo(lbl, photo)
 
         threading.Thread(target=_load_full, daemon=True).start()
-
-    def _download_and_show_audio(self, url, holder, bg_color):
-        """Geriye dönük ad — bkz. `_request_audio` + `_audio_fetch_worker`."""
-        self._request_audio(url, holder, bg_color)
 
     def _audio_fetch_worker(self, url):
         """Worker thread: ses dosyasını indir, gerekiyorsa WAV'a çevir.
@@ -3751,10 +3736,6 @@ class MainWindow:
             del ids[:-limit]
 
     # ── URL önizleme ─────────────────────────────────────────────────────────
-    def _load_url_preview(self, url, container):
-        """Geriye dönük ad — bkz. `_request_url_preview`."""
-        self._request_url_preview(url, container)
-
     def _preview_fetch_worker(self, url):
         """Worker thread: URL önizleme bilgisini çek (16 KB cap korunur)."""
         key = ("preview", url)
@@ -7213,14 +7194,6 @@ class MainWindow:
         self._bubble_widgets.append(row)
         self._scroll_bottom()
 
-    # ── Balon güncelleme (düzeltme/silme) ─────────────────────────────────────
-    def _update_bubble_text(self, row, new_text, edited=False, retracted=False):
-        """Balon metin güncellemesi (ui/chat/identity)."""
-        _identity.update_bubble_text(row, new_text, edited=edited,
-                                     retracted=retracted,
-                                     formatter=self._format_markdown,
-                                     theme=_chat_theme())
-
     def _reaction_key(self, mid):
         """[2M] Tepki sunum anahtarı: (aktif-jid, mid).
 
@@ -8775,12 +8748,6 @@ class MainWindow:
         if isinstance(owning, dict) and owning.get("token") == result_token:
             return self._history_mam_intent.pop(jid).get("intent")
         return None
-
-    def _bump_mam_gen(self, jid: str):
-        """[2F-B1] JID'in MAM generation'ını yükselt: uçuştaki tüm sonuçları
-        bayatlatır, yeni istekler yeni token alır (clear yolları için)."""
-        self._mam_gen = getattr(self, "_mam_gen", {})
-        self._mam_gen[jid] = self._mam_gen.get(jid, 0) + 1
 
     @staticmethod
     def _iso_to_hm(ts: str) -> str:
@@ -12827,69 +12794,6 @@ class MainWindow:
                 self._show_toast(
                     f"⚠ {_t('disconnected')}",
                     f"{where + ' — ' if where else ''}{detail}")
-
-    # ── Mesaj sanallaştırma (virtualization) ────────────────────────────────
-    _VIRTUAL_PAGE_SIZE = 50  # Her seferde kaç balon render edilir
-
-    def _load_chat_virtual(self, target):
-        """Büyük sohbetlerde sadece son N mesajı render et, kaydırınca daha fazla yükle."""
-        all_msgs = self.chats.get(target, [])
-        if not all_msgs:
-            # DB'den yükle (bellek içi tuple şekline normalize et:
-            # mid boş, local_path sonda)
-            db_msgs = _db_load_msgs(target, 200)
-            if db_msgs:
-                # DB düzeni: (sender, body, is_me, ts, tag, oob, enc,
-                #              local_path, mid, reply_id, reply_sender, reply_body)
-                all_msgs = [(*r[:7], r[8], r[7]) for r in db_msgs]
-                self.chats[target] = all_msgs
-                for r in db_msgs:
-                    mid = r[8]
-                    if mid and (r[9] or r[10] or r[11]):
-                        # [2M] (jid, mid) kapsamlı (eski girişler legacy)
-                        self._reply_map.setdefault((target, mid), {
-                            "id": r[9], "sender": r[10],
-                            "body": _reply_preview(r[11]),
-                        })
-                for mid, emo_map in _db_load_reactions(target).items():
-                    store = self._reactions.setdefault((target, mid), {})
-                    mine = self._my_reactions.setdefault((target, mid), set())
-                    for em, senders in emo_map.items():
-                        bucket = store.setdefault(em, [])
-                        for sender in senders:
-                            if sender not in bucket:
-                                bucket.append(sender)
-                        if "Ben" in senders:
-                            mine.add(em)
-                    if not mine:
-                        self._my_reactions.pop((target, mid), None)
-        total = len(all_msgs)
-        page = all_msgs[-self._VIRTUAL_PAGE_SIZE:]
-        self._virtual_offset = max(0, total - self._VIRTUAL_PAGE_SIZE)
-        return page
-
-    def _load_more_messages(self, event=None):
-        """Yukarı kaydırıldığında eski mesajları yükle."""
-        if not self.active:
-            return
-        # Canvas en üstteyse
-        if self.chat_canvas.yview()[0] > 0.02:
-            return
-        all_msgs = self.chats.get(self.active, [])
-        if self._virtual_offset <= 0:
-            return
-        new_start = max(0, self._virtual_offset - self._VIRTUAL_PAGE_SIZE)
-        batch = all_msgs[new_start:self._virtual_offset]
-        self._virtual_offset = new_start
-        if not batch:
-            return
-        # Eski mesajları başa ekle — mevcut kaydırma pozisyonunu koru
-        old_height = self.msg_frame.winfo_height()
-        _history_ui.render_history(batch, self._render_history_entry)
-        self.root.update_idletasks()
-        new_height = self.msg_frame.winfo_height()
-        if new_height > 0:
-            self.chat_canvas.yview_moveto((new_height - old_height) / new_height)
 
     # ── Anket oluşturma ─────────────────────────────────────────────────────
     def _poll_dialog(self):

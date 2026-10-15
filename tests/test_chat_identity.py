@@ -87,14 +87,8 @@ def test_apply_retraction_only_target_and_visual_state(monkeypatch):
     assert cleared == [r1]
 
 
-# ── 8-9) outgoing / last row lookup ─────────────────────────────────────────
-def test_find_last_outgoing_without_mid_and_last_message_row():
-    old = _row(mid="local", is_me=True)
-    blank = _row(mid="", is_me=True)
-    other = _row(mid="zzz", is_me=True)
-    rows = [old, blank, other]
-    assert ident_mod.find_last_outgoing_without_mid(rows) is blank
-    assert ident_mod.find_last_outgoing_without_mid([old, other]) is None
+# ── 9) last row lookup ──────────────────────────────────────────────────────
+def test_find_last_message_row():
     # last message row: mid'li, retracted olmayan, yön filtresi
     r1 = _row(mid="m1", is_me=False)
     r2 = _row(mid="m2", is_me=False, retracted=True)

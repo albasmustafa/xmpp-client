@@ -314,30 +314,6 @@ def test_render_history_entry_shape_contract():
                   "mid": "m1", "reply_to": {"id": "m0"}}
 
 
-def test_load_more_messages_uses_render_history():
-    w = object.__new__(xmpp.MainWindow)
-    w.active = "a@b"
-    w.chat_canvas = _Canvas()
-    w.msg_frame = _W()
-    w._virtual_offset = 2
-    w._VIRTUAL_PAGE_SIZE = 2
-    w.chats = {"a@b": [("A", "0", False, "09:00", "them", "", False, "m0", ""),
-                       ("A", "1", False, "09:01", "them", "", False, "m1", ""),
-                       ("A", "2", False, "09:02", "them", "", False, "m2", "")]}
-    w._reply_map = {}
-    w._render_history_entry = _Capture()
-    w._append = _Capture()
-    w.root = types.SimpleNamespace(update_idletasks=lambda: None)
-    heights = iter([100, 150])
-    w.msg_frame.winfo_height = lambda: next(heights)
-
-    xmpp.MainWindow._load_more_messages(w)
-
-    assert [c[0][0][1] for c in w._render_history_entry.calls] == ["0", "1"]
-    assert w._virtual_offset == 0
-    assert w.chat_canvas.moves == [1 / 3]
-
-
 # ── 13) no domain leak ──────────────────────────────────────────────────────
 def test_history_has_no_domain_dependencies():
     src = inspect.getsource(hist_mod)

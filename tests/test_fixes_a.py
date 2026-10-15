@@ -463,7 +463,9 @@ def test_update_bubble_text_uses_body_label():
     row = type("Row", (), {})()
     lbl = _Lbl()
     row._body_label = lbl
-    xmpp.MainWindow._update_bubble_text(win, row, "yeni metin", edited=True)
+    xmpp._identity.update_bubble_text(row, "yeni metin", edited=True,
+                                   formatter=win._format_markdown,
+                                   theme=xmpp._chat_theme())
     assert lbl.kw.get("text") == "yeni metin  ✏"
 
 
@@ -482,7 +484,9 @@ def test_update_bubble_text_retracted_style():
     row = type("Row", (), {})()
     lbl = _Lbl()
     row._body_label = lbl
-    xmpp.MainWindow._update_bubble_text(win, row, "silindi", retracted=True)
+    xmpp._identity.update_bubble_text(row, "silindi", retracted=True,
+                                   formatter=win._format_markdown,
+                                   theme=xmpp._chat_theme())
     assert lbl.kw.get("fg") == xmpp.FG_DIM
     assert "italic" in str(lbl.kw.get("font"))
 
