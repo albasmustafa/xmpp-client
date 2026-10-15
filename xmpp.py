@@ -1026,6 +1026,10 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
         self._closing = False
         self._reconnect_stop = threading.Event()
         self.omemo_ready = False
+        # Gönderdiğimiz mesajların kimlikleri: odadaki yansımayı aynı hesabın
+        # başka cihazından (telefon) gelen mesajdan ayırmak için (MucMixin)
+        self._sent_ids: deque = deque(maxlen=1000)
+        self.add_filter("out", self._remember_sent_id)
         self._register_xeps()
         self._register_handlers()
         self.ft = JingleFTManager(self, gui_q)
@@ -1209,6 +1213,9 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
         self.add_event_handler("message_correction", self._on_message_correction)
         self.add_event_handler("message_retract", self._on_message_retract)
         self.add_event_handler("reactions", self._on_reactions)
+        # XEP-0280: aynı hesabın diğer cihazlarının (telefon) kopyaları
+        self.add_event_handler("carbon_sent", self._on_carbon_sent)
+        self.add_event_handler("carbon_received", self._on_carbon_received)
 
     # ── Session ───────────────────────────────────────────────────────────────
     async def _on_start(self, _):
@@ -1259,8 +1266,10 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
         self.omemo_ready = True
         self.gui_q.put(("sys_msg", "🔐 OMEMO şifreleme hazır"))
 
-    async def _decrypt_and_deliver(self, msg, mtype):
-        """OMEMO mesajını çöz ve GUI'ye ilet.
+    async def _decrypt_and_deliver(self, msg, mtype, own_to=None):
+        """OMEMO mesajını çöz ve GUI'ye ilet. `own_to` verilirse mesaj başka
+        cihazımızdan o kişiye gönderilmiş kopyadır (carbon) ve bizim
+        mesajımız olarak (own_msg) iletilir.
 
         [2P-BUG B] 'Bazen çözülmüyor' kanıtı: oturum/bundle hazır-değil
         gibi GEÇİCİ hatalar tek denemede kalıcı kayba dönüşüyordu (yalnız
@@ -1290,7 +1299,18 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                     if mtype == "groupchat":
                         sender = str(msg["from"].resource)
                         room = str(msg["from"].bare)
-                        if sender == self.my_nicks.get(room, ""):
+                        own = self._muc_own_message(msg, room, sender)
+                        if own == "echo":
+                            return
+                        if own == "other":
+                            self.gui_q.put(("own_msg", {
+                                "to": room,
+                                "body": body,
+                                "oob": "",
+                                "encrypted": "omemo",
+                                "mid": _stanza_msg_id(msg),
+                                "reply": self._reply_info(msg),
+                            }))
                             return
                         self.gui_q.put(("msg", {
                             "from": room,
@@ -1298,6 +1318,15 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                             "body": body,
                             "type": "groupchat",
                             "oob":  "",
+                            "encrypted": "omemo",
+                            "mid": _stanza_msg_id(msg),
+                            "reply": self._reply_info(msg),
+                        }))
+                    elif own_to:
+                        self.gui_q.put(("own_msg", {
+                            "to": own_to,
+                            "body": _strip_quoted_fallback(msg, body),
+                            "oob": "",
                             "encrypted": "omemo",
                             "mid": _stanza_msg_id(msg),
                             "reply": self._reply_info(msg),
@@ -11346,6 +11375,43 @@ class MainWindow:
                 # Toast bildirim balonu
                 self._show_toast(f"💬 {nick or frm}",
                                  body[:80] if body else "Yeni mesaj")
+
+        elif kind == "own_msg":
+            # Aynı hesabın başka cihazından (ör. telefondaki Monocles)
+            # gönderilmiş mesaj: carbon (1:1) ya da aynı takma adlı oda
+            # oturumu. Bizim mesajımız gibi saklanır ve gösterilir.
+            to = data["to"]
+            body = data["body"]
+            mid = data.get("mid", "")
+            oob = data.get("oob", "")
+            is_enc = bool(data.get("encrypted", False))
+            reply = self._resolve_reply(data.get("reply"), to)
+            self._remember_mid(to, mid)
+            if mid and self._is_live_duplicate(to, mid, body, True):
+                return
+            self._store(to, body, tag="me", sender="Ben", is_me=True,
+                        oob=oob, encrypted=is_enc, mid=mid, reply_to=reply)
+            tab = self._chat_tabs.get(to)
+            if tab and tab["win"].winfo_exists():
+                try:
+                    hist = self.chats.get(to) or []
+                    tab["add"](hist[-1] if hist else
+                               ("Ben", body, True,
+                                datetime.now().strftime("%H:%M"), "me"))
+                except Exception:
+                    _log.warning("Sohbet sekmesi güncellenemedi", exc_info=True)
+            if self.active == to:
+                self._deliver_live(to, lambda: self._append(
+                    body, "me", sender="Ben", is_me=True, oob=oob,
+                    encrypted=is_enc, mid=mid, reply_to=reply))
+            # Telefondan yanıt verildiyse sohbet masaüstünde okunmamış kalmaz
+            if self._unread_counts.pop(to, None):
+                self._refresh_contacts()
+
+        elif kind == "read_elsewhere":
+            # Sohbet aynı hesabın başka cihazında okundu (XEP-0333 carbon)
+            if self._unread_counts.pop(data, None):
+                self._refresh_contacts()
 
         elif kind == "search_results":
             items = data.get("items", [])

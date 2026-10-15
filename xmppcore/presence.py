@@ -9,12 +9,30 @@ xmpp.py'deki taşınmadan önceki haliyle birebir aynıdır.
 class PresenceMixin:
     """Presence, durum bildirimi ve abonelik istekleri."""
 
+    # Birden çok cihazdan en "müsait" olanı gösterilir (küçük = daha müsait)
+    _SHOW_RANK = {"chat": 0, "": 1, "away": 2, "xa": 3, "dnd": 4}
+
     # ── Presence ──────────────────────────────────────────────────────────────
     def _on_presence(self, presence):
+        """Kişinin durumunu tüm cihazlarından (kaynaklarından) birleştir.
+
+        slixmpp kaynak listesini olaydan önce günceller. Bir cihaz (ör.
+        bilgisayardaki istemci) çevrimdışı olunca telefon (Monocles) hâlâ
+        bağlıysa kişi çevrimiçi kalır; en müsait cihazın durumu gösterilir."""
+        bare = str(presence["from"].bare)
+        ptype, pshow = presence["type"], presence.get("show", "")
+        try:
+            resources = self.client_roster[bare].resources
+        except Exception:
+            resources = {}
+        if resources:
+            best = min(resources.values(),
+                       key=lambda r: self._SHOW_RANK.get(r.get("show") or "", 1))
+            ptype, pshow = "available", best.get("show") or ""
         self.gui_q.put(("presence", {
-            "jid":   str(presence["from"].bare),
-            "ptype": presence["type"],
-            "pshow": presence.get("show", ""),
+            "jid":   bare,
+            "ptype": ptype,
+            "pshow": pshow,
         }))
 
     # ── Subscription ──────────────────────────────────────────────────────────

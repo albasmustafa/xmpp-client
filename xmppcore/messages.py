@@ -20,6 +20,12 @@ from xmppcore.helpers import (
     _strip_quoted_fallback,
 )
 
+_CORRECTION = "{urn:xmpp:message-correct:0}replace"
+_RETRACTS = ("{urn:xmpp:message-retract:1}retract",
+             "{urn:xmpp:message-retract:0}retract")
+_REACTIONS = "{urn:xmpp:reactions:0}reactions"
+_DISPLAYED = "{urn:xmpp:chat-markers:0}displayed"
+
 
 class MessagesMixin:
     """1:1 mesaj alma/gönderme, düzeltme, silme, tepki ve yanıt işlemleri."""
@@ -93,6 +99,65 @@ class MessagesMixin:
                         "çözülemedi"))
             except Exception:
                 pass
+
+    # ── Carbons (XEP-0280): aynı hesabın diğer cihazları ──────────────────────
+    # slixmpp, kopyanın kendi hesabımızdan geldiğini doğrulamadan olayı
+    # tetiklemez (sahte carbon koruması: xep_0280._handle_carbon_*).
+    def _on_carbon_received(self, msg):
+        """Başka cihazımıza (ör. telefondaki Monocles) gelen mesajın kopyası:
+        normal gelen mesaj gibi işlenir (OMEMO dahil)."""
+        inner = msg["carbon_received"]
+        if str(inner["from"].bare) in getattr(self, "my_nicks", {}):
+            return          # oda özel mesajı (MUC PM): oda akışında değil
+        # Düzeltme/geri çekme/tepki yeni mesaj değildir: kendi işleyicisine
+        xml = inner.xml
+        if xml.find(_CORRECTION) is not None:
+            self._on_message_correction(inner)
+        elif any(xml.find(tag) is not None for tag in _RETRACTS):
+            self._on_message_retract(inner)
+        elif xml.find(_REACTIONS) is not None:
+            self._on_reactions(inner)
+        else:
+            self._on_message(inner)
+
+    def _on_carbon_sent(self, msg):
+        """Başka cihazımızdan gönderilen mesajın kopyası: bizim mesajımız
+        olarak gösterilir, böylece iki cihaz da aynı sohbeti görür."""
+        inner = msg["carbon_sent"]
+        if inner["type"] not in ("chat", "normal"):
+            return
+        to = str(inner["to"].bare)
+        if (not to or to == str(self.boundjid.bare)
+                or to in getattr(self, "my_nicks", {})):
+            return
+        xml = inner.xml
+        if xml.find(_DISPLAYED) is not None:
+            # Telefonda okundu → masaüstünde de okunmamış kalmasın
+            self.gui_q.put(("read_elsewhere", to))
+            return
+        if (xml.find(_CORRECTION) is not None or xml.find(_REACTIONS) is not None
+                or any(xml.find(tag) is not None for tag in _RETRACTS)):
+            return          # telefondaki düzeltme/geri çekme/tepki: yeni mesaj değil
+        if xml.find("{jabber:x:encrypted}x") is not None:
+            return          # PGP kopyası kendi anahtarımızla çözülemez
+        if self._omemo_enabled():
+            try:
+                xep = _get_xep(self, "xep_0384")
+                if xep.is_encrypted(inner):
+                    _spawn_task(self, self._decrypt_and_deliver(
+                        inner, "chat", own_to=to))
+                    return
+            except Exception as e:
+                _log.warning("OMEMO şifreli-mesaj denetimi başarısız: %s", e)
+        if inner["body"]:
+            self.gui_q.put(("own_msg", {
+                "to": to,
+                "body": _strip_quoted_fallback(inner, inner["body"]),
+                "oob": self._extract_oob(inner),
+                "encrypted": False,
+                "mid": _stanza_msg_id(inner),
+                "reply": self._reply_info(inner),
+            }))
 
     @staticmethod
     def _extract_oob(msg):

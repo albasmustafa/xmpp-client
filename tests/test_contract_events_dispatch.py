@@ -165,6 +165,8 @@ def _expected_handlers(with_omemo=True):
         "message_correction": "_on_message_correction",
         "message_retract": "_on_message_retract",
         "reactions": "_on_reactions",
+        "carbon_sent": "_on_carbon_sent",          # XEP-0280: diğer cihazlar
+        "carbon_received": "_on_carbon_received",
     }
     if with_omemo:
         table["omemo_initialized"] = "_on_omemo_ready"
@@ -181,7 +183,7 @@ def test_register_handlers_tam_dagitim_tablosu(monkeypatch):
         (event, handler.__name__))
     xmpp.XMPPBot._register_handlers(bot)
     assert dict(registered) == _expected_handlers(with_omemo=True)
-    assert len(registered) == 26
+    assert len(registered) == 28
 
 
 def test_register_handlers_omemo_yoksa_kayit_etmez(monkeypatch):

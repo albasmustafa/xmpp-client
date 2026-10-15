@@ -122,9 +122,20 @@ class MucMixin:
             return
         sender = str(msg["from"].resource)
         room   = str(msg["from"].bare)
-        if sender == self.my_nicks.get(room, ""):
+        own = self._muc_own_message(msg, room, sender)
+        if own == "echo":
             return
         oob = self._extract_oob(msg)
+        if own == "other":
+            self.gui_q.put(("own_msg", {
+                "to": room,
+                "body": _strip_quoted_fallback(msg, msg["body"]),
+                "oob": oob,
+                "encrypted": False,
+                "mid": _stanza_msg_id(msg),
+                "reply": self._reply_info(msg),
+            }))
+            return
         self.gui_q.put(("msg", {
             "from": room,
             "nick": sender,
@@ -135,6 +146,43 @@ class MucMixin:
             "mid": _stanza_msg_id(msg),
             "reply": self._reply_info(msg),
         }))
+
+    # ── Aynı hesabın odadaki diğer oturumları ─────────────────────────────────
+    def _remember_sent_id(self, stanza):
+        """Giden filtre: gönderilen mesajın `id` ve origin-id'sini hatırla.
+
+        OMEMO şifreleme origin-id'yi siler ama `id`'yi korur; ikisi de
+        tutulur. Bellek sınırlıdır (XMPPBot._sent_ids, deque)."""
+        try:
+            if stanza.name == "message" and stanza["type"] == "groupchat":
+                for value in (stanza["id"], stanza["origin_id"]["id"]):
+                    if value:
+                        self._sent_ids.append(str(value))
+        except Exception:
+            pass
+        return stanza
+
+    def _muc_own_message(self, msg, room, sender):
+        """Kendi takma adımızla gelen oda mesajını sınıflandır.
+
+        None: başkasının mesajı. "echo": bu istemcinin yansıması, oda geçmişi
+        ya da kimliksiz mesaj (eski davranış: atılır). "other": aynı hesabın
+        aynı takma adla bağlı başka oturumu (ör. telefondaki Monocles) —
+        kimliği var, biz göndermedik ve canlı (gecikmesiz)."""
+        if sender != self.my_nicks.get(room, ""):
+            return None
+        ids = set()
+        for get in (lambda: msg["origin_id"]["id"], lambda: msg["id"]):
+            try:
+                if get():
+                    ids.add(str(get()))
+            except Exception:
+                pass
+        sent = getattr(self, "_sent_ids", ())
+        if (not ids or any(i in sent for i in ids)
+                or msg.xml.find("{urn:xmpp:delay}delay") is not None):
+            return "echo"
+        return "other"
 
     # ── MUC presence ──────────────────────────────────────────────────────────
     def _on_muc_presence(self, presence):
