@@ -20,7 +20,7 @@ XMPPBot mixin'leri, `ai.py`) · `ui/` (durumsuz Tk görünüm katmanı: `chat/`,
 ```bash
 ./xmpp-client.sh                                   # uygulama (.venv-xmpp içindeki Python)
 cd /run/media/albas/albas/xmpp-istemcisi && \
-  .venv-xmpp/bin/python -m pytest tests/ -q        # ~1480 test, ~35 sn, ağ kullanmaz
+  .venv-xmpp/bin/python -m pytest tests/ -q        # ~1550 test, ~35 sn, ağ kullanmaz
 ```
 Paket kurulumu: `.venv-xmpp/bin/python -m pip install <paket>`. "Test geçti" demek için testi
 gerçekten çalıştır.
@@ -41,7 +41,17 @@ gerçekten çalıştır.
 - **Kalıcılık:** `xmppcore/storage.py` (tek bağlantı `_db_conn`, işlemler `_db_lock` altında).
   Mesaj gövdesi değişiklikleri ve silmeler yalnız buradan yapılır.
 - Ayar: `~/.xmpp_client.json` · DB: `~/.xmpp_client_messages.db` · Log: `~/.xmpp_client.log`
-  (kök `XMPP_CLIENT_HOME` ile değiştirilebilir).
+  (kök `XMPP_CLIENT_HOME` ile değiştirilebilir). Giriş: `remember` (şifreyi hatırla, form dolu
+  gelir) + `auto_login` (formu atla; anahtar yoksa eski davranış: açık) → `_auto_login_enabled`.
+- **Çoklu cihaz** (aynı hesap telefonda Monocles/Conversations/Monal ile de açık): carbons
+  (`_on_carbon_sent/_received`, messages.py) ve odada aynı takma adlı oturum
+  (`_muc_own_message`; giden filtre `_remember_sent_id` → `_sent_ids`) kendi mesajımızı
+  `own_msg` olayıyla verir; presence tüm kaynaklardan birleştirilir (presence.py). Düzeltme/
+  geri çekme mesajları `_on_message`'a girmez (kendi olayları var; OMEMO'lu düzeltme çözülüp
+  `msg_correction` olur). Testler: `test_multi_device.py`, `test_mobile_edits.py`.
+- **Şifreli medya** `aesgcm://` (XEP-0454, mobil istemciler OMEMO'da kullanır):
+  `xmppcore/aesgcm.py` + `_fetch_url_bytes`; çözme anahtarı AI metnine, sesli okumaya ve
+  bildirimlere girmez (`test_aesgcm.py`).
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.
