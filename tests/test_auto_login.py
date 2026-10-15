@@ -321,3 +321,17 @@ def test_login_card_fits_window(monkeypatch, tk_root):
     tk_root.update_idletasks()
     card = tk_root.winfo_children()[0]          # gölge çerçevesi + kart
     assert card.winfo_reqheight() <= 620
+
+
+def test_login_advanced_fields_fit_window(monkeypatch, tk_root):
+    """"Gelişmiş" açılınca sunucu/port alanları pencereden taşıyordu (810 px
+    kart, 620 px pencere). Kart pencereye sığmalı; pencere 690 px'i aşmamalı."""
+    lw = _build_form(monkeypatch, tk_root, {})
+    _checkbox(lw, "Gelişmiş").invoke()
+    tk_root.update_idletasks()
+    card = tk_root.winfo_children()[0]
+    height = int(tk_root.geometry().split("x")[1].split("+")[0])
+    assert card.winfo_reqheight() <= height <= 690
+    _checkbox(lw, "Gelişmiş").invoke()                 # kapanınca eski boyut
+    tk_root.update_idletasks()
+    assert tk_root.geometry().startswith("520x620")

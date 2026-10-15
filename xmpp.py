@@ -2222,9 +2222,13 @@ class LoginWindow:
                  font=(FONT, 9), fg=FG_DIM,
                  bg=BG_CARD).pack(pady=(0, 24))
 
-        def _field(parent, icon, label, var, show="", placeholder=""):
+        def _field(parent, icon, label, var, show="", placeholder="",
+                   width=None, side=None):
             frm = tk.Frame(parent, bg=BG_CARD)
-            frm.pack(fill="x", pady=6)
+            if side:
+                frm.pack(side=side, fill="x", expand=width is None, pady=6)
+            else:
+                frm.pack(fill="x", pady=6)
             lbl_f = tk.Frame(frm, bg=BG_CARD)
             lbl_f.pack(anchor="w")
             tk.Label(lbl_f, text=icon, font=(FONT, 8),
@@ -2245,6 +2249,8 @@ class LoginWindow:
             else:
                 e = ttk.Entry(inp_inner, textvariable=var, show=show,
                               font=(FONT, 10), style="Modern.TEntry")
+            if width:
+                e.configure(width=width)
             e.pack(fill="x", ipady=8, padx=2, pady=2)
             return e
 
@@ -2282,10 +2288,17 @@ class LoginWindow:
         adv_var = tk.BooleanVar(value=False)
         self._adv_frame = tk.Frame(card, bg=BG_CARD)
         def _toggle_adv():
+            # Açıkken kart sıkılaşır ve pencere içeriğe göre uzar (en çok
+            # 690 px); kapanınca eski boyut. Aksi halde alanlar taşıyordu.
             if adv_var.get():
                 self._adv_frame.pack(fill="x", before=self._btn_frame)
+                card.config(pady=24)
             else:
                 self._adv_frame.pack_forget()
+                card.config(pady=44)
+            self.root.update_idletasks()
+            height = min(max(620, shadow.winfo_reqheight()), 690)
+            self.root.geometry(f"520x{height}")
         tk.Checkbutton(chk_row, text="Gelişmiş", variable=adv_var,
                        command=_toggle_adv, **chk_kw).pack(side="right")
 
@@ -2308,8 +2321,12 @@ class LoginWindow:
         auto_cb.pack(side="left", padx=(10, 0))
         _sync_auto()
 
-        _field(self._adv_frame, "🖧", "Sunucu (boş = SRV)", self.srv_var)
-        _field(self._adv_frame, "🔌", "Port", self.port_var)
+        # Sunucu ve port yan yana (alt alta kart pencereden taşıyordu)
+        _field(self._adv_frame, "🖧", "Sunucu (boş = SRV)", self.srv_var,
+               side="left")
+        tk.Frame(self._adv_frame, bg=BG_CARD, width=8).pack(side="left")
+        _field(self._adv_frame, "🔌", "Port", self.port_var, width=6,
+               side="left")
 
         # Bağlan butonu — Canvas rounded
         self._btn_frame = tk.Frame(card, bg=BG_CARD)
@@ -10741,8 +10758,12 @@ class MainWindow:
                 return
             enc = self._encryption_mode.get()
             for i in sel:
-                self.bot.send_chat(jids[i], body, encryption=enc)
-                self._store(jids[i], body, tag="me", sender="Ben", is_me=True)
+                # Alıcı başına ayrı kimlik: düzenleme/geri çekme ve sunucu
+                # yankısıyla eşleşme bu kimliğe dayanır
+                mid = _new_msg_id()
+                self.bot.send_chat(jids[i], body, encryption=enc, mid=mid)
+                self._store(jids[i], body, tag="me", sender="Ben", is_me=True,
+                            mid=mid)
             messagebox.showinfo("Toplu Mesaj",
                                 f"{len(sel)} kişiye gönderildi", parent=dlg)
             dlg.destroy()
