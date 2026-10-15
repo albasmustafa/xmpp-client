@@ -13,6 +13,7 @@ import types
 import pytest
 
 import xmpp
+from ui.dialogs import settings as ui_settings
 
 
 def _w():
@@ -103,26 +104,67 @@ def test_connected_handler_restores_status():
 
 # ── Kaydet: açık sohbetin şifrelemesine dokunmaz ─────────────────────────────
 
-def test_settings_save_does_not_change_open_chat_encryption():
-    src = inspect.getsource(xmpp.MainWindow._settings_dialog)
-    assert "_encryption_mode.set(default_enc_var" not in src
-    assert "self._default_encryption = default_enc_var.get()" in src
+def _settings_values(**over):
+    """ui/dialogs/settings'in "Kaydet"te topladığı değerler."""
+    v = {"notifications": True, "sounds": True, "status_text": "",
+         "presence_show": "chat", "accounts": [], "auto_login": False,
+         "theme": "koyu", "font_size": 10, "font_family": "Cantarell",
+         "language": "tr", "send_read_receipts": True, "send_typing": True,
+         "default_disappear": 0, "auto_rejoin": True, "idle_after_min": 5,
+         "compact_mode": False, "default_encryption": "none",
+         "download_dir": "/tmp/indir", "ft_auto_accept": False,
+         "ft_block_size": "4096", "ft_warn_mb": "50"}
+    v.update(over)
+    return v
 
 
-def test_settings_save_applies_default_disappear_live():
-    src = inspect.getsource(xmpp.MainWindow._settings_dialog)
-    assert "self._default_disappear = disappear_var.get()" in src
+def _apply_settings(monkeypatch, values, w=None):
+    saved = []
+    monkeypatch.setattr(xmpp, "_load_config", lambda: {})
+    monkeypatch.setattr(xmpp, "_save_config", saved.append)
+    monkeypatch.setattr(xmpp, "_apply_color_theme", lambda name: None)
+    monkeypatch.setattr(xmpp, "_current_lang", "tr")
+    w = w or _w()
+    w.bot = None
+    w._apply_auto_login = lambda cfg, on: None
+    w._refresh_theme = lambda: None
+    w._apply_font_settings = lambda **k: None
+    xmpp.MainWindow._settings_apply(w, values)
+    return w, saved[0]
+
+
+def test_settings_save_does_not_change_open_chat_encryption(monkeypatch):
+    w = _w()
+    w._encryption_mode = types.SimpleNamespace(
+        set=lambda v: pytest.fail("açık sohbetin şifrelemesi değişti"))
+    w, cfg = _apply_settings(
+        monkeypatch, _settings_values(default_encryption="omemo"), w)
+    assert w._default_encryption == "omemo"
+    assert cfg["default_encryption"] == "omemo"
+
+
+def test_settings_save_applies_default_disappear_live(monkeypatch):
+    w, cfg = _apply_settings(monkeypatch, _settings_values(default_disappear=300))
+    assert w._default_disappear == 300 and cfg["default_disappear"] == 300
+
+
+def test_settings_save_validates_file_transfer_fields(monkeypatch):
+    w, cfg = _apply_settings(monkeypatch, _settings_values(
+        download_dir="  ", ft_block_size="abc", ft_warn_mb="0"))
+    assert cfg["ft_block_size"] == 4096 and cfg["ft_warn_mb"] == 1
+    assert cfg["download_dir"].endswith("Downloads")
+    assert w._ft_block_size == 4096 and w._ft_warn_mb == 1
 
 
 def test_settings_sound_default_matches_runtime_default():
-    src = inspect.getsource(xmpp.MainWindow._settings_dialog)
+    src = inspect.getsource(ui_settings.show_settings)
     assert 'cfg.get("sounds", True)' in src
 
 
 @pytest.mark.parametrize("key", ["carbons", "mam_enabled", "stream_management"])
 def test_dead_protocol_toggles_removed(key):
-    src = inspect.getsource(xmpp.MainWindow._settings_dialog)
-    assert f'"{key}"' not in src
+    for fn in (ui_settings.show_settings, xmpp.MainWindow._settings_apply):
+        assert f'"{key}"' not in inspect.getsource(fn)
 
 
 # ── Kaybolan mesajlar: varsayılan süre ───────────────────────────────────────
