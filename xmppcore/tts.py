@@ -28,7 +28,7 @@ INSTALL_HINT = (
     "Daha doğal ses için Piper: piper-tts kurun ve ✨ → AI Ayarları'nda "
     "Türkçe bir ses modelinin (.onnx) yolunu girin.")
 
-_URL_RE = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
+_URL_RE = re.compile(r"(?:https?|aesgcm)://\S+|www\.\S+", re.IGNORECASE)
 _MARKUP_RE = re.compile(r"```.*?```|[*_~`#>|]+", re.DOTALL)
 _SENTENCE_END_RE = re.compile(r"[.!?…](?=\s)")
 

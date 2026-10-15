@@ -32,6 +32,7 @@ import urllib.request
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
+from . import aesgcm
 from .constants import _log
 
 PROVIDER_OFF = "off"
@@ -708,26 +709,31 @@ class Conversation:
 
 
 # ── Metin hazırlama ─────────────────────────────────────────────────────────
-_URL_RE = re.compile(r"https?://[^\s<>\"]+", re.IGNORECASE)
-_AUDIO_EXT_RE = re.compile(r"\.(?:wav|ogg|opus|mp3|m4a|flac|aac|webm)(?:\?\S*)?$",
-                           re.IGNORECASE)
-_IMG_EXT_RE = re.compile(r"\.(?:png|jpe?g|gif|webp|bmp)(?:\?\S*)?$",
-                         re.IGNORECASE)
+_URL_RE = re.compile(r"(?:https?|aesgcm)://[^\s<>\"]+", re.IGNORECASE)
+_AUDIO_EXT_RE = re.compile(
+    r"\.(?:wav|ogg|opus|mp3|m4a|flac|aac|webm)(?:\?\S*)?(?:#[0-9a-fA-F]+)?$",
+    re.IGNORECASE)
+_IMG_EXT_RE = re.compile(
+    r"\.(?:png|jpe?g|gif|webp|bmp)(?:\?\S*)?(?:#[0-9a-fA-F]+)?$",
+    re.IGNORECASE)
 
 
 def strip_media_urls(body: str) -> str:
-    """Ses/görsel URL'lerini kısa yer tutucularla değiştir."""
+    """Ses/görsel URL'lerini kısa yer tutucularla değiştir. Şifreli medya
+    bağlantısı (aesgcm://) çözme anahtarını taşıdığından metne hiç girmez."""
     def _repl(m):
         url = m.group(0)
         if _AUDIO_EXT_RE.search(url):
             return "[ses mesajı]"
         if _IMG_EXT_RE.search(url):
             return "[görsel]"
+        if url.lower().startswith("aesgcm://"):
+            return "[dosya]"
         return url
     return _URL_RE.sub(_repl, body or "").strip()
 
 
-_PLACEHOLDER_RE = re.compile(r"\[(?:ses mesajı|görsel)\]")
+_PLACEHOLDER_RE = re.compile(r"\[(?:ses mesajı|görsel|dosya)\]")
 
 
 def message_text(body: str) -> str:
@@ -1409,12 +1415,15 @@ def prepare_image(raw: bytes) -> tuple[bytes, str]:
 
 
 def fetch_url(url: str, max_bytes: int, timeout: float = 30) -> bytes:
-    """Medya URL'sini sınırlı biçimde indir (worker thread)."""
-    _check_http_url(url)
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    """Medya URL'sini sınırlı biçimde indir (worker thread). aesgcm://
+    (OMEMO ile şifreli medya, XEP-0454) https'ten indirilip çözülür."""
+    media = aesgcm.parse(url)
+    target = _check_http_url(media[0] if media else url)
+    req = urllib.request.Request(target, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return _read_limited(resp, max_bytes)
+            data = _read_limited(resp, max_bytes)
+        return aesgcm.decrypt(data, media[1], media[2]) if media else data
     except AIError:
         raise
     except Exception as e:

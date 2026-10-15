@@ -73,6 +73,7 @@ from ui.dialogs import rooms as _ui_rooms
 from ui.dialogs import settings as _ui_settings
 from ui.dialogs import simple as _ui_simple
 from ui.timers import after_alive as _after_alive
+from xmppcore import aesgcm as _aesgcm
 from xmppcore import agent as _agent
 from xmppcore import ai as _ai
 from xmppcore import questions as _questions
@@ -325,15 +326,19 @@ def _load_avatar_cache(bare_jid: str) -> bytes | None:
         pass
     return None
 
-# Resim URL'si tespit deseni
+# Resim URL'si tespit deseni (aesgcm:// = OMEMO ile şifreli medya, XEP-0454)
+_AESGCM_KEY_RE = r'#(?:[0-9a-fA-F]{96}|[0-9a-fA-F]{88})(?![0-9a-fA-F])'
 _IMG_URL_RE = re.compile(
-    r'(https?://\S+\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?\S*)?)',
+    r'(https?://\S+\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?\S*)?'
+    r'|aesgcm://[^\s#]+\.(?:png|jpe?g|gif|webp|bmp)' + _AESGCM_KEY_RE + ')',
     re.IGNORECASE,
 )
 
-# Ses dosyası URL'si tespit deseni
+# Ses dosyası URL'si tespit deseni (sesli mesajlar mobilden aesgcm:// gelir)
 _AUDIO_URL_RE = re.compile(
-    r'(https?://\S+\.(?:wav|ogg|opus|mp3|m4a|flac|aac|webm)(?:\?\S*)?)',
+    r'(https?://\S+\.(?:wav|ogg|opus|mp3|m4a|flac|aac|webm)(?:\?\S*)?'
+    r'|aesgcm://[^\s#]+\.(?:wav|ogg|opus|mp3|m4a|flac|aac|webm)'
+    + _AESGCM_KEY_RE + ')',
     re.IGNORECASE,
 )
 
@@ -535,6 +540,7 @@ _NET_IMG_FULL_MAX = 16 * 1024 * 1024  # tam ekran görüntü
 _NET_AUDIO_MAX = 25 * 1024 * 1024     # ses mesajı
 _NET_GIF_THUMB_MAX = 2 * 1024 * 1024  # GIF küçük önizleme
 _NET_JSON_MAX = 4 * 1024 * 1024       # JSON arama yanıtları
+_NET_AESGCM_FILE_MAX = 100 * 1024 * 1024  # şifreli dosya (video, belge)
 _MEDIA_WORKER_CAP = 6                 # eşzamanlı remote-media worker tavanı
 _MAX_INLINE_IMAGES = 6                # mesaj başına zengin görsel tavanı (2E)
 _MAX_INLINE_AUDIO = 3                 # mesaj başına zengin ses tavanı (2E)
@@ -567,6 +573,27 @@ def _read_bounded(resp, max_bytes):
         raise ValueError(
             f"HTTP response exceeds size limit (> {max_bytes} bytes)")
     return data
+
+
+def _fetch_url_bytes(url, max_bytes, timeout=15):
+    """URL içeriğini sınırlı oku. aesgcm:// (OMEMO ile şifreli medya,
+    XEP-0454) https üzerinden indirilip çözülür; bozuksa InvalidTag."""
+    media = _aesgcm.parse(url)
+    req = urllib.request.Request(media[0] if media else url, headers={
+        "User-Agent": "Mozilla/5.0",
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = _read_bounded(resp, max_bytes)
+    return _aesgcm.decrypt(raw, media[1], media[2]) if media else raw
+
+
+def _aesgcm_file_urls(body: str, exclude) -> list[str]:
+    """Gövdedeki resim/ses dışı şifreli dosya bağlantıları (video, belge)."""
+    out = []
+    for url in _aesgcm.URL_RE.findall(body or ""):
+        if url not in exclude and url not in out:
+            out.append(url)
+    return out
 
 
 def _fetch_url_preview(url: str) -> dict:
@@ -2968,6 +2995,11 @@ class MainWindow:
         if img_urls:
             for url in img_urls:
                 display_body = display_body.replace(url, "").strip()
+        # Şifreli dosyalar (video, belge — aesgcm://): uzun anahtar metni
+        # gösterilmez, yerine indirip açan bir kart çıkar
+        aes_files = _aesgcm_file_urls(body, set(img_urls) | set(audio_urls))
+        for url in aes_files:
+            display_body = display_body.replace(url, "").strip()
 
         # Art arda aynı gönderici kontrolü
         sender_key = ("me" if is_me else sender)
@@ -3075,6 +3107,12 @@ class MainWindow:
 
         if local_path:
             self._attach_file_card(bubble, bubble_bg, local_path)
+        for url in aes_files:
+            _media_ui.file_card(
+                bubble, _chat_theme(), _aesgcm.file_name(url),
+                "🔒 Şifreli dosya (OMEMO)", "⬇ İndir ve aç", "📂 Klasörde göster",
+                lambda u=url: self._open_aesgcm_file(u),
+                lambda u=url: self._open_aesgcm_file(u, reveal=True))
 
         self._bubble_widgets.append(row)
         self._bind_scroll_widget(row)
@@ -3255,6 +3293,32 @@ class MainWindow:
             on_react=lambda e: self._toggle_reaction(mid, e),
             on_more=lambda: self._show_emoji_picker(mid))
 
+    def _open_aesgcm_file(self, url, reveal=False):
+        """Şifreli dosyayı (aesgcm://) arka planda indir, çöz, kaydet, aç."""
+        threading.Thread(target=self._aesgcm_file_worker, args=(url, reveal),
+                         daemon=True).start()
+
+    def _aesgcm_file_worker(self, url, reveal=False):
+        """Worker: indir + çöz → indirme klasörüne (çakışmasız ad) kaydet →
+        dosyayı ya da klasörü aç. Bozuk anahtar/veride hiçbir şey yazılmaz."""
+        name = _aesgcm.file_name(url)
+        folder = (getattr(self, "_download_dir", "")
+                  or os.path.expanduser("~/Downloads"))
+        try:
+            data = _fetch_url_bytes(url, _NET_AESGCM_FILE_MAX, timeout=60)
+            os.makedirs(folder, exist_ok=True)
+            path = jingle_ft.unique_download_path(folder, name)
+            with open(path, "xb") as f:
+                f.write(data)
+        except Exception:
+            _log.warning("Şifreli dosya açılamadı: %s", name, exc_info=True)
+            self._safe_after(0, self._show_toast,
+                             "⚠ Şifreli dosya açılamadı", name)
+            return
+        self._safe_after(0, self._show_toast, "📥 Şifreli dosya",
+                         f"{os.path.basename(path)} kaydedildi")
+        self._safe_after(0, _safe_open_url, folder if reveal else path)
+
     def _attach_file_card(self, parent, bg_color, path):
         """Sohbet balonuna yerel dosya kartı ekle (Aç / Klasörü Aç)."""
         try:
@@ -3273,11 +3337,7 @@ class MainWindow:
         key = ("image", url)
         img = None
         try:
-            req = urllib.request.Request(url, headers={
-                "User-Agent": "Mozilla/5.0",
-            })
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                raw = _read_bounded(resp, _NET_IMG_MAX)
+            raw = _fetch_url_bytes(url, _NET_IMG_MAX, timeout=15)
             img = Image.open(io.BytesIO(raw))
             # EXIF yönlendirme düzelt
             try:
@@ -3334,15 +3394,14 @@ class MainWindow:
     def _show_image_fullscreen(self, _photo, url):
         """Resmi büyük pencerede göster — orijinale yakın boyutta indir."""
         top, lbl = _media_ui.fullscreen_window(
-            self.root, _chat_theme(), lambda: _safe_open_url(url))
+            self.root, _chat_theme(),
+            (lambda: self._open_aesgcm_file(url)) if _aesgcm.parse(url)
+            else (lambda: _safe_open_url(url)))
 
         # Arka planda büyük halini indir
         def _load_full():
             try:
-                req = urllib.request.Request(url, headers={
-                    "User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=20) as resp:
-                    raw = _read_bounded(resp, _NET_IMG_FULL_MAX)
+                raw = _fetch_url_bytes(url, _NET_IMG_FULL_MAX, timeout=20)
                 img = Image.open(io.BytesIO(raw))
                 try:
                     from PIL import ImageOps
@@ -3382,11 +3441,7 @@ class MainWindow:
         try:
             if getattr(self, "_closing", False):
                 raise _WorkerShutdown
-            req = urllib.request.Request(url, headers={
-                "User-Agent": "Mozilla/5.0",
-            })
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                raw = _read_bounded(resp, _NET_AUDIO_MAX)
+            raw = _fetch_url_bytes(url, _NET_AUDIO_MAX, timeout=30)
             # Geçici dosyaya kaydet
             suffix = ".wav"
             for ext in (".ogg", ".opus", ".mp3", ".m4a", ".flac", ".aac",
@@ -11364,17 +11419,21 @@ class MainWindow:
                         "🔑" if enc == "pgp" else "🔔")
                 badge = f" [{total}]" if total > 0 else ""
                 self.root.title(f"XMPP — {self.jid}{badge}  {icon}  {frm}")
+                # Şifreli medya bağlantısı (aesgcm://) çözme anahtarı taşır:
+                # bildirim geçmişine düşmesin, yer tutucu gösterilir
+                notify_body = (_ai.strip_media_urls(body)
+                               if "aesgcm://" in (body or "").lower() else body)
                 # Masaüstü bildirimi
                 if self._notify_enabled:
                     _desktop_notify(f"Mesaj — {nick or frm}",
-                                    body[:100] if body else "Yeni mesaj")
+                                    notify_body[:100] if notify_body else "Yeni mesaj")
                 # Bildirim sesi
                 if self._sound_enabled:
                     threading.Thread(target=self._play_notification_sound,
                                      daemon=True).start()
                 # Toast bildirim balonu
                 self._show_toast(f"💬 {nick or frm}",
-                                 body[:80] if body else "Yeni mesaj")
+                                 notify_body[:80] if notify_body else "Yeni mesaj")
 
         elif kind == "own_msg":
             # Aynı hesabın başka cihazından (ör. telefondaki Monocles)
