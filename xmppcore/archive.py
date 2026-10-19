@@ -23,9 +23,11 @@ class ArchiveMixin:
         """
         try:
             mam = _get_xep(self, "xep_0313")
-            # Oda arşivi odanın kendisinde tutulur (jid=oda); 1:1 arşiv kendi
+            # Oda arşivi odanın kendisinde tutulur (jid=oda; takma adımız
+            # my_nicks'te odaya katılınca yazılır); 1:1 arşiv kendi
             # hesabımızdadır ve with= ile süzülür.
-            if jid in (getattr(self, "my_nicks", None) or {}):
+            is_room = jid in (getattr(self, "my_nicks", None) or {})
+            if is_room:
                 target = {"jid": jid}
             else:
                 target = {"with_jid": jid}
@@ -56,6 +58,18 @@ class ArchiveMixin:
                     else:
                         continue
                 frm = str(m["from"].bare) if hasattr(m["from"], "bare") else str(m["from"])
+                try:
+                    resource = str(m["from"].resource or "")
+                except Exception:
+                    resource = ""
+                # 1:1'de yön: gönderen bizim bare JID'imiz. Odada yön:
+                # resource (takma ad) bizim takma adımız mı — MAM'daki
+                # forwarded stanza from=oda/takma-ad gelir.
+                if is_room:
+                    is_me = (bool(resource)
+                             and resource == self.my_nicks.get(jid, ""))
+                else:
+                    is_me = frm == str(self.boundjid.bare)
                 # [2N] ÜÇ AYRI kimlik (birbirine karıştırılmaz):
                 # logical_mid: _stanza_msg_id (origin-id → stanza-id → id) —
                 #   self.chats[*][7]'ye depolanan kanonik kimlik (tepkiler,
@@ -79,9 +93,12 @@ class ArchiveMixin:
                     "from": frm,
                     "body": body,
                     "ts": ts,
-                    "is_me": frm == str(self.boundjid.bare),
+                    "is_me": is_me,
                     "mid": logical_mid,
                 }
+                # Odada gönderenin adı resource'tadır; boş anahtar eklenmez.
+                if resource:
+                    item["nick"] = resource
                 # Uyumluluk: mevcut exact-payload testleri boş anahtarların
                 # yokluğunu varsaydığından yalnız boş OLmayan alanlar eklenir.
                 if raw_id:

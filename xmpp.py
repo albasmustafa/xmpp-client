@@ -7628,10 +7628,11 @@ class MainWindow:
             self._history_start[target] = 0
             self._history_pending[target] = 0
             self._clear_chat()
-            # Geçmiş yoksa MAM'dan çek. Initial-MAM tespiti yalnız niyet
-            # iledir; niyet _load_mam_history içinde o isteğin token'ına
+            # Geçmiş yoksa MAM'dan çek (oda dahil: oda arşivi odadadır).
+            # Initial-MAM tespiti yalnız niyet iledir; niyet
+            # _load_mam_history içinde o isteğin token'ına
             # bağlanır — _history_start varlığı belirleyici DEĞİLDİR (D).
-            if self.bot and target not in self.rooms:
+            if self.bot:
                 self._load_mam_history()
         self._update_history_nav(target)
         # Bu sohbetin şifreleme modunu geri yükle
@@ -8760,7 +8761,7 @@ class MainWindow:
 
     # ── MAM Geçmiş Yükleme ──────────────────────────────────────────────────
     def _load_mam_history(self):
-        if self.active and self.active not in self.rooms:
+        if self.active:
             if not self.chats.get(self.active):
                 self._ensure_history_state()
                 # [2F-Blocker] Aynı JID'de bekleyen UI isteği varken yeni
@@ -8855,8 +8856,8 @@ class MainWindow:
         return False                           # kanonik kayboldu → fail-open
 
     def _load_older_mam(self):
-        """Arşivden bir sayfa daha eski mesaj iste."""
-        if not self.active or self.active in self.rooms:
+        """Arşivden bir sayfa daha eski mesaj iste (1:1 ve oda)."""
+        if not self.active:
             return
         target = self.active
         before = self._mam_oldest.get(target) or None
@@ -11596,7 +11597,9 @@ class MainWindow:
                     if aliases and any((a, body, direction) in seen
                                        for a in aliases):
                         continue
-                    sender = "Ben" if m["is_me"] else m["from"].split("@")[0]
+                    sender = ("Ben" if m["is_me"]
+                              else (m.get("nick")
+                                    or m["from"].split("@")[0]))
                     tag = "me" if m["is_me"] else "them"
                     # Yalnız logical_mid depolanır; raw_id/archive_id
                     # geçicidir ve self.chats biçimine girmez.

@@ -143,9 +143,10 @@ def test_fetch_mam_hatasi_bos_liste_ve_error_yayar(monkeypatch):
 
 # ── GUI tarafı: _load_mam_history (xmpp.py:7472-7475) ───────────────────────
 
-def test_load_mam_history_sadece_gecmisi_olmayan_1e1_sohbette_ister():
-    """Mevcut davranış: yerel geçmiş yoksa ve oda değilse MAM istenir
-    (generation token'ı istekle birlikte geçirilir)."""
+def test_load_mam_history_sadece_gecmisi_olmayan_sohbette_ister():
+    """Yerel geçmiş yoksa MAM istenir — 1:1 ve oda dahil (oda arşivi
+    odanın kendisindedir; kullanıcı isteği: odada eski mesajlar görünsün).
+    Geçmiş varsa istenmez; generation token'ı istekle birlikte geçirilir."""
     win = object.__new__(xmpp.MainWindow)
     calls = []
     win.bot = types.SimpleNamespace(
@@ -161,7 +162,8 @@ def test_load_mam_history_sadece_gecmisi_olmayan_1e1_sohbette_ister():
 
     win.active, win.rooms, win.chats = "r@conf", ["r@conf"], {}
     xmpp.MainWindow._load_mam_history(win)
-    assert len(calls) == 1  # odalar için MAM istenmez
+    assert len(calls) == 2  # oda: boş geçmişte arşiv istenir
+    assert calls[1] == ("r@conf", 50, 0)
 
 
 # ── GUI tarafı: _handle("mam_results") (xmpp.py:11665-11691) ────────────────
