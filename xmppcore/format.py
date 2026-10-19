@@ -128,6 +128,11 @@ def _reply_preview(text: str, limit: int = 140) -> str:
     return flat[:limit] + ("…" if len(flat) > limit else "")
 
 
+def _forward_body(orig_from: str, orig_body: str) -> str:
+    """İletilen mesajın gövdesi (gönderilen ve yerelde saklanan aynı metin)."""
+    return f"[İletildi — {orig_from}]\n{orig_body}"
+
+
 def _toggle_reaction_set(current, emoji: str) -> set:
     """Tepki kümesinde emoji'yi aç/kapat (XEP-0444 tam küme gönderilir)."""
     result = set(current or ())

@@ -57,6 +57,14 @@ _STRINGS = {
         "ft_online_check": "Kişi çevrimdışı görünüyor; P2P başarısız olabilir.",
         "ft_large_warn": "{mb} MB üzeri dosyalarda P2P yavaş olabilir. Devam edilsin mi?",
         "ft_http_fallback": "P2P başarısız oldu. Dosya sunucuya yüklenerek gönderilsin mi?",
+        "ft_p2p_plain": "Bu sohbet şifreli, ama P2P aktarım (Jingle/IBB) uçtan uca "
+                        "şifreli değil: dosya sunucu üzerinden şifresiz geçer. "
+                        "Yine de P2P ile gönderilsin mi?",
+        "ft_p2p_omemo_hint": "Şifreli göndermek için 📎 → Sunucuya Yükle'yi kullanın "
+                             "(OMEMO'lu sohbette dosya şifrelenir).",
+        "forward_plain_warn": "Bu mesaj şifreli içerik taşıyor ama seçtiğiniz sohbet "
+                              "şifresiz: içerik (şifreli dosyanın anahtarı dahil) "
+                              "sunucuya açık metin gider. Yine de iletilsin mi?",
         "ft_pgp_plain": "Bu sohbet OpenPGP ile şifreli, ama OpenPGP dosya şifreleyemez: "
                         "dosya sunucuya şifresiz yüklenir, bağlantıyı gören herkes "
                         "açabilir. Yine de gönderilsin mi?",
@@ -144,6 +152,15 @@ _STRINGS = {
         "ft_online_check": "Contact appears offline; P2P may fail.",
         "ft_large_warn": "P2P may be slow for files over {mb} MB. Continue?",
         "ft_http_fallback": "P2P failed. Send the file via server upload?",
+        "ft_p2p_plain": "This chat is encrypted, but P2P transfer (Jingle/IBB) is "
+                        "not end-to-end encrypted: the file passes through the "
+                        "server unencrypted. Send via P2P anyway?",
+        "ft_p2p_omemo_hint": "To send it encrypted, use 📎 → Upload to Server "
+                             "(files are encrypted in OMEMO chats).",
+        "forward_plain_warn": "This message carries encrypted content, but the chosen "
+                              "chat is unencrypted: the content (including the key of "
+                              "an encrypted file) reaches the server in plain text. "
+                              "Forward anyway?",
         "ft_pgp_plain": "This chat uses OpenPGP, but OpenPGP cannot encrypt files: "
                         "the file is uploaded unencrypted and anyone with the link "
                         "can open it. Send anyway?",

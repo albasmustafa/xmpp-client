@@ -363,7 +363,8 @@ def test_context_menu_mw_caps_and_callbacks(monkeypatch):
     assert w._toggle_reaction.calls == [(("m1", "❤"), {})]
     assert w._edit_message_dialog.calls[0][0] == ("m1", "gövde", "chat")
     assert w._retract_message.calls[0][0] == ("m1", "chat")
-    assert w._forward_dialog.calls == [(("gövde", "Ali"), {})]
+    assert w._forward_dialog.calls == [(("gövde", "Ali"),
+                                        {"encrypted": False})]
     assert w._pin_message.calls == [(("gövde", "Ali"), {})]
     assert w._jump_to_message.calls == [(("m0",), {})]
     assert w._show_emoji_picker.calls == [(("m1",), {})]

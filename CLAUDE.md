@@ -63,6 +63,11 @@ gerçekten çalıştır.
   gövde aesgcm:// anahtarı taşıyorsa göndermez. PGP dosya şifreleyemez: PGP sohbetinde
   dosya şifresiz yüklenmeden önce onay sorulur (`_confirm_plain_file`)
   (`test_omemo_file_send.py`; gerçek sunucuda `tools/omemo_e2e.py` 5. adım).
+- **İletme ve P2P:** iletilen mesaj (`_forward_to` → `forward_message`) hedef sohbetin
+  şifrelemesiyle gider, hedef sohbete kendi mesajımız olarak yazılır (mid = origin-id).
+  Şifreli içerik ya da aesgcm:// anahtarı şifresiz sohbete onaysız gitmez; hassas veri
+  uyarısı geçerlidir. P2P (Jingle/IBB) uçtan uca şifreli değildir: şifreli sohbette dosya
+  seçilmeden önce uyarılır (`test_forward_encryption.py`).
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.

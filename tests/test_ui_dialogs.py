@@ -282,8 +282,9 @@ def test_forward_dialog_delegates(monkeypatch):
     win._contacts = {"a@b.c": "Ali"}
     win.rooms = ["r@conf"]
     calls = []
-    win.bot = types.SimpleNamespace(
-        forward_message=lambda *a: calls.append(a))
+    # Gönderim (hedefin şifrelemesi, yerel kayıt) _forward_to'dadır:
+    # test_forward_encryption.py
+    win._forward_to = lambda *a: calls.append(a)
 
     xmpp.MainWindow._forward_dialog(win, "gövde", "Ali")
 
@@ -291,7 +292,7 @@ def test_forward_dialog_delegates(monkeypatch):
     assert (parent, contacts, rooms, body, sender) == (
         "ROOT", {"a@b.c": "Ali"}, ["r@conf"], "gövde", "Ali")
     on_forward("a@b.c", "chat")
-    assert calls == [("a@b.c", "Ali", "gövde", "chat")]
+    assert calls == [("a@b.c", "chat", "Ali", "gövde", False)]
 
 
 def test_dilim4_icerikleri_ui_modulunde():

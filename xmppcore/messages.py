@@ -11,7 +11,7 @@ import asyncio
 import xml.etree.ElementTree as ET
 
 from xmppcore.constants import _log
-from xmppcore.format import _reply_preview
+from xmppcore.format import _forward_body, _reply_preview
 from xmppcore.helpers import (
     _CORRECTION,
     _DISPLAYED,
@@ -405,12 +405,22 @@ class MessagesMixin:
             self.gui_q.put(("error", f"Yanıt hatası: {e}"))
 
     # ── Mesaj İletme ──────────────────────────────────────────────────────────
-    def forward_message(self, to, orig_from, orig_body, mtype="chat"):
-        """Bir mesajı başka birine ilet."""
+    def forward_message(self, to, orig_from, orig_body, mtype="chat",
+                        encryption="none", mid=None):
+        """Bir mesajı başka birine ilet. Şifreleme hedef sohbetinkidir:
+        OMEMO/PGP'de normal şifreli gönderim yolu (send_chat/send_gc) kullanılır;
+        düz iletim eskisi gibi loop'ta kurulur. `mid` yerel kayıtla aynı
+        origin-id'dir (düzenleme/silme ve sent_mid eşlemesi)."""
+        body = _forward_body(orig_from, orig_body)
+        if encryption in ("omemo", "pgp"):
+            send = self.send_gc if mtype == "groupchat" else self.send_chat
+            send(to, body, encryption=encryption, mid=mid)
+            return
+
         def _do():
             try:
-                body = f"[İletildi — {orig_from}]\n{orig_body}"
                 msg = self.make_message(mto=to, mbody=body, mtype=mtype)
+                _add_origin_id(msg, mid)
                 msg.send()
             except Exception as e:
                 self.gui_q.put(("error", f"İletme hatası: {e}"))

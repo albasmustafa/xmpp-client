@@ -99,6 +99,7 @@ from xmppcore.constants import _DB_PATH as _DB_PATH
 from xmppcore.format import (
     _bookmark_add,
     _fill_search_form,
+    _forward_body,
     _parse_geometry,
     _parse_room_search,
     _parse_tenor_results,
@@ -3336,7 +3337,10 @@ class MainWindow:
                                    self.root.clipboard_append(body)), False))
         if body and can_send and not retracted:
             specs.append(("➦", "İlet",
-                          lambda: self._forward_dialog(body, sender), False))
+                          lambda: self._forward_dialog(
+                              body, sender,
+                              encrypted=bool(getattr(row, "_encrypted",
+                                                     False))), False))
             specs.append(("📌", "Sabitle",
                           lambda: self._pin_message(body, sender), False))
         if is_me and mid and can_send and not retracted:
@@ -4335,7 +4339,9 @@ class MainWindow:
             "on_edit": lambda: self._edit_message_dialog(mid, body, mtype),
             "on_delete": lambda: self._retract_message(mid, mtype),
             "on_reply": lambda: self._set_reply(mid, body, sender),
-            "on_forward": lambda: self._forward_dialog(body, sender),
+            "on_forward": lambda: self._forward_dialog(
+                body, sender,
+                encrypted=bool(getattr(row, "_encrypted", False))),
             "on_pin": lambda: self._pin_message(body, sender),
             "on_react": lambda e: self._toggle_reaction(mid, e),
             "on_more_emoji": lambda: self._show_emoji_picker(mid),
@@ -4434,12 +4440,43 @@ class MainWindow:
     def _cancel_reply(self):
         self._composer.cancel_reply()
 
-    def _forward_dialog(self, body, sender):
-        """İletme hedefi seçme penceresi (ui/dialogs)."""
+    def _forward_dialog(self, body, sender, encrypted=False):
+        """İletme hedefi seçme penceresi (ui/dialogs). `encrypted`: iletilen
+        mesaj şifreli geldi/gitti mi (satırın bayrağı)."""
         def _do(to, mtype):
-            self.bot.forward_message(to, sender, body, mtype)
+            self._forward_to(to, mtype, sender, body, encrypted)
         _ui_chat_actions.show_forward(
             self.root, self._contacts, self.rooms, body, sender, _do)
+
+    def _forward_to(self, to, mtype, sender, body, src_encrypted=False):
+        """İletilen mesaj hedef sohbetin şifrelemesiyle gider ve o sohbete
+        kendi mesajımız olarak yazılır. Şifreli içerik (ya da çözme anahtarı
+        taşıyan aesgcm:// bağlantısı) şifresiz sohbete onaysız gitmez;
+        şifresiz iletimde hassas veri uyarısı da geçerlidir."""
+        if not self.bot:
+            return
+        enc = self._chat_encryption(to)
+        text = _forward_body(sender, body)
+        if enc == "none":
+            sensitive = src_encrypted or _aesgcm.URL_RE.search(body or "")
+            if sensitive and not messagebox.askyesno(
+                    _t("forward"), _t("forward_plain_warn"),
+                    icon="warning", default="no", parent=self.root):
+                return
+        if not self._leak_guard_ok(to, text, enc):
+            return
+        encrypted = enc != "none"
+        # Deterministik korelasyon: satır, stanza ve sent_mid aynı origin-id
+        mid = _new_msg_id()
+        self._store(to, text, tag="me", sender="Ben", is_me=True,
+                    encrypted=encrypted, mid=mid)
+        if self.active == to:
+            # [2F] Canlı teslim: append / rebase / defer
+            self._deliver_live(to, lambda: self._append(
+                text, "me", sender="Ben", is_me=True, encrypted=encrypted,
+                mid=mid))
+        self.bot.forward_message(to, sender, body, mtype, encryption=enc,
+                                 mid=mid)
 
     def _pin_message(self, body, sender):
         """Mesajı yerel olarak sabitle."""
@@ -8500,6 +8537,16 @@ class MainWindow:
             self._upload_file_path(path)
 
     def _send_file_p2p(self):
+        # P2P (Jingle/IBB) uçtan uca şifreli değildir: veri sunucu üzerinden
+        # şifresiz geçer. Şifreli sohbette dosya seçilmeden önce sorulur.
+        enc = self._chat_encryption(self.active)
+        if enc != "none":
+            warn = _t("ft_p2p_plain")
+            if enc == "omemo":
+                warn += "\n\n" + _t("ft_p2p_omemo_hint")
+            if not messagebox.askyesno(_t("ft_title"), warn, icon="warning",
+                                       default="no", parent=self.root):
+                return
         path = self._ask_send_path()
         if not path:
             return
