@@ -55,7 +55,12 @@ gerçekten çalıştır.
   Testler: `test_multi_device.py`, `test_mobile_edits.py`.
 - **Şifreli medya** `aesgcm://` (XEP-0454, mobil istemciler OMEMO'da kullanır):
   `xmppcore/aesgcm.py` + `_fetch_url_bytes`; çözme anahtarı AI metnine, sesli okumaya ve
-  bildirimlere girmez (`test_aesgcm.py`).
+  bildirimlere girmez (`test_aesgcm.py`). **Gönderim:** sohbet OMEMO'daysa
+  (`_file_encryption` → `_chat_encryption`) 📎, sürükle-bırak, yapıştırma ve sesli mesaj
+  dosyası şifrelenip rastgele adla (uzantı korunur) yüklenir (`transfers.py:_upload_encrypted`);
+  bağlantı yalnız OMEMO'lu gövdede gider, OOB'ye yazılmaz. OMEMO hazır değilse dosya
+  yüklenmez (düz yüklemeye düşmez). PGP sohbetinde dosya şifresiz yüklenir
+  (`test_omemo_file_send.py`; gerçek sunucuda `tools/omemo_e2e.py` 5. adım).
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.

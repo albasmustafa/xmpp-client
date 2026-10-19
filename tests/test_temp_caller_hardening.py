@@ -30,11 +30,12 @@ def _make_mw():
     mw._temp_files = []
     mw._scroll_bottom = lambda: None
     mw.rooms = []
+    mw._chat_enc_modes = {}
     mw.active = "t@b.c"
     mw._VOICE_CHANNELS = 1
     mw._VOICE_RATE = 44100
     mw.bot = types.SimpleNamespace(
-        send_file=lambda to, path, mtype: mw.bot.calls.append(
+        send_file=lambda to, path, mtype, encryption="none": mw.bot.calls.append(
             ("send", to, path, mtype)))
     mw.bot.calls = []
     mw._show_sent_voice = lambda path, target=None: mw.bot.calls.append(

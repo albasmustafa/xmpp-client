@@ -11,13 +11,17 @@ Her iki hesap da aynı sunucuda olmalı. Test:
 2. Karşılıklı abonelik kurulur.
 3. A, B'ye OMEMO şifreli mesaj gönderir (uygulamanın kendi kod yoluyla).
 4. B mesajı çözebilirse test geçer.
+5. A, B'ye şifreli dosya gönderir (aesgcm://, XEP-0454; sunucuda HTTP
+   Upload gerekir); B indirip çözdüğü dosya kaynakla aynıysa test geçer.
 """
 
 import asyncio
+import hashlib
 import os
 import queue
 import ssl
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -142,7 +146,7 @@ async def run(server, port):
 
             if await _wait_for(_check_a):
                 print(f"✓ A mesajı çözdü: {found2[0]['body']!r}")
-                ok = True
+                ok = await _encrypted_file_step(bot_a, qb, bare_b)
             else:
                 print("HATA: A mesajı çözemedi")
                 print("A kuyruğu:", _drain(qa)[-8:])
@@ -157,6 +161,45 @@ async def run(server, port):
 
     print("SONUÇ:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+async def _encrypted_file_step(bot_a, qb, bare_b):
+    """A → B şifreli dosya; B bağlantıyı indirip çözer, özetler eşleşmeli."""
+    data = os.urandom(64 * 1024)
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+        f.write(data)
+    try:
+        await bot_a._send_file_impl(bare_b, f.name, "chat",
+                                    encryption="omemo")
+        print("→ A, B'ye şifreli dosya gönderdi")
+        links = []
+
+        def _check():
+            for kind, item in _drain(qb):
+                body = item.get("body", "") if kind == "msg" else ""
+                if body.startswith("aesgcm://"):
+                    links.append(body)
+                    return True
+                if kind == "error":
+                    print("B hata:", item)
+            return False
+
+        if not await _wait_for(_check):
+            print("HATA: B şifreli dosya bağlantısını almadı")
+            return False
+        got = await asyncio.to_thread(xmpp._fetch_url_bytes, links[0],
+                                      len(data) + 1024, 60)
+        if hashlib.sha256(got).digest() != hashlib.sha256(data).digest():
+            print("HATA: çözülen dosya kaynakla aynı değil")
+            return False
+        print(f"✓ B şifreli dosyayı indirip çözdü ({len(got)} bayt, "
+              "sha-256 eşleşti)")
+        return True
+    except Exception as e:
+        print(f"HATA: şifreli dosya adımı: {e}")
+        return False
+    finally:
+        os.unlink(f.name)
 
 
 def main():

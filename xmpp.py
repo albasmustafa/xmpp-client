@@ -4485,9 +4485,10 @@ class MainWindow:
             return
         files = self.root.tk.splitlist(event.data)
         mtype = "groupchat" if self.active in self.rooms else "chat"
+        enc = self._file_encryption(self.active)
         for f in files:
             if os.path.isfile(f):
-                self.bot.send_file(self.active, f, mtype)
+                self.bot.send_file(self.active, f, mtype, encryption=enc)
 
     # ── Sohbet başlık menüsü ──────────────────────────────────────────────────
     def _chat_header_menu(self, event=None):
@@ -6636,7 +6637,8 @@ class MainWindow:
             tmp.close()
             self._remember_temp(tmp.name)
             self.bot.send_file(self.active, tmp.name,
-                "groupchat" if self.active in self.rooms else "chat")
+                "groupchat" if self.active in self.rooms else "chat",
+                encryption=self._file_encryption(self.active))
             return "break"  # Metin yapıştırmayı engelle
         except Exception:
             return  # Normal yapıştır devam etsin
@@ -7275,7 +7277,8 @@ class MainWindow:
         kayıt yapılmaz; yalnız gönderim + gösterim.
         """
         mtype = "groupchat" if target in self.rooms else "chat"
-        self.bot.send_file(target, wav_path, mtype)
+        self.bot.send_file(target, wav_path, mtype,
+                           encryption=self._file_encryption(target))
         self._show_sent_voice(wav_path, target)
 
     @staticmethod
@@ -8446,11 +8449,18 @@ class MainWindow:
         from tkinter import filedialog
         return filedialog.askopenfilename(title="Dosya Seç", parent=self.root)
 
+    def _file_encryption(self, target):
+        """Dosya şifrelemesi sohbetinkini izler: OMEMO → aesgcm:// (XEP-0454).
+        PGP'nin dosya karşılığı yoktur: dosya şifresiz yüklenir."""
+        return "omemo" if self._chat_encryption(target) == "omemo" else "none"
+
     def _upload_file_path(self, path, target=None):
         target = target or self.active
+        encrypt = self._file_encryption(target) == "omemo"
         if self.active == target:
-            self._append(f"📎 Yükleniyor: {os.path.basename(path)}…", "sys")
-        self.bot.upload_file(path, target)
+            self._append(f"{'🔒' if encrypt else '📎'} Yükleniyor: "
+                         f"{os.path.basename(path)}…", "sys")
+        self.bot.upload_file(path, target, encrypt=encrypt)
 
     def _send_file_http(self):
         path = self._ask_send_path()
@@ -11644,20 +11654,26 @@ class MainWindow:
             target = data.get("cb", self.active)
             if target:
                 body = url
+                # Şifreli dosya (aesgcm://, XEP-0454): bağlantı çözme
+                # anahtarını taşır; yalnız OMEMO'lu gövdede gider, OOB'ye
+                # (şifresiz kısım) yazılmaz.
+                encrypted = bool(data.get("encrypted"))
+                enc = "omemo" if encrypted else "none"
+                oob = "" if encrypted else url
                 # Deterministik korelasyon: optimistic row, gönderilen stanza
                 # ve sent_mid aynı origin-id'yi taşır (V-2).
                 mid = _new_msg_id()
                 self._store(target, body, tag="me", sender="Ben", is_me=True,
-                            oob=url, mid=mid)
+                            oob=oob, encrypted=encrypted, mid=mid)
                 if self.active == target:
                     # [2F] Canlı teslim: append / rebase / defer
                     self._deliver_live(target, lambda: self._append(
-                        body, "me", sender="Ben", is_me=True, oob=url,
-                        mid=mid))
+                        body, "me", sender="Ben", is_me=True, oob=oob,
+                        encrypted=encrypted, mid=mid))
                 if target in self.rooms:
-                    self.bot.send_gc(target, body, mid=mid)
+                    self.bot.send_gc(target, body, encryption=enc, mid=mid)
                 else:
-                    self.bot.send_chat(target, body, mid=mid)
+                    self.bot.send_chat(target, body, encryption=enc, mid=mid)
 
         elif kind == "ft_offer":
             self._ft_offer_dialog(data)

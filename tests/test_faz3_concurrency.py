@@ -403,10 +403,12 @@ def test_recording_ready_hedefi_sabit_tutar():
     win = object.__new__(xmpp.MainWindow)
     win.active = "baska@b.c"          # işlem sırasında sohbet değişti
     win.rooms = []
+    win._chat_enc_modes = {}
     win._temp_files = []
     calls = []
     win.bot = types.SimpleNamespace(
-        send_file=lambda to, path, mtype: calls.append((to, path, mtype)))
+        send_file=lambda to, path, mtype, encryption="none": calls.append(
+            (to, path, mtype)))
     win._show_sent_voice = lambda path, target=None: calls.append(
         ("show", target))
 
