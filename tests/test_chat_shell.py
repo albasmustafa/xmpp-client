@@ -173,7 +173,9 @@ def test_shell_callback_wiring(monkeypatch):
     sh._msg_entry.binds["<KeyRelease>"][0](None)
     sh._send_c.binds["<Button-1>"][0](None)
     sh.chat_canvas.binds["<Enter>"][0](None)
-    sh.chat_canvas.binds["<Leave>"][0](None)
+    sh.chat_canvas.winfo_containing = lambda x, y: None   # imleç dışarıda
+    sh.chat_canvas.binds["<Leave>"][0](types.SimpleNamespace(x_root=0,
+                                                             y_root=0))
 
     _by_text("😊").binds["<Button-1>"][0](None)
     _by_text("🎭").binds["<Button-1>"][0](None)
@@ -248,6 +250,58 @@ def test_wheel_scroll_is_not_snapped_back_to_bottom(monkeypatch):
     assert len(sh.chat_canvas.after_calls) == 1
     sh._on_msg_frame_configure(ev(-4776, 5700))          # yeni mesaj: büyüdü
     assert len(sh.chat_canvas.after_calls) == 2
+
+
+def _size_ev(height, y=0):
+    return types.SimpleNamespace(x=0, y=y, width=637, height=height)
+
+
+def test_new_content_does_not_pull_reader_down(monkeypatch):
+    # Kanıt: içerik her büyüdüğünde (yeni mesaj, görsel, önizleme) görünüm
+    # koşulsuz en alta iniyordu; yukarıda okuyan kullanıcı alta çekiliyordu.
+    # Takip kararı yalnız KULLANICI kaydırmasıyla değişir (bölge aynıyken);
+    # içerik büyümesi (bölge değişir) kararı değiştirmez.
+    sh, _, _ = _make_shell(monkeypatch)
+    cv = sh.chat_canvas
+    region = {"r": "0 0 637 5625"}
+    cv.cget = lambda key: region["r"]
+    shown = []
+    sh._vsb.set = lambda first, last: shown.append((first, last))
+    assert sh.following                           # başta en alt takip edilir
+    sh._on_msg_frame_configure(_size_ev(5625))
+    assert len(cv.after_calls) == 1
+    sh._on_yscroll("0.849", "1.0")
+    sh._on_yscroll("0.5", "0.65")                 # kullanıcı yukarı kaydırdı
+    assert sh.following is False and shown[-1] == ("0.5", "0.65")
+    region["r"] = "0 0 637 5700"                  # yeni mesaj geldi
+    sh._on_yscroll("0.49", "0.64")
+    sh._on_msg_frame_configure(_size_ev(5700))
+    assert sh.following is False and len(cv.after_calls) == 1
+    sh._on_yscroll("0.85", "1.0")                 # kullanıcı en alta döndü
+    assert sh.following
+    region["r"] = "0 0 637 5800"                  # içerik büyüdü: takip sürer
+    sh._on_yscroll("0.83", "0.98")
+    sh._on_msg_frame_configure(_size_ev(5800))
+    assert sh.following and len(cv.after_calls) == 2
+    sh._on_yscroll("0.1", "0.25")
+    sh.follow_bottom()                            # sohbet açma / gönderme
+    assert sh.following
+
+
+def test_moving_into_message_area_keeps_wheel_active(monkeypatch):
+    # Kanıt (gerçek Tk): tuvalden içindeki mesaj alanına geçmek de <Leave>
+    # (NotifyInferior) üretir; tekerlek kapatılınca kendi bağlaması olmayan
+    # 140 öğe (mesaj alanı, saat/bilgi etiketleri) kaymıyordu.
+    sh, calls, _ = _make_shell(monkeypatch)
+    leave = sh.chat_canvas.binds["<Leave>"][0]
+    ev = types.SimpleNamespace(x_root=5, y_root=6)
+    bubble = _W(_W(sh.msg_frame))
+    sh.chat_canvas.winfo_containing = lambda x, y: bubble
+    leave(ev)
+    assert calls["on_canvas_leave"].calls == []   # hâlâ sohbetin içinde
+    sh.chat_canvas.winfo_containing = lambda x, y: _W()
+    leave(ev)
+    assert len(calls["on_canvas_leave"].calls) == 1
 
 
 def test_shell_has_no_domain_dependencies():

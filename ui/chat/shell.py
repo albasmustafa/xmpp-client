@@ -151,9 +151,14 @@ class ChatShell:
 
         self.chat_canvas = tk.Canvas(chat_area, bg=th["BG_CHAT"],
                                      highlightthickness=0, bd=0)
-        vsb = ttk.Scrollbar(chat_area, orient="vertical",
-                            command=self.chat_canvas.yview)
-        self.chat_canvas.configure(yscrollcommand=vsb.set)
+        vsb = self._vsb = ttk.Scrollbar(chat_area, orient="vertical",
+                                        command=self.chat_canvas.yview)
+        # Takip: kullanıcı en alttayken yeni içerik görünümü alta indirir;
+        # yukarı kaydırınca kapanır, en alta dönünce açılır (_on_yscroll)
+        self.following = True
+        self._scroll_region = None
+        self._msg_frame_size = None
+        self.chat_canvas.configure(yscrollcommand=self._on_yscroll)
         self.chat_canvas.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
 
@@ -164,7 +169,7 @@ class ChatShell:
         self.msg_frame.bind("<Configure>", self._on_msg_frame_configure)
         self.chat_canvas.bind("<Configure>", self._on_canvas_configure)
         self.chat_canvas.bind("<Enter>", self.cb["on_canvas_enter"])
-        self.chat_canvas.bind("<Leave>", self.cb["on_canvas_leave"])
+        self.chat_canvas.bind("<Leave>", self._on_canvas_leave)
 
         # ── Giriş çubuğu ──
         inp_wrap = tk.Frame(panel, bg=th["BG_CARD"])
@@ -325,10 +330,44 @@ class ChatShell:
         # TAŞIR. Yalnız boyut değişince (içerik) alta in; yoksa kaydırma
         # 10 ms sonra geri alınır ve tekerlek çalışmaz.
         size = (event.width, event.height)
-        if size == getattr(self, "_msg_frame_size", None):
+        if size == self._msg_frame_size:
             return
         self._msg_frame_size = size
-        self.chat_canvas.after(10, lambda: self.chat_canvas.yview_moveto(1.0))
+        if self.following:          # yukarıda okuyan kullanıcı çekilmez
+            self.chat_canvas.after(10,
+                                   lambda: self.chat_canvas.yview_moveto(1.0))
+
+    def _on_yscroll(self, first, last):
+        """Kaydırma çubuğu + takip kararı. Bölge aynıyken görünüm değiştiyse
+        kaydıran kullanıcıdır (ya da bilinçli bir moveto): en alttaysa takip
+        sürer. Bölge değiştiyse içerik büyümüştür; karar değişmez."""
+        self._vsb.set(first, last)
+        region = self.chat_canvas.cget("scrollregion")
+        if region == self._scroll_region:
+            self.following = float(last) >= 0.999
+        else:
+            self._scroll_region = region
+
+    def follow_bottom(self):
+        """Takibi aç (sohbet açma, gönderme, "↓ En yeni")."""
+        self.following = True
+
+    def _on_canvas_leave(self, event):
+        # Tuvalden içindeki mesaj alanına geçmek de <Leave> verir (X:
+        # NotifyInferior); imleç hâlâ sohbetteyse tekerlek açık kalır
+        if not self._pointer_in_chat(event):
+            self.cb["on_canvas_leave"](event)
+
+    def _pointer_in_chat(self, event) -> bool:
+        try:
+            w = self.chat_canvas.winfo_containing(event.x_root, event.y_root)
+        except Exception:           # Tk'nın kendi pencereleri (menü vb.)
+            return False
+        while w is not None:
+            if w is self.chat_canvas:
+                return True
+            w = getattr(w, "master", None)
+        return False
 
     def _on_canvas_configure(self, event):
         self.chat_canvas.itemconfig(self._canvas_win, width=event.width)

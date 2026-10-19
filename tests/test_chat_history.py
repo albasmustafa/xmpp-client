@@ -182,6 +182,33 @@ def test_activate_deactivate_scroll():
     assert set(root.unbound) == {"<MouseWheel>", "<Button-4>", "<Button-5>"}
 
 
+def test_scroll_bottom_leaves_reader_alone_unless_forced(monkeypatch):
+    w = object.__new__(xmpp.MainWindow)
+    w.chat_canvas = _Canvas()
+    calls = []
+    monkeypatch.setattr(xmpp._history_ui, "scroll_bottom",
+                        lambda c: calls.append(c))
+    shell = types.SimpleNamespace(following=False)
+    shell.follow_bottom = lambda: setattr(shell, "following", True)
+    w._chat_shell = shell
+    xmpp.MainWindow._scroll_bottom(w)         # yukarıda okuyor: çekilmez
+    assert calls == []
+    xmpp.MainWindow._scroll_bottom(w, force=True)
+    assert calls == [w.chat_canvas] and shell.following
+
+
+def test_open_send_and_latest_always_go_to_bottom():
+    for method in (xmpp.MainWindow._load_chat, xmpp.MainWindow._send_message,
+                   xmpp.MainWindow._show_sent_voice,
+                   xmpp.MainWindow._forward_to):
+        assert "self._follow_chat_bottom()" in inspect.getsource(method), \
+            method.__name__
+    for method in (xmpp.MainWindow._on_history_latest,
+                   xmpp.MainWindow._adjust_history_window_for_mam):
+        assert "self._scroll_bottom(force=True)" in inspect.getsource(
+            method), method.__name__
+
+
 # ── 9-10) MainWindow delegators + _clear_chat ───────────────────────────────
 def test_mainwindow_scroll_delegators(monkeypatch):
     w = object.__new__(xmpp.MainWindow)

@@ -3636,8 +3636,21 @@ class MainWindow:
             w, self._on_scroll,
             lambda d: self.chat_canvas.yview_scroll(d, "units"))
 
-    def _scroll_bottom(self):
+    def _scroll_bottom(self, force=False):
+        """En alta in. Kullanıcı yukarıda okuyorsa (takip kapalı) yeni içerik
+        onu çekmez; `force`: sohbet açma, gönderme, "↓ En yeni"."""
+        if force:
+            self._follow_chat_bottom()
+        elif not getattr(getattr(self, "_chat_shell", None), "following",
+                         True):
+            return
         _history_ui.scroll_bottom(self.chat_canvas)
+
+    def _follow_chat_bottom(self):
+        follow = getattr(getattr(self, "_chat_shell", None), "follow_bottom",
+                         None)
+        if follow is not None:
+            follow()
 
     def _clear_chat(self):
         """Görünümü temizle (domain history'ye dokunmaz)."""
@@ -4486,6 +4499,7 @@ class MainWindow:
                     encrypted=encrypted, mid=mid)
         if self.active == to:
             # [2F] Canlı teslim: append / rebase / defer
+            self._follow_chat_bottom()
             self._deliver_live(to, lambda: self._append(
                 text, "me", sender="Ben", is_me=True, encrypted=encrypted,
                 mid=mid))
@@ -7537,6 +7551,7 @@ class MainWindow:
         self._store(target, "🎤 Ses mesajı", tag="me", sender="Ben", is_me=True)
         if target != self.active:
             return  # işlem sırasında başka sohbete geçildi; kayıt yeterli
+        self._follow_chat_bottom()              # gönderilen ses görünsün
         row, bubble = _audio_ui.sent_voice_bubble(self.msg_frame,
                                                   _chat_theme())
         self._show_voice_waveform(bubble, wav_path, BG_ME)
@@ -7820,6 +7835,8 @@ class MainWindow:
         self._chat_shell.show_chat()
         # [2F] Pencere durumu: her JID kendi görünüm modunu saklar (L)
         self._ensure_history_state()
+        if self._history_view_mode.get(target, "latest") != "history":
+            self._follow_chat_bottom()          # açılış: en yeni mesaj
         # Tarih ayırıcı durumu yeni sohbet render'ından ÖNCE sıfırlanmalı
         self._last_date_label = ""
         history = self.chats.get(target, [])
@@ -8095,7 +8112,7 @@ class MainWindow:
         self._render_bounded(
             target,
             max(0, len(self.chats.get(target, [])) - self._HISTORY_WINDOW_SIZE))
-        self._scroll_bottom()
+        self._scroll_bottom(force=True)
 
     def _adjust_history_window_for_mam(self, jid: str, added: int,
                                        intent: str | None):
@@ -8116,7 +8133,7 @@ class MainWindow:
                 0, len(self.chats.get(jid, [])) - self._HISTORY_WINDOW_SIZE)
             if self.active == jid:
                 self._render_bounded(jid, self._history_start[jid])
-                self._scroll_bottom()
+                self._scroll_bottom(force=True)
             return
         if intent == "older" and self.active == jid:
             self._history_view_mode[jid] = "history"
@@ -8548,6 +8565,7 @@ class MainWindow:
             if uid:
                 self._record_ttl_deadline(self.active, uid, ttl)
         # [2F] Canlı teslim: append / rebase / defer (E/F)
+        self._follow_chat_bottom()              # gönderilen mesaj görünsün
         live_action = self._deliver_live(self.active, lambda: self._append(
             body, "me", sender="Ben", is_me=True, time_str=ts,
             encrypted=is_encrypted, mid=mid, reply_to=reply))
