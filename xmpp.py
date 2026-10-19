@@ -4732,8 +4732,9 @@ class MainWindow:
     # — Akışlı, takip sorulu AI pencereleri —
     def _ai_open_window(self, title, subtitle, conv, *, on_ask=None,
                         actions=(), ask_hint="Takip sorusu sorun…",
-                        ask_ready=False):
-        """Sonuç penceresi + iptal olayı. Kapanış süren akışı keser."""
+                        ask_ready=False, inline=False):
+        """Sonuç penceresi + iptal olayı. Kapanış süren akışı keser.
+        `inline`: asistan açıksa sonuç onun içinde kart olarak akar."""
         cancel = threading.Event()
         win = None
 
@@ -4742,10 +4743,36 @@ class MainWindow:
                 on_ask(question)
             else:
                 self._ai_followup(win, conv, question, cancel)
-        win = _ui_ai.ResultWindow(self.root, title, subtitle, actions,
-                                  on_ask=_ask, on_close=cancel.set,
-                                  ask_hint=ask_hint, ask_ready=ask_ready)
+        assistant = self._ai_inline_target() if inline else None
+        if assistant is not None:
+            win = assistant.add_result(title, subtitle, actions=actions,
+                                       on_ask=_ask, on_close=cancel.set,
+                                       ask_hint=ask_hint, ask_ready=ask_ready)
+        else:
+            win = _ui_ai.ResultWindow(self.root, title, subtitle, actions,
+                                      on_ask=_ask, on_close=cancel.set,
+                                      ask_hint=ask_hint, ask_ready=ask_ready)
         return win, cancel
+
+    def _ai_inline_target(self):
+        """Sonuçları içinde gösterebilecek açık asistan penceresi ya da None."""
+        win = getattr(self, "_ai_assistant_win", None)
+        return win if win is not None and win.alive() else None
+
+    def _ai_result_window(self, title, subtitle, inline=False):
+        """Takip sorusuz sonuç: asistan kartı (inline) ya da ayrı pencere."""
+        assistant = self._ai_inline_target() if inline else None
+        if assistant is not None:
+            return assistant.add_result(title, subtitle)
+        return _ui_ai.ResultWindow(self.root, title, subtitle)
+
+    def _ai_notice(self, title, text, inline=False):
+        """Bilgi mesajı: asistan yanıtı (inline) ya da bilgi kutusu."""
+        assistant = self._ai_inline_target() if inline else None
+        if assistant is not None:
+            self._ai_agent_reply(assistant, text)
+        else:
+            messagebox.showinfo(title, text, parent=self.root)
 
     def _ai_turn(self, win, conv, settings, user_text, allow, cancel, *,
                  images=None, sensitive=None, history_text=None,
@@ -5227,7 +5254,7 @@ class MainWindow:
         self._ai_submit(job, done, lambda e: win.set_error(str(e)))
 
     # — Sohbet özeti ve yanıt önerisi —
-    def _ai_summarize(self, jid=None, unread_only=False):
+    def _ai_summarize(self, jid=None, unread_only=False, inline=False):
         jid = jid or self.active
         if not jid:
             return
@@ -5246,8 +5273,7 @@ class MainWindow:
         transcript, count = _ai.build_transcript(
             entries, max_chars=_ai.transcript_budget(settings))
         if not count:
-            messagebox.showinfo("Özet", "Özetlenecek mesaj yok.",
-                                parent=self.root)
+            self._ai_notice("Özet", "Özetlenecek mesaj yok.", inline)
             return
         short = jid.split("@")[0]
         title = (f"📝 {short} — okunmamış {unread} mesajın özeti" if unread
@@ -5258,18 +5284,19 @@ class MainWindow:
                                 effort="medium", sensitive=sensitive)
         win, cancel = self._ai_open_window(
             title, f"{_ai.provider_label(settings)} · son {count} mesaj", conv,
-            ask_hint="Örn: Benden ne isteniyor? Saat kaçta buluşuyoruz?")
+            ask_hint="Örn: Benden ne isteniyor? Saat kaçta buluşuyoruz?",
+            inline=inline)
         self._ai_turn(win, conv, settings, user, allow, cancel)
 
     # — "Neler kaçırdım?" (tüm okunmamış sohbetler) —
-    def _ai_digest(self):
+    def _ai_digest(self, inline=False):
         counts = {j: n for j, n in
                   (getattr(self, "_unread_counts", None) or {}).items()
                   if n > 0}
         if not counts:
-            messagebox.showinfo("Neler kaçırdım?",
-                                "Okunmamış mesaj yok — her şey okunmuş. 🎉",
-                                parent=self.root)
+            self._ai_notice("Neler kaçırdım?",
+                            "Okunmamış mesaj yok — her şey okunmuş. 🎉",
+                            inline)
             return
         settings = self._ai_settings()
         chats = []          # (jid, etiket, girişler, okunmamış, şifreli mi)
@@ -5288,9 +5315,9 @@ class MainWindow:
             [(label, part, n) for _j, label, part, n, _s in chats],
             _ai.transcript_budget(settings))
         if not included:
-            messagebox.showinfo("Neler kaçırdım?",
-                                "Okunmamışlar arasında özetlenecek metin "
-                                "mesajı yok.", parent=self.root)
+            self._ai_notice("Neler kaçırdım?",
+                            "Okunmamışlar arasında özetlenecek metin "
+                            "mesajı yok.", inline)
             return
         shown = [chats[i] for i in included]
         lang = settings["target_language"]
@@ -5304,7 +5331,7 @@ class MainWindow:
             "📥 Neler kaçırdım?",
             f"{_ai.provider_label(settings)} · {len(shown)} sohbet, "
             f"{total} okunmamış mesaj", conv,
-            ask_hint="Örn: Bana kim soru sordu?")
+            ask_hint="Örn: Bana kim soru sordu?", inline=inline)
         win.set_sources([(f"💬 {c[1]} ({c[3]})", c[0]) for c in shown],
                         self._ai_open_chat, title="Sohbete git")
         self._ai_turn(win, conv, settings, user, allow, cancel)
@@ -5510,8 +5537,9 @@ class MainWindow:
         """Onaylı eylemde kart açar, diğerlerini hemen yürütür."""
         if plan["action"] not in _agent.CONFIRM_ACTIONS:
             msg, ok = self._ai_agent_execute(plan, jid)
-            win.add_note(msg, error=not ok)
-            return (msg, ok)
+            if msg:
+                win.add_note(msg, error=not ok)
+            return (msg or "✓ Seçildi", ok)
         label = self._ai_chat_label(jid) if jid else ""
         if plan["action"] == "join_room":
             try:
@@ -5559,16 +5587,24 @@ class MainWindow:
             label, color = self._ai_status_option(plan["status"])
             self._set_status(label, plan["status"], color)
             return (f"✓ Durum: {label}", True)
-        openers = {
-            "summarize_chat": lambda: self._ai_summarize(jid),
+        inline = {          # sonuç asistanın içinde kart olarak akar
+            "summarize_chat": lambda: self._ai_summarize(jid, inline=True),
             "summarize_unread": lambda: self._ai_summarize(
-                jid, unread_only=True),
+                jid, unread_only=True, inline=True),
+            "suggest_replies": lambda: self._ai_suggest_replies(
+                jid, inline=True),
+            "missed": lambda: self._ai_digest(inline=True),
+            "pending_questions": lambda: self._ai_pending_questions(
+                inline=True),
+            "ask_history": lambda: self._ai_ask_history(plan["text"],
+                                                        inline=True),
+        }
+        if action in inline:
+            inline[action]()
+            return ("", True)
+        openers = {         # düzenlenebilir listeler kendi penceresinde
             "extract_tasks": lambda: self._ai_extract_actions(jid),
-            "suggest_replies": lambda: self._ai_suggest_replies(jid),
-            "missed": self._ai_digest,
-            "pending_questions": self._ai_pending_questions,
             "drafts": self._ai_drafts_window,
-            "ask_history": lambda: self._ai_ask_history(plan["text"]),
         }
         if action in openers:
             openers[action]()
@@ -6047,20 +6083,33 @@ class MainWindow:
         self._ai_submit(job, on_done, on_error or (
             lambda e: _log.warning("Soru taraması başarısız: %s", e)))
 
-    def _ai_pending_questions(self):
-        win = _ui_ai.PendingQuestionsWindow(
-            self.root, on_open=lambda e: self._ai_open_chat(e["jid"]),
-            on_remind=self._questions_remind,
-            on_dismiss=self._questions_dismiss)
-
-        def done(entries):
+    def _ai_pending_questions(self, inline=False):
+        def view(entries):
             now = datetime.now()
-            win.set_entries([
-                dict(e, label=self._ai_chat_label(e["jid"]),
-                     age=_questions.format_age(e["since"], now))
-                for e in entries])
+            return [dict(e, label=self._ai_chat_label(e["jid"]),
+                         age=_questions.format_age(e["since"], now))
+                    for e in entries]
 
-        self._questions_scan(done, lambda e: win.set_error(str(e)))
+        def on_open(entry):
+            self._ai_open_chat(entry["jid"])
+
+        assistant = self._ai_inline_target() if inline else None
+        if assistant is not None:
+            res = assistant.add_result(
+                "❓ Yanıt bekleyen sorular", "Tespit bu bilgisayarda "
+                "yapılır; hiçbir içerik dışarı gönderilmez.")
+            res.set_busy("Taranıyor…")
+            self._questions_scan(
+                lambda entries: res.set_questions(
+                    view(entries), on_open, self._questions_remind,
+                    self._questions_dismiss),
+                lambda e: res.set_error(str(e)))
+            return
+        win = _ui_ai.PendingQuestionsWindow(
+            self.root, on_open=on_open, on_remind=self._questions_remind,
+            on_dismiss=self._questions_dismiss)
+        self._questions_scan(lambda entries: win.set_entries(view(entries)),
+                             lambda e: win.set_error(str(e)))
 
     def _questions_remind(self, entry):
         item = _questions.reminder_item(entry, entry["label"],
@@ -6247,7 +6296,7 @@ class MainWindow:
             except Exception:
                 pass
 
-    def _ai_suggest_replies(self, jid=None):
+    def _ai_suggest_replies(self, jid=None, inline=False):
         jid = jid or self.active
         if not jid:
             return
@@ -6260,11 +6309,13 @@ class MainWindow:
         transcript, count = _ai.build_transcript(
             entries, max_chars=min(8000, _ai.transcript_budget(settings)))
         if not count:
-            messagebox.showinfo("Yanıt Öner", "Bu sohbette henüz mesaj yok.",
-                                parent=self.root)
+            self._ai_notice("Yanıt Öner", "Bu sohbette henüz mesaj yok.",
+                            inline)
             return
-        win = _ui_ai.ResultWindow(self.root, "💡 Yanıt önerileri",
-                                  _ai.provider_label(settings))
+        subtitle = _ai.provider_label(settings)
+        if inline:
+            subtitle = f"{self._ai_chat_label(jid)} · {subtitle}"
+        win = self._ai_result_window("💡 Yanıt önerileri", subtitle, inline)
         system, user = _ai.suggest_request(transcript)
 
         def _done(text):
@@ -6544,7 +6595,7 @@ class MainWindow:
             self._flash_row(row)
 
     # — Geçmişe sor (RAG): yerel gömme ile bul, modelle kaynaklı yanıtla —
-    def _ai_ask_history(self, question=None):
+    def _ai_ask_history(self, question=None, inline=False):
         settings = self._ai_settings()
         if settings["provider"] == _ai.PROVIDER_OFF:
             self._ai_gate(settings, False)
@@ -6559,11 +6610,14 @@ class MainWindow:
             f"{_ai.provider_label(settings)} · arama yerel "
             f"({settings['embed_model']})", conv,
             on_ask=lambda q: self._ai_rag_turn(win, conv, q, cancel, state),
-            ask_hint="Örn: Ali'nin verdiği adres neydi?", ask_ready=True)
+            ask_hint="Örn: Ali'nin verdiği adres neydi?", ask_ready=True,
+            inline=inline)
         win.set_status("Sorunuzu aşağıya yazın: ilgili mesajlar bu "
                        "bilgisayarda bulunur, yanıt kaynaklarıyla gelir.")
         win.focus_ask()
         if question:                    # asistandan gelen soru hemen sorulur
+            if isinstance(win, _ui_ai.InlineResult):
+                win.skip_next_echo()    # soru komut balonunda zaten görünür
             self._ai_rag_turn(win, conv, question, cancel, state)
 
     def _ai_rag_turn(self, win, conv, question, cancel, state):

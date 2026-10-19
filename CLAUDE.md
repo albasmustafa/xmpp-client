@@ -134,7 +134,13 @@ gerçekten çalıştır.
   yollar:** tam eşleşen sık komutlar (`quick_intent`, "Geçmişe sor: …" öneki dahil) ve
   üstteki hızlı eylem düğmeleri (`quick_actions` → `_ai_agent_quick`) plan için modele
   gitmez; `_ai_assistant_refresh` düğmeleri bağlam/okunmamış/taslak sayısıyla tazeler
-  (`_load_chat` çağırır).
+  (`_load_chat` çağırır). **Sonuçlar asistanın içinde:** asistandan istenen özet,
+  neler kaçırdım, yanıt önerisi, bekleyen sorular ve geçmişe sor `inline=True` ile
+  `InlineResult` kartına akar (`_ai_open_window`/`_ai_result_window`/`_ai_notice`;
+  asistan kapalıysa eski pencereler). Kart ResultWindow arayüzünü taşır; takip sorusu
+  asistanın giriş kutusundan gelir (`set_followup`, Esc/✗ komut kipi). Asistan kapanınca
+  ya da "Temizle"de kartların akışı iptal edilir. Görev çıkarma ve taslaklar düzenlenebilir
+  liste olduğundan kendi penceresinde kalır. Testler: `tests/test_ai_assistant_inline.py`.
 - **Yanıt taslakları** (`_ai_drafts`, Ctrl+Shift+R): uzaktayken (`_is_idle` ya da elle
   away/xa) gelen 1:1 mesajlara gecikmeli yanıt önerisi + harici (MCP/REST `/api/draft`)
   taslaklar. Asla gönderilmez; şifreli+bulut+izinsiz → "onay bekliyor" (arka planda soru yok).

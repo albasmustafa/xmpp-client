@@ -280,23 +280,33 @@ def test_unknown_target_and_missing_field(aw):
     assert win.cards == []
 
 
-@pytest.mark.parametrize("plan,method,args", [
+INLINE = {"inline": True}
+
+
+@pytest.mark.parametrize("plan,method,args,kwargs", [
     (_plan(action="open_chat", target="Işıl"), "_ai_open_chat",
-     ("isil@x.org",)),
+     ("isil@x.org",), {}),
     (_plan(action="summarize_chat", target="ayse"), "_ai_summarize",
-     ("ayse@x.org",)),
+     ("ayse@x.org",), INLINE),
+    (_plan(action="summarize_unread", target="ayse"), "_ai_summarize",
+     ("ayse@x.org",), dict(INLINE, unread_only=True)),
+    (_plan(action="suggest_replies", target="ayse"), "_ai_suggest_replies",
+     ("ayse@x.org",), INLINE),
     (_plan(action="extract_tasks", target="proje"), "_ai_extract_actions",
-     ("proje@conf.x.org",)),
-    (_plan(action="missed"), "_ai_digest", ()),
-    (_plan(action="pending_questions"), "_ai_pending_questions", ()),
+     ("proje@conf.x.org",), {}),
+    (_plan(action="missed"), "_ai_digest", (), INLINE),
+    (_plan(action="pending_questions"), "_ai_pending_questions", (), INLINE),
+    (_plan(action="drafts"), "_ai_drafts_window", (), {}),
     (_plan(action="ask_history", text="Adres neydi?"), "_ai_ask_history",
-     ("Adres neydi?",)),
+     ("Adres neydi?",), INLINE),
 ])
-def test_safe_actions_run_immediately(aw, plan, method, args):
+def test_safe_actions_run_immediately(aw, plan, method, args, kwargs):
     setattr(aw, method, _Cap())
     win = _say(aw, "komut", plan)
-    assert getattr(aw, method).calls == [(args, {})]
-    assert win.events[-1][0] == "note" and win.cards == []
+    assert getattr(aw, method).calls == [(args, kwargs)]
+    assert win.cards == []
+    # Sonucu asistanın içinde açılanlar ayrıca "pencere açıldı" notu düşmez
+    assert (win.events[-1][0] == "note") is not kwargs.get("inline", False)
 
 
 def test_remind_confirm_uses_reminder_path(aw):
@@ -559,7 +569,7 @@ def test_open_chat_is_the_default_target(aw, target):
     aw._ai_summarize = _Cap()
     _say(aw, "bunu özetler misin", _plan(action="summarize_chat",
                                          target=target))
-    assert aw._ai_summarize.calls == [(("ayse@x.org",), {})]
+    assert aw._ai_summarize.calls == [(("ayse@x.org",), INLINE)]
     system = aw.calls[0][0]
     assert "A chat is open" in system and "Ayşe" not in system
 
@@ -569,7 +579,7 @@ def test_named_target_still_wins_over_open_chat(aw):
     aw._ai_summarize = _Cap()
     _say(aw, "Işıl ile sohbeti özetle", _plan(action="summarize_chat",
                                               target="Işıl"))
-    assert aw._ai_summarize.calls == [(("isil@x.org",), {})]
+    assert aw._ai_summarize.calls == [(("isil@x.org",), INLINE)]
 
 
 def test_without_open_chat_target_is_asked(aw):
@@ -580,13 +590,14 @@ def test_without_open_chat_target_is_asked(aw):
 
 
 @pytest.mark.parametrize("text,method,args,kwargs", [
-    ("Neler kaçırdım?", "_ai_digest", (), {}),
-    ("özetle", "_ai_summarize", ("ayse@x.org",), {}),
+    ("Neler kaçırdım?", "_ai_digest", (), INLINE),
+    ("özetle", "_ai_summarize", ("ayse@x.org",), INLINE),
     ("okunmamışları özetle", "_ai_summarize", ("ayse@x.org",),
-     {"unread_only": True}),
-    ("yanıt öner", "_ai_suggest_replies", ("ayse@x.org",), {}),
+     dict(INLINE, unread_only=True)),
+    ("yanıt öner", "_ai_suggest_replies", ("ayse@x.org",), INLINE),
     ("taslaklar", "_ai_drafts_window", (), {}),
-    ("Geçmişe sor: adres neydi?", "_ai_ask_history", ("adres neydi?",), {}),
+    ("Geçmişe sor: adres neydi?", "_ai_ask_history", ("adres neydi?",),
+     INLINE),
 ])
 def test_quick_commands_skip_the_model(aw, text, method, args, kwargs):
     aw.active = "ayse@x.org"
@@ -609,7 +620,7 @@ def test_quick_button_runs_without_model_and_history_prefills(aw):
     assert aw.calls == [] and win.events[0] == (
         "user", "📝 Okunmamışları özetle (3)")
     assert aw._ai_summarize.calls == [(("ayse@x.org",),
-                                       {"unread_only": True})]
+                                       dict(INLINE, unread_only=True))]
     xmpp.MainWindow._ai_agent_quick(aw, "ask_history", "💬 Geçmişe sor…")
     assert win.events[-1] == ("prefill", agent.HISTORY_PREFIX)
 

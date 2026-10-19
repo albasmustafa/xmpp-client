@@ -667,6 +667,38 @@ class ActionsWindow:
         self.set_status("📋 Panoya kopyalandı")
 
 
+def question_card(parent, entry, *, on_open, on_remind, on_dismiss,
+                  wraplength=500):
+    """Yanıt bekleyen soru kartı (pencere ve asistan içi ortak görünüm).
+    Düğme callback'leri argümansızdır; kart çerçevesini döndürür."""
+    A = _app()
+    card = tk.Frame(parent, bg=A.BG_CARD, padx=10, pady=8)
+    card.pack(fill="x", padx=6, pady=4)
+    meta = [entry["label"], entry["age"]]
+    if entry.get("count", 1) > 1:
+        meta.append(f"{entry['count']} soru")
+    tk.Label(card, text=("🔒 " if entry.get("encrypted") else "👤 ")
+             + "  ·  ".join(meta), font=(A.FONT, 9, "bold"),
+             fg=A.ACCENT, bg=A.BG_CARD, anchor="w").pack(fill="x")
+    tk.Label(card, text=entry["text"], font=(A.FONT, 10), fg=A.FG,
+             bg=A.BG_CARD, anchor="w", justify="left",
+             wraplength=wraplength).pack(fill="x", pady=(2, 4))
+    row = tk.Frame(card, bg=A.BG_CARD)
+    row.pack(fill="x")
+    _link_button(row, "💬 Sohbete git", on_open, bg=A.BG_CARD
+                 ).pack(side="left")
+    _link_button(row, "⏰ Yarın 09:00 hatırlat", on_remind, bg=A.BG_CARD
+                 ).pack(side="left")
+    _link_button(row, "✓ Yok say", on_dismiss, fg=A.FG_DIM, bg=A.BG_CARD
+                 ).pack(side="right")
+    return card
+
+
+def questions_status(n) -> str:
+    return (f"{n} sohbette yanıt bekleyen soru var." if n else
+            "Yanıt bekleyen soru yok. 🎉")
+
+
 class PendingQuestionsWindow:
     """Yanıt bekleyen sorular: sohbet başına bir kart.
 
@@ -766,33 +798,13 @@ class PendingQuestionsWindow:
         self._show_count()
 
     def _show_count(self):
-        n = len(self._cards)
-        self.set_status(f"{n} sohbette yanıt bekleyen soru var." if n else
-                        "Yanıt bekleyen soru yok. 🎉")
+        self.set_status(questions_status(len(self._cards)))
 
     def _add_card(self, entry):
-        A = _app()
-        card = tk.Frame(self._list, bg=A.BG_CARD, padx=10, pady=8)
-        card.pack(fill="x", padx=6, pady=4)
-        meta = [entry["label"], entry["age"]]
-        if entry.get("count", 1) > 1:
-            meta.append(f"{entry['count']} soru")
-        tk.Label(card, text=("🔒 " if entry.get("encrypted") else "👤 ")
-                 + "  ·  ".join(meta), font=(A.FONT, 9, "bold"),
-                 fg=A.ACCENT, bg=A.BG_CARD, anchor="w").pack(fill="x")
-        tk.Label(card, text=entry["text"], font=(A.FONT, 10), fg=A.FG,
-                 bg=A.BG_CARD, anchor="w", justify="left",
-                 wraplength=500).pack(fill="x", pady=(2, 4))
-        row = tk.Frame(card, bg=A.BG_CARD)
-        row.pack(fill="x")
-        _link_button(row, "💬 Sohbete git",
-                     lambda: self._on_open(entry), bg=A.BG_CARD
-                     ).pack(side="left")
-        _link_button(row, "⏰ Yarın 09:00 hatırlat",
-                     lambda: self._remind(entry), bg=A.BG_CARD
-                     ).pack(side="left")
-        _link_button(row, "✓ Yok say", lambda: self._dismiss(entry),
-                     fg=A.FG_DIM, bg=A.BG_CARD).pack(side="right")
+        card = question_card(
+            self._list, entry, on_open=lambda: self._on_open(entry),
+            on_remind=lambda: self._remind(entry),
+            on_dismiss=lambda: self._dismiss(entry))
         self._bind_wheel(card)
         self._cards[entry["key"]] = card
 
@@ -853,6 +865,12 @@ class _ScrollList:
         except Exception:
             pass
 
+    def at_end(self) -> bool:
+        try:
+            return self.canvas.yview()[1] >= 0.999
+        except Exception:
+            return True
+
     def clear(self):
         for child in self.inner.winfo_children():
             child.destroy()
@@ -877,6 +895,317 @@ class _Card:
         self._result.config(text=message, fg=A.ACCENT_G if ok else A.RED)
 
 
+class InlineResult:
+    """Asistan içinde AI sonucu: ResultWindow ile aynı arayüz (akış, takip
+    sorusu, kaynaklar, öneriler) + yanıt bekleyen soru kartları.
+
+    İlk yanıt kartın gövdesine yazılır; takip soruları ve yanıtları kartın
+    altına sohbet balonu olarak eklenir. Takip sorusu asistanın giriş
+    kutusundan gelir: "↩ Takip sorusu" (ya da `focus_ask`) kutuyu bu karta
+    bağlar (`AssistantWindow.set_followup`). Kart "Temizle" ya da pencere
+    kapanınca ölür; `on_close` bir kez çağrılır (MainWindow akışı keser).
+    """
+
+    WRAP = 460
+
+    def __init__(self, owner, title, subtitle="", *, on_ask=None,
+                 on_close=None, ask_hint="Takip sorusu sorun…",
+                 ask_ready=False, actions=()):
+        A = _app()
+        self._owner = owner
+        self.title = title
+        self.ask_hint = ask_hint
+        self._on_ask = on_ask
+        self._on_close = on_close
+        self._ask_ready = bool(ask_ready)
+        self._ask_enabled = self._on_ask is not None and self._ask_ready
+        self._text_value = ""        # son kesin yanıt (eylemler bununla)
+        self._log = []               # kopyalama: [(soru | None, yanıt)]
+        self._stream = ""            # akışla gelen, kesinleşmemiş metin
+        self._partial = False
+        self._pending_q = None
+        self._skip_echo = False
+        self._q_bubble = self._a_bubble = self._a_label = None
+        self._turns = 0
+        self._sources = None
+        self.frame = frame = tk.Frame(owner._list.inner, bg=A.BORDER,
+                                      padx=1, pady=1)
+        frame.pack(fill="x", padx=8, pady=6)
+        card = tk.Frame(frame, bg=A.BG_CARD, padx=12, pady=10)
+        card.pack(fill="x")
+        tk.Label(card, text=title, font=(A.FONT, 10, "bold"), fg=A.FG,
+                 bg=A.BG_CARD, anchor="w", justify="left",
+                 wraplength=self.WRAP).pack(fill="x")
+        if subtitle:
+            tk.Label(card, text=subtitle, font=(A.FONT, 8), fg=A.FG_DIM,
+                     bg=A.BG_CARD, anchor="w", justify="left",
+                     wraplength=self.WRAP).pack(fill="x")
+        self._status = tk.Label(card, text="⏳ Hazırlanıyor…",
+                                font=(A.FONT, 8), fg=A.ACCENT, bg=A.BG_CARD,
+                                anchor="w", justify="left",
+                                wraplength=self.WRAP)
+        self._status.pack(fill="x", pady=(2, 0))
+        self._body = tk.Label(card, text="", font=(A.FONT, 10), fg=A.FG,
+                              bg=A.BG_CARD, anchor="w", justify="left",
+                              wraplength=self.WRAP)
+        self._body.pack(fill="x", pady=(4, 0))
+        self._extra = tk.Frame(card, bg=A.BG_CARD)   # öneriler / sorular
+        self._extra.pack(fill="x")
+        row = tk.Frame(card, bg=A.BG_CARD)
+        row.pack(fill="x", pady=(6, 0))
+        _link_button(row, "📋 Kopyala", self._copy,
+                     bg=A.BG_CARD).pack(side="left")
+        for label, fn in actions:
+            _link_button(row, label,
+                         lambda f=fn: f(self._text_value)
+                         if self._text_value else None,
+                         bg=A.BG_CARD).pack(side="left")
+        self._ask_btn = None
+        if on_ask is not None:
+            self._ask_btn = _link_button(row, "↩ Takip sorusu",
+                                         self.focus_ask, bg=A.BG_CARD)
+            if self._ask_ready:
+                self._ask_btn.pack(side="left")
+
+    # ── durum ───────────────────────────────────────────────────────────────
+    def alive(self) -> bool:
+        return self._owner.alive() and _alive(self.frame)
+
+    def close(self):
+        """Akışı kes (kart görünür kalır)."""
+        self._notify_close()
+
+    def _notify_close(self):
+        cb, self._on_close = self._on_close, None
+        if cb is not None:
+            cb()
+
+    def set_busy(self, message):
+        if not self.alive():
+            return
+        A = _app()
+        self._status.config(text=f"⏳ {message}", fg=A.ACCENT)
+        if self._pending_q is not None and not self._partial:
+            self._a_label.config(text=f"⏳ {message}")
+
+    def set_status(self, message, error=False):
+        if self.alive():
+            A = _app()
+            self._status.config(text=message, fg=A.RED if error else A.ACCENT)
+
+    def _finish(self, text, status):
+        A = _app()
+        self._text_value = text
+        self._stream = ""
+        self._partial = False
+        self._pending_q = None
+        self._q_bubble = self._a_bubble = self._a_label = None
+        self._turns += 1
+        self._status.config(text=status or "✓ Hazır", fg=A.ACCENT_G)
+        self._ask_enabled = self._on_ask is not None
+        if self._ask_btn is not None:
+            self._ask_btn.pack(side="left")
+        self._owner._finish()
+
+    # ── yanıt metni ─────────────────────────────────────────────────────────
+    def set_text(self, text, status=""):
+        """İlk yanıtın kesin metni (kart gövdesi)."""
+        if not self.alive():
+            return
+        self._body.config(text=text)
+        self._log = [(None, text)]
+        self._turns = 0
+        self._finish(text, status)
+
+    def append_text(self, chunk):
+        if not self.alive() or not chunk:
+            return
+        self._stream += chunk
+        target = self._a_label if self._pending_q is not None else self._body
+        target.config(text=self._stream)
+        if not self._partial:
+            self._partial = True
+            A = _app()
+            self._status.config(text="✍ Yazılıyor…", fg=A.ACCENT)
+        scroller = self._owner._list
+        if scroller.at_end():           # okumak için yukarı kaydırdıysa bırak
+            scroller.scroll_end()
+
+    def skip_next_echo(self):
+        """Sıradaki takip sorusu balon olarak yinelenmesin (soru zaten
+        asistanın komut balonunda görünüyor)."""
+        self._skip_echo = True
+
+    def begin_question(self, question):
+        if not self.alive():
+            return
+        A = _app()
+        owner = self._owner
+        owner._clear_entry()
+        self._q_bubble = None
+        if not self._skip_echo:
+            self._q_bubble = owner._bubble(question, mine=True)[0]
+        self._skip_echo = False
+        self._a_bubble, _b, self._a_label = owner._bubble("…", mine=False)
+        self._sources = None             # önceki turun kaynakları yerinde kalır
+        self._pending_q = question
+        self._partial = False
+        self._stream = ""
+        self._ask_enabled = False
+        self._status.config(text="⏳ Yanıt hazırlanıyor…", fg=A.ACCENT)
+        owner._finish()
+
+    def set_answer(self, text, status=""):
+        if not self.alive():
+            return
+        if self._pending_q is not None:
+            self._a_label.config(text=text)
+            self._log.append((self._pending_q, text))
+        else:
+            self._body.config(text=text)
+            self._log = [(None, text)]
+        self._finish(text, status)
+
+    def set_error(self, message):
+        if not self.alive():
+            return
+        A = _app()
+        question = self._pending_q
+        if question is not None:
+            # Yanıtlanamayan soru iz bırakmaz; yeniden sormak için kutuya döner
+            for widget in (self._q_bubble, self._a_bubble):
+                if widget is not None:
+                    widget.destroy()
+            self._owner._restore_entry(question)
+        elif self._partial:
+            self._body.config(text="")   # kısmi yanıt geçerli sayılmaz
+        self._pending_q = None
+        self._partial = False
+        self._stream = ""
+        self._q_bubble = self._a_bubble = self._a_label = None
+        self._status.config(text=f"⚠ {message}", fg=A.RED)
+        self._ask_enabled = self._on_ask is not None and (
+            self._turns > 0 or self._ask_ready)
+
+    # ── takip sorusu ────────────────────────────────────────────────────────
+    def focus_ask(self):
+        if self.alive() and self._on_ask is not None:
+            self._owner.set_followup(self)
+
+    def ask(self, question) -> bool:
+        """Asistanın giriş kutusundan takip sorusu; kabul edildiyse True."""
+        if not (self.alive() and self._ask_enabled
+                and self._on_ask is not None):
+            return False
+        self._on_ask(question)
+        return True
+
+    # ── kaynaklar, öneriler, sorular ────────────────────────────────────────
+    def set_sources(self, items, on_pick, title="Kaynaklar"):
+        """Tıklanabilir bağlantılar listenin o anki sonuna eklenir (geçerli
+        turun kutusu yenilenir; önceki turlarınki yerinde kalır)."""
+        if not self.alive():
+            return
+        A = _app()
+        if self._sources is not None:
+            self._sources.destroy()
+            self._sources = None
+        items = list(items)[:12]
+        if not items:
+            return
+        box = self._sources = tk.Frame(self._owner._list.inner,
+                                       bg=A.BG_PANEL, padx=12)
+        box.pack(fill="x", padx=8, pady=(0, 4))
+        tk.Label(box, text=title, font=(A.FONT, 7, "bold"), fg=A.FG_DIM,
+                 bg=A.BG_PANEL, anchor="w").pack(fill="x")
+        for label, payload in items:
+            lbl = tk.Label(box, text=label, font=(A.FONT, 8), fg=A.ACCENT,
+                           bg=A.BG_PANEL, anchor="w", justify="left",
+                           wraplength=self.WRAP, cursor="hand2")
+            lbl.pack(fill="x")
+            lbl.bind("<Button-1>", lambda _e, p=payload: on_pick(p))
+        self._owner._finish()
+
+    def set_choices(self, items, on_pick, hint="Seçince giriş kutusuna "
+                                               "yerleştirilir:"):
+        """Seçilebilir öneriler (yanıt önerisi); seçim kartı kapatmaz."""
+        if not self.alive():
+            return
+        A = _app()
+        for child in self._extra.winfo_children():
+            child.destroy()
+        tk.Label(self._extra, text=hint, font=(A.FONT, 8), fg=A.FG_DIM,
+                 bg=A.BG_CARD, anchor="w").pack(anchor="w", pady=(4, 4))
+        for item in items:
+            card = tk.Label(self._extra, text=item, font=(A.FONT, 10),
+                            fg=A.FG, bg=A.BG_HOVER, anchor="w",
+                            justify="left", wraplength=self.WRAP - 20,
+                            padx=10, pady=6, cursor="hand2")
+            card.pack(fill="x", pady=2)
+
+            def _pick(_e, s=item):
+                on_pick(s)
+                if self.alive():
+                    self._status.config(
+                        text="✓ Giriş kutusuna kondu — kontrol edip siz "
+                             "gönderin.", fg=_app().ACCENT_G)
+            card.bind("<Button-1>", _pick)
+        text = "\n".join(items)
+        self._log = [(None, text)]
+        self._turns = 0
+        self._finish(text, "✓ Bir öneri seçin")
+
+    def set_questions(self, entries, on_open, on_remind, on_dismiss):
+        """Yanıt bekleyen sorular (PendingQuestionsWindow ile aynı kartlar).
+        `on_remind(giriş)` → (başarılı mı, mesaj) | None."""
+        if not self.alive():
+            return
+        A = _app()
+        for child in self._extra.winfo_children():
+            child.destroy()
+        cards = {}
+
+        def _remind(entry):
+            result = on_remind(entry)
+            if result is not None and self.alive():
+                ok, message = result
+                self._status.config(text=message,
+                                     fg=A.ACCENT_G if ok else A.RED)
+
+        def _dismiss(entry):
+            on_dismiss(entry)
+            card = cards.pop(entry["key"], None)
+            if card is not None and self.alive():
+                card.destroy()
+                self._status.config(text=questions_status(len(cards)),
+                                    fg=A.ACCENT_G)
+        for entry in entries:
+            cards[entry["key"]] = question_card(
+                self._extra, entry, on_open=lambda e=entry: on_open(e),
+                on_remind=lambda e=entry: _remind(e),
+                on_dismiss=lambda e=entry: _dismiss(e),
+                wraplength=self.WRAP - 20)
+        text = "\n".join(f"{e['label']}: {e['text']}" for e in entries)
+        self._log = [(None, text)]
+        self._turns = 0
+        self._finish(text, questions_status(len(cards)))
+
+    def _copy(self):
+        if not self.alive():
+            return
+        parts = []
+        for question, answer in self._log:
+            if question:
+                parts.append(f"❓ {question}")
+            parts.append(answer)
+        value = "\n\n".join(p for p in parts if p)
+        if value:
+            top = self._owner.top
+            top.clipboard_clear()
+            top.clipboard_append(value)
+            self._status.config(text="📋 Panoya kopyalandı")
+
+
 class AssistantWindow:
     """✨ Asistan: doğal dil komutları ve sohbet (ajan) penceresi.
 
@@ -886,6 +1215,9 @@ class AssistantWindow:
     `on_speak(metin)` verilirse yanıtların yanında 🔊 çıkar.
     Hızlı eylemler: `set_quick_actions(bağlam, [(etiket, anahtar)])` üstte
     düğme sırası kurar; tıklama `on_quick(anahtar, etiket)` çağırır.
+    Sonuçlar: `add_result` → InlineResult (akışlı yanıt kartı). Takip kipinde
+    (`set_followup`) giriş kutusu komut yerine o kartın sorusunu alır; Esc ya
+    da ✗ komut kipine döner.
     """
 
     QUICK_PER_ROW = 3
@@ -898,6 +1230,8 @@ class AssistantWindow:
         self._on_speak = on_speak
         self._on_quick = on_quick
         self._busy = False
+        self._results = []
+        self._followup = None
         self.top = top = tk.Toplevel(parent)
         top.title("Asistan")
         top.configure(bg=A.BG_CARD)
@@ -928,7 +1262,15 @@ class AssistantWindow:
         self._status = tk.Label(bottom, text="", font=(A.FONT, 8),
                                 fg=A.ACCENT, bg=A.BG_CARD, anchor="w")
         self._status.pack(fill="x")
-        row = tk.Frame(bottom, bg=A.BORDER, padx=1, pady=1)
+        # Takip kipi çubuğu (set_followup gösterir)
+        self._fu_bar = tk.Frame(bottom, bg=A.BG_CARD)
+        self._fu_label = tk.Label(self._fu_bar, text="", font=(A.FONT, 8),
+                                  fg=A.ACCENT, bg=A.BG_CARD, anchor="w",
+                                  justify="left", wraplength=470)
+        self._fu_label.pack(side="left", fill="x", expand=True)
+        _link_button(self._fu_bar, "✗", lambda: self.set_followup(None),
+                     fg=A.FG_DIM).pack(side="right")
+        row = self._entry_row = tk.Frame(bottom, bg=A.BORDER, padx=1, pady=1)
         row.pack(fill="x", pady=(4, 0))
         self._var = tk.StringVar()
         self._entry = A.PlaceholderEntry(
@@ -941,6 +1283,8 @@ class AssistantWindow:
                                       bg=A.BG_CARD)
         self._send_btn.pack(side="right")
         self._entry.bind("<Return>", lambda _e: self._submit() or "break")
+        self._entry.bind("<Escape>",
+                         lambda _e: self.set_followup(None) or "break")
 
         self._list = _ScrollList(top, A.BG_PANEL)
         self._list.wrap.pack(fill="both", expand=True, padx=16)
@@ -962,9 +1306,15 @@ class AssistantWindow:
             self._notify_close()
 
     def _notify_close(self):
+        self._close_results()
         cb, self._on_close = self._on_close, None
         if cb is not None:
             cb()
+
+    def _close_results(self):
+        results, self._results = self._results, []
+        for res in results:
+            res._notify_close()
 
     def focus(self):
         try:
@@ -988,8 +1338,55 @@ class AssistantWindow:
         text = self._text()
         if not text:
             return
+        followup = self._followup
+        if followup is not None and followup.alive():
+            followup.ask(text)      # kabul edilirse begin_question boşaltır
+            return
+        self.set_followup(None)
         self._var.set("")
         self._on_submit(text)
+
+    def _clear_entry(self):
+        if self.alive():
+            self._var.set("")
+
+    def _restore_entry(self, text):
+        """Gönderilemeyen soruyu kutuya geri koy (kutu boşsa)."""
+        if self.alive() and not self._text():
+            self.prefill(text)
+
+    # ── sonuç kartları ve takip kipi ────────────────────────────────────────
+    def add_result(self, title, subtitle="", **kw):
+        """Akışlı sonuç kartı (bkz. InlineResult); kw: on_ask, on_close,
+        ask_hint, ask_ready, actions."""
+        if not self.alive():
+            return None
+        self._drop_examples()
+        self.set_followup(None)
+        result = InlineResult(self, title, subtitle, **kw)
+        self._results.append(result)
+        self._list.bind_wheel(result.frame)
+        self._finish()
+        return result
+
+    def set_followup(self, result):
+        """Giriş kutusunu bir sonuç kartının takip sorusuna bağla (None:
+        komut kipi)."""
+        if not self.alive():
+            return
+        if result is not None and not result.alive():
+            result = None
+        self._followup = result
+        if result is None:
+            self._fu_bar.pack_forget()
+            return
+        self._fu_label.config(text=f"↩ Takip sorusu: {result.title} — "
+                                   f"{result.ask_hint}  (Esc: komut)")
+        self._fu_bar.pack(fill="x", before=self._entry_row)
+        try:
+            self._entry.focus_force()
+        except Exception:
+            pass
 
     def set_quick_actions(self, context, items):
         """Bağlam satırı ve hızlı eylemler: items [(etiket, anahtar)]."""
@@ -1073,6 +1470,7 @@ class AssistantWindow:
             self._examples_box = None
 
     def _bubble(self, text, *, mine, fg=None):
+        """→ (dış çerçeve, balon, metin etiketi)"""
         A = _app()
         self._drop_examples()
         outer = tk.Frame(self._list.inner, bg=A.BG_PANEL)
@@ -1081,10 +1479,11 @@ class AssistantWindow:
         bubble = tk.Frame(outer, bg=bg, padx=12, pady=8)
         bubble.pack(side="right" if mine else "left",
                     padx=(60, 0) if mine else (0, 60))
-        tk.Label(bubble, text=text, font=(A.FONT, 10),
-                 fg=fg or (A.FG_ME if mine else A.FG), bg=bg,
-                 wraplength=380, justify="left", anchor="w").pack(anchor="w")
-        return outer, bubble
+        label = tk.Label(bubble, text=text, font=(A.FONT, 10),
+                         fg=fg or (A.FG_ME if mine else A.FG), bg=bg,
+                         wraplength=380, justify="left", anchor="w")
+        label.pack(anchor="w")
+        return outer, bubble, label
 
     def add_user(self, text):
         if self.alive():
@@ -1095,7 +1494,7 @@ class AssistantWindow:
         if not self.alive():
             return
         A = _app()
-        _outer, bubble = self._bubble(text, mine=False)
+        _outer, bubble, _label = self._bubble(text, mine=False)
         if self._on_speak is not None:
             _link_button(bubble, "🔊", lambda t=text: self._on_speak(t),
                          bg=A.BG_THEM).pack(anchor="e")
@@ -1162,6 +1561,8 @@ class AssistantWindow:
 
     def clear(self):
         if self.alive():
+            self._close_results()
+            self.set_followup(None)
             self._list.clear()
             self._show_examples()
 
