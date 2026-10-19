@@ -165,9 +165,9 @@ gerçekten çalıştır.
   onun içinde gösterir (`_ai_assistant_run(eylem, jid)` → `_ai_agent_quick`; etiketler
   `agent.ACTION_LABELS`). Giriş kutusu ✨ menüsünde yalnız yazma araçları kalır (yanıt
   öner — öneriler asistanda, dikte Ctrl+Shift+S, taslağı düzenle, geri al). Görev
-  çıkarma, taslaklar
-  (Ctrl+Shift+R) ve anlamsal arama kendi penceresindedir; mesaj başına araçlar (çeviri,
-  ses→metin, görsel, sesli okuma) sağ tık / hover ✨ menüsünde ve ayrı pencerededir.
+  çıkarma, taslaklar (Ctrl+Shift+R) ve anlamsal arama kendi penceresindedir; mesaj
+  başına araçlar (çeviri, ses→metin, görsel, sesli okuma) sağ tık / hover ✨ menüsünde
+  ve ayrı pencerededir.
 - **Sağlayıcı:** varsayılan yerel Ollama (`gemma3:4b`, gömme `bge-m3`). İsteğe bağlı Claude
   (`anthropic` SDK, varsayılan `claude-opus-5-5`, sunucu tarafı `fallbacks: "default"`).
   Ayarlar config'te `"ai"` anahtarında; API anahtarı `_encode_pw` ile şifreli saklanır.
