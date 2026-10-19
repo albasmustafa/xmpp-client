@@ -884,14 +884,19 @@ class AssistantWindow:
     `add_reply`, onay isteyen eylemler `add_card`, belirsiz hedefler
     `add_choices` ile gelir. Meşgulken yeni gönderim kabul edilmez.
     `on_speak(metin)` verilirse yanıtların yanında 🔊 çıkar.
+    Hızlı eylemler: `set_quick_actions(bağlam, [(etiket, anahtar)])` üstte
+    düğme sırası kurar; tıklama `on_quick(anahtar, etiket)` çağırır.
     """
 
+    QUICK_PER_ROW = 3
+
     def __init__(self, parent, subtitle, on_submit, *, on_clear=None,
-                 on_close=None, on_speak=None, examples=()):
+                 on_close=None, on_speak=None, examples=(), on_quick=None):
         A = _app()
         self._on_submit = on_submit
         self._on_close = on_close
         self._on_speak = on_speak
+        self._on_quick = on_quick
         self._busy = False
         self.top = top = tk.Toplevel(parent)
         top.title("Asistan")
@@ -914,6 +919,9 @@ class AssistantWindow:
                                   fg=A.FG_DIM, bg=A.BG_CARD, anchor="w",
                                   justify="left", wraplength=520)
         self._subtitle.pack(anchor="w", fill="x")
+        # Bağlam satırı + hızlı eylem düğmeleri (set_quick_actions doldurur)
+        self._quick = tk.Frame(top, bg=A.BG_CARD, padx=12)
+        self._quick.pack(fill="x")
 
         bottom = tk.Frame(top, bg=A.BG_CARD, padx=16, pady=10)
         bottom.pack(side="bottom", fill="x")
@@ -982,6 +990,44 @@ class AssistantWindow:
             return
         self._var.set("")
         self._on_submit(text)
+
+    def set_quick_actions(self, context, items):
+        """Bağlam satırı ve hızlı eylemler: items [(etiket, anahtar)]."""
+        if not self.alive():
+            return
+        A = _app()
+        for child in self._quick.winfo_children():
+            child.destroy()
+        tk.Label(self._quick, text=context, font=(A.FONT, 8, "bold"),
+                 fg=A.FG_DIM, bg=A.BG_CARD, anchor="w").pack(
+            fill="x", padx=4, pady=(0, 2))
+        items = list(items)
+        for i in range(0, len(items), self.QUICK_PER_ROW):
+            row = tk.Frame(self._quick, bg=A.BG_CARD)
+            row.pack(fill="x")
+            for label, key in items[i:i + self.QUICK_PER_ROW]:
+                _link_button(row, label,
+                             lambda k=key, lbl=label: self._quick_click(k, lbl),
+                             bg=A.BG_CARD).pack(side="left")
+
+    def _quick_click(self, key, label):
+        if self.alive() and not self._busy and self._on_quick is not None:
+            self._on_quick(key, label)
+
+    def prefill(self, text):
+        """Giriş kutusuna metin koy (ör. "Geçmişe sor: "), imleç sonda."""
+        if not self.alive():
+            return
+        A = _app()
+        if getattr(self._entry, "_showing_ph", False):
+            self._entry._showing_ph = False
+            self._entry.configure(foreground=A.FG)
+        self._var.set(text)
+        try:
+            self._entry.focus_force()
+            self._entry.icursor("end")
+        except Exception:
+            pass
 
     def submit_text(self, text):
         """Örnek komut ya da dışarıdan verilen metni gönder (giriş kutusunu

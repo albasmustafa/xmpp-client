@@ -15,6 +15,9 @@ Kanıtlar:
   yanıt atılır ve pencere meşgul kalmaz.
 - Görünüm: örnek tıklaması gönderir, meşgulken gönderim yok, kart
   düğmeleri bir kez çalışır, hata kartı kilitlemez.
+- Bağlam: hedef yazılmazsa ya da "bu sohbet" denirse açık sohbet kullanılır
+  (adı modele gitmez); açık sohbet yoksa ad istenir. Sık komutlar ve hızlı
+  eylem düğmeleri modele plan sordurmadan çalışır.
 """
 import inspect
 import json
@@ -159,6 +162,12 @@ class _FakeWin:
 
     def set_subtitle(self, t):
         pass
+
+    def set_quick_actions(self, context, items):
+        self.quick = (context, list(items))
+
+    def prefill(self, t):
+        self.events.append(("prefill", t))
 
     def clear(self):
         self.events.clear()
@@ -475,3 +484,179 @@ def test_assistant_view_choice_cancel_and_failing_button():
     with pytest.raises(RuntimeError):
         _find(win.top, "Çalıştır").click()
     assert card.done and card._result.kw["text"] == "⚠ bozuk"
+
+
+# ── 7) Bağlam, modelsiz kısa yollar, hızlı eylemler ─────────────────────────
+@pytest.mark.parametrize("text,action,qtext", [
+    ("Neler kaçırdım?", "missed", ""),
+    ("NE KAÇIRDIM", "missed", ""),
+    ("özetle.", "summarize_chat", ""),
+    ("okunmamışları özetle", "summarize_unread", ""),
+    ("Yanıt öner", "suggest_replies", ""),
+    ("görevleri çıkar", "extract_tasks", ""),
+    ("bekleyen sorular", "pending_questions", ""),
+    ("Taslaklar", "drafts", ""),
+    ("Geçmişe sor: Ali'nin adresi neydi?", "ask_history",
+     "Ali'nin adresi neydi?"),
+    ("geçmiş:  toplantı ne zaman", "ask_history", "toplantı ne zaman"),
+    ("Geçmişe sor:", "ask_history", ""),
+])
+def test_quick_intent_matches_exact_commands(text, action, qtext):
+    plan = agent.quick_intent(text)
+    assert (plan["action"], plan["text"], plan["target"]) == (action, qtext,
+                                                              "")
+
+
+@pytest.mark.parametrize("text", [
+    "Ayşe ile sohbeti özetle", "Ali'ye yanıt öner", "özetle ve gönder",
+    "merhaba", "", "sorular nerede kaldı"])
+def test_quick_intent_leaves_detailed_requests_to_model(text):
+    assert agent.quick_intent(text) is None
+
+
+@pytest.mark.parametrize("target,expected", [
+    ("", True), ("bu sohbet", True), ("Bu Sohbet'e", True),
+    ("bu kişiyle", True), ("BURASI", True), ("this chat", True),
+    ("Ayşe", False), ("bu ayşe", False)])
+def test_is_context_ref(target, expected):
+    assert agent.is_context_ref(target) is expected
+
+
+def test_check_plan_uses_open_chat_as_target():
+    plan = _plan(action="summarize_chat")
+    assert "önce sohbeti açın" in agent.check_plan(plan, NOW)
+    assert agent.check_plan(plan, NOW, has_context=True) is None
+    plan = _plan(action="send_message", target="bu sohbet", text="selam")
+    assert agent.check_plan(plan, NOW, has_context=True) is None
+    assert "Hangi kişi" in agent.check_plan(plan, NOW)
+
+
+def test_system_prompt_mentions_open_chat_only_when_present():
+    assert "A chat is open" not in agent.system_prompt(NOW, "Türkçe")
+    assert "leave target empty" in agent.system_prompt(
+        NOW, "Türkçe", has_context=True)
+
+
+def test_quick_actions_follow_context():
+    assert [k for _l, k in agent.quick_actions()] == [
+        "missed", "pending_questions", "ask_history"]
+    items = agent.quick_actions("Ayşe", unread=3, missed=7, drafts=2)
+    assert items == [
+        ("📝 Okunmamışları özetle (3)", "summarize_unread"),
+        ("📝 Sohbeti özetle", "summarize_chat"),
+        ("💡 Yanıt öner", "suggest_replies"),
+        ("📅 Görevleri çıkar", "extract_tasks"),
+        ("📥 Neler kaçırdım? (7)", "missed"),
+        ("❓ Bekleyen sorular", "pending_questions"),
+        ("📝 Taslaklar (2)", "drafts"),
+        ("💬 Geçmişe sor…", "ask_history")]
+    assert all(k in agent.ACTIONS for _l, k in items)
+
+
+@pytest.mark.parametrize("target", ["", "bu sohbet"])
+def test_open_chat_is_the_default_target(aw, target):
+    aw.active = "ayse@x.org"
+    aw._ai_summarize = _Cap()
+    _say(aw, "bunu özetler misin", _plan(action="summarize_chat",
+                                         target=target))
+    assert aw._ai_summarize.calls == [(("ayse@x.org",), {})]
+    system = aw.calls[0][0]
+    assert "A chat is open" in system and "Ayşe" not in system
+
+
+def test_named_target_still_wins_over_open_chat(aw):
+    aw.active = "ayse@x.org"
+    aw._ai_summarize = _Cap()
+    _say(aw, "Işıl ile sohbeti özetle", _plan(action="summarize_chat",
+                                              target="Işıl"))
+    assert aw._ai_summarize.calls == [(("isil@x.org",), {})]
+
+
+def test_without_open_chat_target_is_asked(aw):
+    aw._ai_summarize = _Cap()
+    win = _say(aw, "özetler misin", _plan(action="summarize_chat"))
+    assert aw._ai_summarize.calls == []
+    assert "önce sohbeti açın" in win.events[-1][1]
+
+
+@pytest.mark.parametrize("text,method,args,kwargs", [
+    ("Neler kaçırdım?", "_ai_digest", (), {}),
+    ("özetle", "_ai_summarize", ("ayse@x.org",), {}),
+    ("okunmamışları özetle", "_ai_summarize", ("ayse@x.org",),
+     {"unread_only": True}),
+    ("yanıt öner", "_ai_suggest_replies", ("ayse@x.org",), {}),
+    ("taslaklar", "_ai_drafts_window", (), {}),
+    ("Geçmişe sor: adres neydi?", "_ai_ask_history", ("adres neydi?",), {}),
+])
+def test_quick_commands_skip_the_model(aw, text, method, args, kwargs):
+    aw.active = "ayse@x.org"
+    setattr(aw, method, _Cap())
+    xmpp.MainWindow._ai_agent_submit(aw, text)
+    assert aw.calls == []                        # plan için model yok
+    assert getattr(aw, method).calls == [(args, kwargs)]
+    user, answer = aw._ai_agent_conv.turns[-2:]
+    assert user == ("user", agent.user_prompt(text))
+    assert json.loads(answer[1])["action"] == agent.quick_intent(
+        text)["action"]
+
+
+def test_quick_button_runs_without_model_and_history_prefills(aw):
+    aw.active = "ayse@x.org"
+    aw._ai_summarize = _Cap()
+    xmpp.MainWindow._ai_agent_quick(aw, "summarize_unread",
+                                    "📝 Okunmamışları özetle (3)")
+    win = aw._ai_assistant_win
+    assert aw.calls == [] and win.events[0] == (
+        "user", "📝 Okunmamışları özetle (3)")
+    assert aw._ai_summarize.calls == [(("ayse@x.org",),
+                                       {"unread_only": True})]
+    xmpp.MainWindow._ai_agent_quick(aw, "ask_history", "💬 Geçmişe sor…")
+    assert win.events[-1] == ("prefill", agent.HISTORY_PREFIX)
+
+
+def test_refresh_shows_context_and_counts(aw):
+    aw.active = "ayse@x.org"
+    aw._ai_unread_at_open = {"ayse@x.org": 2}
+    aw._unread_counts = {"isil@x.org": 4, "proje@conf.x.org": 0}
+    xmpp.MainWindow._ai_assistant_refresh(aw)
+    context, items = aw._ai_assistant_win.quick
+    assert context.startswith("💬 Bağlam: Ayşe")
+    assert items == agent.quick_actions("Ayşe", 2, 4, 0)
+    aw.active = None
+    xmpp.MainWindow._ai_assistant_refresh(aw)
+    assert aw._ai_assistant_win.quick[0].startswith("Açık sohbet yok")
+    aw._ai_assistant_win.alive_flag = False      # kapalı pencere: dokunma
+    aw._ai_assistant_win.quick = None
+    xmpp.MainWindow._ai_assistant_refresh(aw)
+    assert aw._ai_assistant_win.quick is None
+
+
+def test_switching_chat_refreshes_assistant_context():
+    src = inspect.getsource(xmpp.MainWindow._load_chat)
+    assert "self._ai_assistant_refresh()" in src
+
+
+@pytest.mark.usefixtures("fake_tk")
+def test_assistant_view_quick_actions_and_prefill():
+    picked = []
+    win = ui_ai.AssistantWindow(_W(), "alt", lambda t: None,
+                                on_quick=lambda k, lbl: picked.append(k))
+    win.set_quick_actions("💬 Bağlam: Ayşe", agent.quick_actions("Ayşe"))
+    assert _find(win.top, "💬 Bağlam: Ayşe") is not None
+    rows = [c for c in win._quick.winfo_children() if c.kw.get("text") is None]
+    assert all(len(r.children) <= win.QUICK_PER_ROW for r in rows)
+    _find(win.top, "💡 Yanıt öner").click()
+    assert picked == ["suggest_replies"]
+    win.set_busy("Düşünüyor…")
+    _find(win.top, "📥 Neler kaçırdım?").click()
+    assert picked == ["suggest_replies"]         # meşgulken çalışmaz
+    win.set_busy(None)
+    win.set_quick_actions("Açık sohbet yok", agent.quick_actions())
+    assert all(r.destroyed for r in rows)        # eski düğmeler gitti
+    live = [b.kw["text"] for r in win._quick.winfo_children()
+            for b in r.winfo_children()]
+    assert live == [lbl for lbl, _k in agent.quick_actions()]
+    win._entry._showing_ph = True
+    win.prefill(agent.HISTORY_PREFIX)
+    assert win._text() == agent.HISTORY_PREFIX.strip()
+    assert win._entry._showing_ph is False

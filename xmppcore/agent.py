@@ -10,6 +10,11 @@ hatırlatıcı yolundan geçer).
 Güvenlik: CONFIRM_ACTIONS (mesaj gönderme, odaya katılma, durum değiştirme,
 hatırlatıcı) her zaman kullanıcı onayı ister. Model bir JID uydursa bile
 yalnız yerelde eşleşen hedefe işlem yapılır.
+
+Bağlam: asistan açık sohbeti bilir. Hedef yazılmazsa ya da "bu sohbet"
+denirse o sohbet kullanılır (`is_context_ref`); sohbetin adı modele gitmez,
+model yalnız boş hedef döndürür. Sık komutlar (`quick_intent`) ve hızlı
+eylem düğmeleri (`quick_actions`) modele plan sordurmadan çalışır.
 """
 import difflib
 import re
@@ -32,16 +37,22 @@ ACTIONS = {
     "set_status": "Change the user's presence. status = online | away | "
                   "dnd | xa.",
     "summarize_chat": "Summarize a chat. Needs target.",
+    "summarize_unread": "Summarize only the unread messages of a chat. "
+                        "Needs target.",
     "extract_tasks": "Extract tasks and events from a chat. Needs target.",
+    "suggest_replies": "Suggest short replies the user could send in a "
+                       "chat. Needs target.",
     "missed": "Summarize all unread messages (what did I miss).",
     "ask_history": "Search the user's past messages and answer a question "
                    "about them. text = the question.",
     "pending_questions": "Show questions the user has not answered yet.",
+    "drafts": "Show the reply drafts prepared while the user was away.",
 }
 CONFIRM_ACTIONS = frozenset({"send_message", "remind", "join_room",
                              "set_status"})
 TARGET_ACTIONS = frozenset({"open_chat", "draft_message", "send_message",
-                            "summarize_chat", "extract_tasks"})
+                            "summarize_chat", "summarize_unread",
+                            "extract_tasks", "suggest_replies"})
 TEXT_ACTIONS = frozenset({"draft_message", "send_message", "remind",
                           "ask_history"})
 STATUS_LABELS = {"online": "Çevrimiçi", "away": "Uzakta",
@@ -70,8 +81,13 @@ _WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
              "Saturday", "Sunday")
 
 
-def system_prompt(now: datetime, lang: str) -> str:
+def system_prompt(now: datetime, lang: str, has_context: bool = False) -> str:
     actions = "\n".join(f"- {name}: {desc}" for name, desc in ACTIONS.items())
+    context = (
+        "- A chat is open in the client now. If the user means that chat "
+        "(\"this chat\", \"bunu\", \"burası\") or names nobody for an "
+        "action that needs a target, leave target empty; the client uses "
+        "the open chat.\n" if has_context else "")
     return (
         "You are the built-in assistant of an XMPP chat client. Turn the "
         "user's request into exactly ONE action and answer as JSON.\n"
@@ -80,6 +96,7 @@ def system_prompt(now: datetime, lang: str) -> str:
         "- target: the contact or room name EXACTLY as the user wrote it, "
         "without grammatical suffixes (\"Ahmet'e\" → \"Ahmet\"). Never "
         "invent addresses; the client resolves names itself.\n"
+        f"{context}"
         "- text: for messages, the exact message to send, written as the "
         "user would write it to that person (not a description).\n"
         f"- Today is {now:%Y-%m-%d} ({_WEEKDAYS[now.weekday()]}), the time "
@@ -119,11 +136,15 @@ def parse_plan(text: str) -> dict:
     return normalize_plan(_loads_json(text))
 
 
-def check_plan(plan: dict, now: datetime) -> str | None:
-    """Eksik/geçersiz alan için kullanıcıya gösterilecek açıklama ya da None."""
+def check_plan(plan: dict, now: datetime,
+               has_context: bool = False) -> str | None:
+    """Eksik/geçersiz alan için kullanıcıya gösterilecek açıklama ya da None.
+    `has_context`: açık sohbet var; boş hedef / "bu sohbet" ona gider."""
     action = plan["action"]
-    if action in TARGET_ACTIONS and not plan["target"]:
-        return "Hangi kişi ya da oda için? Adını da yazın."
+    if action in TARGET_ACTIONS and is_context_ref(plan["target"]) and (
+            not has_context):
+        return ("Hangi kişi ya da oda için? Adını yazın ya da önce "
+                "sohbeti açın.")
     if action == "join_room" and not plan["target"]:
         return "Hangi odaya katılmak istiyorsunuz?"
     if action in TEXT_ACTIONS and not plan["text"]:
@@ -142,6 +163,13 @@ def check_plan(plan: dict, now: datetime) -> str | None:
 
 # ── Hedef çözümleme (yerel) ─────────────────────────────────────────────────
 _SUFFIX_RE = re.compile(r"['’`´][^\s'’`´]*$")
+# Açık sohbeti gösteren hedefler (fold'lanmış; bkz. is_context_ref)
+_CONTEXT_REFS = frozenset({
+    "bu", "bunu", "buna", "bunun", "burasi", "burayi", "buraya", "burada",
+    "bu sohbet", "bu sohbeti", "bu sohbete", "bu sohbetin", "bu sohbette",
+    "bu kisi", "bu kisiye", "bu kisiyle", "bu kisinin", "bu oda",
+    "bu odayi", "bu odaya", "bu odanin", "acik sohbet", "sohbet",
+    "this", "this chat", "here", "current chat", "the open chat"})
 
 
 def strip_suffix(name: str) -> str:
@@ -154,6 +182,12 @@ def fold(value: str) -> str:
     text = str(value or "").replace("İ", "i").replace("I", "ı").casefold()
     text = unicodedata.normalize("NFKD", text.replace("ı", "i"))
     return "".join(ch for ch in text if not unicodedata.combining(ch)).strip()
+
+
+def is_context_ref(target: str) -> bool:
+    """Hedef boş ya da açık sohbeti gösteriyor mu ("bu sohbet", "bunu")?"""
+    key = " ".join(fold(strip_suffix(target)).split())
+    return not key or key in _CONTEXT_REFS
 
 
 def _score(query: str, jid: str, label: str) -> int:
@@ -220,3 +254,67 @@ def reminder_item(plan: dict) -> dict:
     """Mevcut hatırlatıcı yolunun (ai.validate_actions) öğe biçimi."""
     return {"kind": "task", "title": plan["text"], "date": plan["date"],
             "time": plan["time"], "location": "", "notes": ""}
+
+
+# ── Modelsiz kısa yollar ────────────────────────────────────────────────────
+# Sık komutlar plan için modele gitmez (yerel küçük modelde iki bekleme
+# yerine bir). Yalnız TAM ifade eşleşir; ad ya da ayrıntı içeren her istek
+# modele gider.
+_QUICK_PHRASES = {
+    "missed": ("neler kacirdim", "ne kacirdim", "neleri kacirdim",
+               "kacirdiklarim", "kacirdiklarimi ozetle", "what did i miss"),
+    "summarize_chat": ("ozetle", "ozet", "ozet cikar", "sohbeti ozetle",
+                       "bu sohbeti ozetle", "summarize"),
+    "summarize_unread": ("okunmamislari ozetle", "okunmamis ozeti",
+                         "okunmamislarin ozeti"),
+    "extract_tasks": ("gorevleri cikar", "gorevler", "etkinlikleri cikar",
+                      "gorev ve etkinlikleri cikar"),
+    "suggest_replies": ("yanit oner", "cevap oner", "ne yazayim",
+                        "ne cevap vereyim", "suggest a reply"),
+    "pending_questions": ("sorular", "bekleyen sorular",
+                          "yanit bekleyen sorular", "cevap bekleyen sorular"),
+    "drafts": ("taslaklar", "yanit taslaklari"),
+}
+_QUICK_INDEX = {phrase: action for action, phrases in _QUICK_PHRASES.items()
+                for phrase in phrases}
+# "Geçmişe sor: <soru>" → doğrudan ask_history (soru olduğu gibi)
+HISTORY_PREFIX = "Geçmişe sor: "
+_HISTORY_RE = re.compile(r"^\s*(?:geçmişe|gecmise|geçmiş|gecmis)\s*"
+                         r"(?:sor)?\s*[:：]\s*(.*)$",
+                         re.IGNORECASE | re.DOTALL)
+
+
+def quick_intent(text: str) -> dict | None:
+    """Model gerektirmeyen komutun planı ya da None (→ model)."""
+    m = _HISTORY_RE.match(text or "")
+    if m:
+        return normalize_plan({"action": "ask_history",
+                               "text": m.group(1).strip()})
+    key = " ".join(fold(text).strip(" ?!.…").split())
+    action = _QUICK_INDEX.get(key)
+    return normalize_plan({"action": action}) if action else None
+
+
+def quick_actions(chat: str = "", unread: int = 0, missed: int = 0,
+                  drafts: int = 0) -> list[tuple[str, str]]:
+    """Asistanın hızlı eylem düğmeleri: [(etiket, eylem)].
+
+    `chat`: açık sohbetin etiketi ("" = yok) · `unread`: o sohbette açılışta
+    okunmamış sayısı · `missed`: tüm okunmamışlar · `drafts`: hazır taslak.
+    "ask_history" düğmesi soru kutusunu açar (soruyu kullanıcı yazar).
+    """
+    items = []
+    if chat:
+        if unread:
+            items.append((f"📝 Okunmamışları özetle ({unread})",
+                          "summarize_unread"))
+        items += [("📝 Sohbeti özetle", "summarize_chat"),
+                  ("💡 Yanıt öner", "suggest_replies"),
+                  ("📅 Görevleri çıkar", "extract_tasks")]
+    items.append(("📥 Neler kaçırdım?" + (f" ({missed})" if missed else ""),
+                  "missed"))
+    items.append(("❓ Bekleyen sorular", "pending_questions"))
+    if drafts:
+        items.append((f"📝 Taslaklar ({drafts})", "drafts"))
+    items.append(("💬 Geçmişe sor…", "ask_history"))
+    return items

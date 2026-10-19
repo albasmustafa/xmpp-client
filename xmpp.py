@@ -5317,7 +5317,7 @@ class MainWindow:
     _AGENT_EXAMPLES = (
         "Ali'ye yarın 10'da toplantı olduğunu yaz",
         "Yarın 09:00'da faturayı ödemeyi hatırlat",
-        "Neler kaçırdım?",
+        "Geçmişe sor: Ali'nin verdiği adres neydi?",
         "Ayşe ile sohbeti özetle",
         "Durumumu meşgul yap",
     )
@@ -5332,11 +5332,50 @@ class MainWindow:
         win = _ui_ai.AssistantWindow(
             self.root, self._ai_assistant_subtitle(settings),
             self._ai_agent_submit, on_clear=self._ai_assistant_clear,
-            on_speak=self._ai_speak_text, examples=self._AGENT_EXAMPLES)
+            on_speak=self._ai_speak_text, examples=self._AGENT_EXAMPLES,
+            on_quick=self._ai_agent_quick)
         self._ai_assistant_win = win
         for role, text in getattr(self, "_ai_agent_log", ()):
             (win.add_user if role == "user" else win.add_reply)(text)
+        self._ai_assistant_refresh()
         return "break"
+
+    def _ai_agent_context(self) -> str:
+        """Asistanın bağlamı: ana pencerede açık sohbet ("" = yok)."""
+        return getattr(self, "active", None) or ""
+
+    def _ai_assistant_refresh(self):
+        """Bağlam satırı ve hızlı eylemler (açık sohbet, okunmamış, taslak
+        sayısı değişince). Asistan kapalıysa bir şey yapmaz."""
+        win = getattr(self, "_ai_assistant_win", None)
+        if win is None or not win.alive():
+            return
+        jid = self._ai_agent_context()
+        label = self._ai_chat_label(jid) if jid else ""
+        unread = ((getattr(self, "_ai_unread_at_open", None) or {}).get(jid, 0)
+                  if jid else 0)
+        missed = sum(n for n in (getattr(self, "_unread_counts", None)
+                                 or {}).values() if n > 0)
+        drafts = sum(1 for e in self._ai_drafts_get().values()
+                     if e["options"] or e["external"])
+        context = (f"💬 Bağlam: {label} — \"bu sohbet\" ya da ad yazmadan "
+                   "verilen komutlar bu sohbete" if label
+                   else "Açık sohbet yok — komutlarda kişi ya da oda adını "
+                        "yazın")
+        win.set_quick_actions(context, _agent.quick_actions(
+            label, unread, missed, drafts))
+
+    def _ai_agent_quick(self, key, label):
+        """Hızlı eylem düğmesi: plan modele sorulmaz, doğrudan yürütülür."""
+        win = getattr(self, "_ai_assistant_win", None)
+        if win is None or not win.alive():
+            return
+        if key == "ask_history":
+            win.prefill(_agent.HISTORY_PREFIX)
+            return
+        win.add_user(label)
+        self._ai_agent_log_add("user", label)
+        self._ai_agent_handle(win, _agent.normalize_plan({"action": key}))
 
     @staticmethod
     def _ai_assistant_subtitle(settings) -> str:
@@ -5372,8 +5411,17 @@ class MainWindow:
         if conv is None:
             conv = self._ai_agent_conv = _ai.Conversation(
                 "", effort="low", pin_first=False, cache=False)
-        conv.system = _agent.system_prompt(datetime.now(),
-                                           settings["target_language"])
+        quick = _agent.quick_intent(text)
+        if quick is not None:
+            # Sık komut: plan için model beklenmez; tur geçmişe yine yazılır
+            # (sonraki istekler "bunu" diyebilsin)
+            conv.commit(_agent.user_prompt(text),
+                        json.dumps(quick, ensure_ascii=False))
+            self._ai_agent_handle(win, quick)
+            return
+        conv.system = _agent.system_prompt(
+            datetime.now(), settings["target_language"],
+            has_context=bool(self._ai_agent_context()))
         history, user = conv.request(_agent.user_prompt(text),
                                      _ai.conversation_budget(settings))
         win.set_busy("Düşünüyor…")
@@ -5414,7 +5462,9 @@ class MainWindow:
         return [(jid, name or jid) for jid, name in out.items()]
 
     def _ai_agent_handle(self, win, plan):
-        problem = _agent.check_plan(plan, datetime.now())
+        context = self._ai_agent_context()
+        problem = _agent.check_plan(plan, datetime.now(),
+                                    has_context=bool(context))
         if plan["action"] == "answer" or problem:
             self._ai_agent_reply(win, (plan["reply"] if plan["action"] ==
                                        "answer" else problem) or problem
@@ -5436,6 +5486,9 @@ class MainWindow:
         if action not in _agent.TARGET_ACTIONS and not (
                 action == "remind" and plan["target"]):
             self._ai_agent_run(win, plan, "")
+            return
+        if context and _agent.is_context_ref(plan["target"]):
+            self._ai_agent_run(win, plan, context)  # açık sohbet
             return
         hits = _agent.resolve_target(plan["target"], self._ai_agent_targets())
         if action == "remind" and len(hits) != 1:
@@ -5508,9 +5561,13 @@ class MainWindow:
             return (f"✓ Durum: {label}", True)
         openers = {
             "summarize_chat": lambda: self._ai_summarize(jid),
+            "summarize_unread": lambda: self._ai_summarize(
+                jid, unread_only=True),
             "extract_tasks": lambda: self._ai_extract_actions(jid),
+            "suggest_replies": lambda: self._ai_suggest_replies(jid),
             "missed": self._ai_digest,
             "pending_questions": self._ai_pending_questions,
+            "drafts": self._ai_drafts_window,
             "ask_history": lambda: self._ai_ask_history(plan["text"]),
         }
         if action in openers:
@@ -6190,8 +6247,8 @@ class MainWindow:
             except Exception:
                 pass
 
-    def _ai_suggest_replies(self):
-        jid = self.active
+    def _ai_suggest_replies(self, jid=None):
+        jid = jid or self.active
         if not jid:
             return
         settings = self._ai_settings()
@@ -7642,6 +7699,7 @@ class MainWindow:
         if seen is None:
             seen = self._ai_unread_at_open = {}
         seen[target] = self._unread_counts.get(target, 0)
+        self._ai_assistant_refresh()            # asistanın bağlamı değişti
         # Okunmamış sayacı sıfırla
         if self._unread_counts.get(target, 0) > 0:
             self._unread_counts[target] = 0
