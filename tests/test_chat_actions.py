@@ -235,7 +235,19 @@ def test_quick_reaction_popup(monkeypatch):
     assert reacts.calls == [(("🔥",), {})]
     assert len(more.calls) == 1
     assert menu.popup == (100, 212)
-    assert menu.released == 1
+    assert menu.released == 0       # grab kalır: dışarı tıklayınca kapanır
+
+
+def test_hover_ai_menu_keeps_grab(monkeypatch):
+    menus = _patch_tk(monkeypatch)
+    cb = {"on_" + key: _Capture() for key, _l in actions_mod.AI_MESSAGE_ITEMS}
+    actions_mod.show_ai_message_menu(
+        "ROOT", _Anchor(), theme=_theme(), items={"ai_translate"},
+        callbacks=cb)
+    menu = menus[0]
+    assert _labels(menu) == ["🌐 Çevir"]
+    assert menu.popup == (100, 212)
+    assert menu.released == 0
 
 
 # ── 10-12) hover action bar ─────────────────────────────────────────────────

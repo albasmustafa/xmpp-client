@@ -148,11 +148,10 @@ def show_ai_message_menu(parent, anchor, *, theme, items, callbacks):
     for key, label in AI_MESSAGE_ITEMS:
         if key in items:
             menu.add_command(label=label, command=callbacks["on_" + key])
-    try:
-        menu.tk_popup(anchor.winfo_rootx(),
-                      anchor.winfo_rooty() + anchor.winfo_height())
-    finally:
-        menu.grab_release()
+    # grab_release YOK: X11'de tk_popup dışarı tıklamayı yakalayan grab'i
+    # kurup hemen döner; bırakılırsa menü açık kalır
+    menu.tk_popup(anchor.winfo_rootx(),
+                  anchor.winfo_rooty() + anchor.winfo_height())
 
 
 def show_quick_reaction_menu(parent, anchor, *, theme, mine, on_react, on_more):
@@ -167,8 +166,7 @@ def show_quick_reaction_menu(parent, anchor, *, theme, mine, on_react, on_more):
                          command=lambda e=emoji: on_react(e))
     menu.add_separator()
     menu.add_command(label="😀 Daha fazla emoji…", command=on_more)
-    try:
-        menu.tk_popup(anchor.winfo_rootx(),
-                      anchor.winfo_rooty() + anchor.winfo_height())
-    finally:
-        menu.grab_release()
+    # grab_release YOK: X11'de tk_popup dışarı tıklamayı yakalayan grab'i
+    # kurup hemen döner; bırakılırsa menü açık kalır
+    menu.tk_popup(anchor.winfo_rootx(),
+                  anchor.winfo_rooty() + anchor.winfo_height())

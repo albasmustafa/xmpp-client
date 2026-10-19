@@ -2917,10 +2917,7 @@ class MainWindow:
             else:
                 menu.add_separator()
         if event is not None:
-            try:
-                menu.tk_popup(event.x_root, event.y_root)
-            finally:
-                menu.grab_release()
+            menu.tk_popup(event.x_root, event.y_root)   # grab kalır (X11)
 
     # ── Sohbet paneli ─────────────────────────────────────────────────────────
     def _build_chat_panel(self):
@@ -8650,10 +8647,8 @@ class MainWindow:
         menu.add_command(label=_t("ft_http"), command=self._send_file_http)
         if self.active not in self.rooms:
             menu.add_command(label=_t("ft_p2p"), command=self._send_file_p2p)
-        try:
-            menu.tk_popup(self.root.winfo_pointerx(), self.root.winfo_pointery())
-        finally:
-            menu.grab_release()
+        # grab kalır (X11): dışarı tıklayınca kapanır
+        menu.tk_popup(self.root.winfo_pointerx(), self.root.winfo_pointery())
 
     def _ask_send_path(self):
         from tkinter import filedialog
