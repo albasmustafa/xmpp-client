@@ -319,8 +319,15 @@ class ChatShell:
         c.create_text(22, 22, text="▶", fill=th["FG_ME"],
                       font=(th["FONT"], 14, "bold"))
 
-    def _on_msg_frame_configure(self, _):
+    def _on_msg_frame_configure(self, event):
         self.chat_canvas.configure(scrollregion=self.chat_canvas.bbox("all"))
+        # <Configure> konum değişiminde de gelir: tekerlek çerçeveyi yalnız
+        # TAŞIR. Yalnız boyut değişince (içerik) alta in; yoksa kaydırma
+        # 10 ms sonra geri alınır ve tekerlek çalışmaz.
+        size = (event.width, event.height)
+        if size == getattr(self, "_msg_frame_size", None):
+            return
+        self._msg_frame_size = size
         self.chat_canvas.after(10, lambda: self.chat_canvas.yview_moveto(1.0))
 
     def _on_canvas_configure(self, event):

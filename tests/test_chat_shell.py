@@ -220,7 +220,8 @@ def test_shell_visual_helpers(monkeypatch):
     assert sh.chat_canvas.itemconfig_calls[-1][0] == ("cw1",)
     assert sh.chat_canvas.itemconfig_calls[-1][1]["width"] == 321
     assert getattr(sh.chat_canvas, "after_calls", []) == []
-    sh._on_msg_frame_configure(None)
+    sh._on_msg_frame_configure(types.SimpleNamespace(x=0, y=0, width=300,
+                                                     height=900))
     assert sh.chat_canvas.after_calls[-1][0] == 10
 
     sh.show_empty_state()
@@ -231,6 +232,24 @@ def test_shell_visual_helpers(monkeypatch):
 
 
 # ── D) no domain leak ───────────────────────────────────────────────────────
+def test_wheel_scroll_is_not_snapped_back_to_bottom(monkeypatch):
+    # Kanıt (gerçek Tk, 60 mesaj): tekerlek görünümü 0.849 → 0.758 kaydırıyor;
+    # kaydırma mesaj çerçevesini yalnız TAŞIDIĞI hâlde Tk <Configure> veriyor
+    # (y -4776 → -4266, boyut 637×5625 aynı) ve _on_msg_frame_configure 10 ms
+    # sonra yview_moveto(1.0) ile kaydırmayı geri alıyordu: tekerlek çalışmıyor.
+    sh, _, _ = _make_shell(monkeypatch)
+
+    def ev(y, height):
+        return types.SimpleNamespace(x=0, y=y, width=637, height=height)
+    sh._on_msg_frame_configure(ev(0, 5625))
+    assert len(sh.chat_canvas.after_calls) == 1          # içerik geldi: alta
+    sh._on_msg_frame_configure(ev(-4266, 5625))          # tekerlek: yalnız konum
+    sh._on_msg_frame_configure(ev(-4776, 5625))
+    assert len(sh.chat_canvas.after_calls) == 1
+    sh._on_msg_frame_configure(ev(-4776, 5700))          # yeni mesaj: büyüdü
+    assert len(sh.chat_canvas.after_calls) == 2
+
+
 def test_shell_has_no_domain_dependencies():
     src = inspect.getsource(shell_mod)
     for token in ("slixmpp", "ClientXMPP", "XMPPBot", "run_coroutine_threadsafe",
