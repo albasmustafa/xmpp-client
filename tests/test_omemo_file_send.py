@@ -230,9 +230,9 @@ def _file_win(modes, rooms=(), encrypted_rooms=()):
     return win, calls
 
 
-@pytest.mark.parametrize("mode, expected", [
-    ("omemo", True), ("none", False), ("pgp", False)])
+@pytest.mark.parametrize("mode, expected", [("omemo", True), ("none", False)])
 def test_attach_menu_encrypts_when_chat_is_omemo(mode, expected):
+    # PGP: önce onay sorulur → test_pgp_attach_asks_before_plain_upload
     win, calls = _file_win({"a@b": mode})
     xmpp.MainWindow._upload_file_path(win, "/tmp/f.pdf", "a@b")
     assert calls == [("upload", "/tmp/f.pdf", "a@b", expected)]
@@ -259,3 +259,117 @@ def test_dropped_files_follow_chat_encryption(tmp_path):
         tk=types.SimpleNamespace(splitlist=lambda data: [str(f)]))
     xmpp.MainWindow._on_dnd_drop(win, types.SimpleNamespace(data=str(f)))
     assert calls == [("send", "a@b", str(f), "chat", "omemo")]
+
+
+# ── OMEMO başarısızsa anahtarlı bağlantı düz metne DÜŞMEZ ────────────────────
+# Kanıt: _send_omemo_locked şifreleme olmayınca (anonim oda: üye JID'leri
+# yok; encrypt_message None) gövdeyi düz metin gönderir. Gövde aesgcm://
+# bağlantısıysa çözme anahtarı da açık gider: dosya sunucuya açılır.
+
+def _omemo_bot(result=None):
+    from test_omemo import _FakeBot, _FakeOmemoXep
+    return _FakeBot(_FakeOmemoXep(result=result))
+
+
+@pytest.mark.parametrize("to, mtype", [
+    ("ali@example.com", "chat"),              # encrypt_message → None
+    ("oda@conf.example.com", "groupchat"),    # anonim oda: alıcı yok
+])
+@pytest.mark.parametrize("body", [AES_URL, f"şuna bak {AES_URL} tamam"])
+def test_omemo_failure_never_sends_file_key_in_clear(to, mtype, body):
+    bot = _omemo_bot()
+    asyncio.run(xmpp.XMPPBot._send_omemo(bot, to, body, mtype))
+    assert bot.sent_plain == []
+    assert not any(m.sent for m in bot.made_messages)
+    errors = [d for k, d in bot.gui_q.items if k == "error"]
+    assert errors and "GÖNDERİLMEDİ" in errors[-1]
+
+
+def test_room_text_fallback_is_unchanged():
+    """Metin mesajında eski davranış: anonim odada düz metne düşer."""
+    bot = _omemo_bot()
+    asyncio.run(xmpp.XMPPBot._send_omemo(bot, "oda@conf.example.com",
+                                         "merhaba", "groupchat"))
+    assert bot.sent_plain == [("oda@conf.example.com", "merhaba",
+                               "groupchat")]
+
+
+# ── PGP sohbetinde dosya: şifresiz gideceği onaylanmadan gönderilmez ────────
+# Kanıt: OpenPGP (XEP-0027) dosya şifrelemez; PGP sohbetindeki dosya düz
+# yüklenip bağlantısı düz gidiyordu ve kullanıcıya bir şey söylenmiyordu.
+
+@pytest.fixture()
+def ask(monkeypatch):
+    asked = []
+    answer = {"value": False}
+
+    def _ask(title, message, **kw):
+        asked.append(message)
+        return answer["value"]
+    monkeypatch.setattr(xmpp.messagebox, "askyesno", _ask)
+    return asked, answer
+
+
+@pytest.mark.parametrize("yes", [False, True])
+def test_pgp_attach_asks_before_plain_upload(ask, yes):
+    asked, answer = ask
+    answer["value"] = yes
+    win, calls = _file_win({"a@b": "pgp"})
+    win.root = None
+    xmpp.MainWindow._upload_file_path(win, "/tmp/f.pdf", "a@b")
+    assert len(asked) == 1 and "şifresiz" in asked[0]
+    assert calls == ([("upload", "/tmp/f.pdf", "a@b", False)] if yes else [])
+
+
+@pytest.mark.parametrize("yes", [False, True])
+def test_pgp_voice_message_asks_first(ask, yes):
+    asked, answer = ask
+    answer["value"] = yes
+    win, calls = _file_win({"hedef@b": "pgp"})
+    win.root = None
+    shown = []
+    win._show_sent_voice = lambda path, target=None: shown.append(target)
+    xmpp.MainWindow._on_recording_ready(win, "/tmp/v.wav", "hedef@b")
+    assert len(asked) == 1
+    assert calls == ([("send", "hedef@b", "/tmp/v.wav", "chat", "none")]
+                     if yes else [])
+    assert shown == (["hedef@b"] if yes else [])
+
+
+def test_pgp_drop_asks_once_for_all_files(ask, tmp_path):
+    asked, answer = ask
+    answer["value"] = False
+    files = [tmp_path / "a.txt", tmp_path / "b.txt"]
+    for f in files:
+        f.write_text("x")
+    win, calls = _file_win({"a@b": "pgp"})
+    win.root = types.SimpleNamespace(
+        tk=types.SimpleNamespace(splitlist=lambda data: [str(f) for f in files]))
+    xmpp.MainWindow._on_dnd_drop(win, types.SimpleNamespace(data="x"))
+    assert len(asked) == 1 and calls == []
+
+
+def test_pgp_paste_declined_sends_nothing(ask, monkeypatch):
+    pytest.importorskip("PIL")
+    from PIL import ImageGrab
+    asked, answer = ask
+    answer["value"] = False
+
+    class _Img:
+        def save(self, f, format):
+            f.write(b"png")
+    monkeypatch.setattr(ImageGrab, "grabclipboard", lambda: _Img())
+    monkeypatch.setattr(xmpp, "HAS_PIL", True)
+    win, calls = _file_win({"a@b": "pgp"})
+    win.root = None
+    win._remember_temp = lambda path: True
+    assert xmpp.MainWindow._on_paste(win) == "break"   # metin yapıştırılmaz
+    assert len(asked) == 1 and calls == []
+
+
+@pytest.mark.parametrize("mode", ["omemo", "none"])
+def test_no_prompt_outside_pgp(ask, mode):
+    asked, _answer = ask
+    win, calls = _file_win({"a@b": mode})
+    xmpp.MainWindow._upload_file_path(win, "/tmp/f.pdf", "a@b")
+    assert asked == [] and len(calls) == 1

@@ -59,7 +59,9 @@ gerçekten çalıştır.
   (`_file_encryption` → `_chat_encryption`) 📎, sürükle-bırak, yapıştırma ve sesli mesaj
   dosyası şifrelenip rastgele adla (uzantı korunur) yüklenir (`transfers.py:_upload_encrypted`);
   bağlantı yalnız OMEMO'lu gövdede gider, OOB'ye yazılmaz. OMEMO hazır değilse dosya
-  yüklenmez (düz yüklemeye düşmez). PGP sohbetinde dosya şifresiz yüklenir
+  yüklenmez (düz yüklemeye düşmez); `_send_omemo` şifreleyemezse metni düz gönderir ama
+  gövde aesgcm:// anahtarı taşıyorsa göndermez. PGP dosya şifreleyemez: PGP sohbetinde
+  dosya şifresiz yüklenmeden önce onay sorulur (`_confirm_plain_file`)
   (`test_omemo_file_send.py`; gerçek sunucuda `tools/omemo_e2e.py` 5. adım).
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP

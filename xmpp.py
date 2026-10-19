@@ -1712,9 +1712,14 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                                  reply_body=None, mid=None,
                                  reply_to_jid=None):
         """OMEMO şifreli mesaj gönder. reply_id/body verilirse yanıt bilgisi
-        şifreli yüke eklenir (XEP-0461 + XEP-0428 fallback)."""
+        şifreli yüke eklenir (XEP-0461 + XEP-0428 fallback).
+
+        Şifreleme olmazsa metin düz gönderilir (uyarıyla); gövde aesgcm://
+        bağlantısı taşıyorsa GÖNDERİLMEZ: bağlantıdaki çözme anahtarı düz
+        metinde dosyayı sunucuya ve aradaki herkese açar (XEP-0454)."""
         from slixmpp import JID
         xep = _get_xep(self, "xep_0384")
+        carries_key = bool(_aesgcm.URL_RE.search(body or ""))
         stanza = self.make_message(mto=to, mtype=mtype)
         stanza["body"] = body
         stanza.set_to(to)
@@ -1747,6 +1752,12 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             except Exception:
                 pass
             if not recipients:
+                if carries_key:
+                    self.gui_q.put(("error",
+                        "OMEMO: Oda üyelerinin JID'leri alınamadı (oda anonim "
+                        "olabilir). Şifreli dosya bağlantısı şifresiz "
+                        "GÖNDERİLMEDİ."))
+                    return
                 self.gui_q.put(("error",
                     "OMEMO: Oda üyelerinin JID'leri alınamadı "
                     "(oda anonim olabilir). Düz metin gönderiliyor."))
@@ -1784,6 +1795,11 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                     f"⚠ OMEMO uyarı: {err}"))
 
         if encrypted is None:
+            if carries_key:
+                self.gui_q.put(("error",
+                    "OMEMO şifreleme başarısız — şifreli dosya bağlantısı "
+                    "şifresiz GÖNDERİLMEDİ."))
+                return
             self.gui_q.put(("error",
                 "OMEMO şifreleme başarısız — düz metin gönderiliyor"))
             if mtype == "groupchat":
@@ -4485,6 +4501,8 @@ class MainWindow:
             return
         files = self.root.tk.splitlist(event.data)
         mtype = "groupchat" if self.active in self.rooms else "chat"
+        if not self._confirm_plain_file(self.active):
+            return
         enc = self._file_encryption(self.active)
         for f in files:
             if os.path.isfile(f):
@@ -6631,6 +6649,8 @@ class MainWindow:
             img = ImageGrab.grabclipboard()
             if img is None:
                 return  # Normal metin yapıştırma
+            if not self._confirm_plain_file(self.active):
+                return "break"  # resim gönderilmedi; metin de yapıştırılmaz
             # Geçici dosyaya kaydet ve gönder
             tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
             img.save(tmp, format="PNG")
@@ -7276,6 +7296,8 @@ class MainWindow:
         Tescil artık üreticide (`_finalize_recording`) yapıldığından burada
         kayıt yapılmaz; yalnız gönderim + gösterim.
         """
+        if not self._confirm_plain_file(target):
+            return
         mtype = "groupchat" if target in self.rooms else "chat"
         self.bot.send_file(target, wav_path, mtype,
                            encryption=self._file_encryption(target))
@@ -8454,8 +8476,18 @@ class MainWindow:
         PGP'nin dosya karşılığı yoktur: dosya şifresiz yüklenir."""
         return "omemo" if self._chat_encryption(target) == "omemo" else "none"
 
+    def _confirm_plain_file(self, target):
+        """PGP sohbetinde dosya şifrelenemez: şifresiz gönderim onaylanmadan
+        dosya gitmez (kullanıcı sohbeti şifreli sanıyor)."""
+        if self._chat_encryption(target) != "pgp":
+            return True
+        return messagebox.askyesno(_t("ft_title"), _t("ft_pgp_plain"),
+                                   parent=self.root)
+
     def _upload_file_path(self, path, target=None):
         target = target or self.active
+        if not self._confirm_plain_file(target):
+            return
         encrypt = self._file_encryption(target) == "omemo"
         if self.active == target:
             self._append(f"{'🔒' if encrypt else '📎'} Yükleniyor: "

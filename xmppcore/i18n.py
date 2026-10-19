@@ -57,6 +57,9 @@ _STRINGS = {
         "ft_online_check": "Kişi çevrimdışı görünüyor; P2P başarısız olabilir.",
         "ft_large_warn": "{mb} MB üzeri dosyalarda P2P yavaş olabilir. Devam edilsin mi?",
         "ft_http_fallback": "P2P başarısız oldu. Dosya sunucuya yüklenerek gönderilsin mi?",
+        "ft_pgp_plain": "Bu sohbet OpenPGP ile şifreli, ama OpenPGP dosya şifreleyemez: "
+                        "dosya sunucuya şifresiz yüklenir, bağlantıyı gören herkes "
+                        "açabilir. Yine de gönderilsin mi?",
         "ft_timeout": "Dosya teklifi yanıtsız kaldı",
         "ft_auto_saved": "otomatik kabul edildi",
         "join_selected": "Seçilen Odaya Katıl", "add_bookmark": "Yer İmine Ekle",
@@ -141,6 +144,9 @@ _STRINGS = {
         "ft_online_check": "Contact appears offline; P2P may fail.",
         "ft_large_warn": "P2P may be slow for files over {mb} MB. Continue?",
         "ft_http_fallback": "P2P failed. Send the file via server upload?",
+        "ft_pgp_plain": "This chat uses OpenPGP, but OpenPGP cannot encrypt files: "
+                        "the file is uploaded unencrypted and anyone with the link "
+                        "can open it. Send anyway?",
         "ft_timeout": "File offer timed out",
         "ft_auto_saved": "accepted automatically",
         "join_selected": "Join Selected Room", "add_bookmark": "Add Bookmark",
