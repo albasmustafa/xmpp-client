@@ -10,6 +10,8 @@ Event adları ve gui_q payload'ları taşınmadan önceki haliyle birebir aynıd
 import asyncio
 import xml.etree.ElementTree as ET
 
+from slixmpp import Message
+
 from xmppcore.constants import _log
 from xmppcore.format import _forward_body, _reply_preview
 from xmppcore.helpers import (
@@ -114,12 +116,18 @@ class MessagesMixin:
     # tetiklemez (sahte carbon koruması: xep_0280._handle_carbon_*).
     def _on_carbon_received(self, msg):
         """Başka cihazımıza (ör. telefondaki Monocles) gelen mesajın kopyası:
-        normal gelen mesaj gibi işlenir (OMEMO dahil)."""
+        normal gelen mesaj gibi işlenir (OMEMO ve PGP dahil)."""
         inner = msg["carbon_received"]
         if str(inner["from"].bare) in getattr(self, "my_nicks", {}):
             return          # oda özel mesajı (MUC PM): oda akışında değil
-        # Düzeltme/geri çekme/tepki yeni mesaj değildir: kendi işleyicisine
         xml = inner.xml
+        if xml.find("{jabber:x:encrypted}x") is not None:
+            # encrypted_message olayı carbon içindeki stanza için tetiklenmez;
+            # PGP'li düzeltme de buradan: çözülüp uygulanır. İç stanza'nın
+            # stream'i yok (msg["encrypted"] çözemez): bota bağlı kurulur.
+            self._on_pgp_message(Message(self, xml, recv=True))
+            return
+        # Düzeltme/geri çekme/tepki yeni mesaj değildir: kendi işleyicisine
         if _has_child(xml, _CORRECTION):
             self._on_message_correction(inner)
             if _has_child(xml, *_OMEMO_TAGS):

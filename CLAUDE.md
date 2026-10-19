@@ -52,6 +52,9 @@ gerçekten çalıştır.
   `msg_correction` olur). Telefonda yapılan düzeltme/geri çekme/tepki (carbon_sent) aynı
   olaylarla `from`=karşı taraf ve gönderen `"Ben"` olarak gelir (`own_to`). Tepki olayı
   gönderenin TAM kümesidir (XEP-0444): kümede olmayan eski tepkisi kalkar.
+  Telefona gelen PGP kopyası (carbon_received) `_on_pgp_message`'a bota bağlı yeni
+  `Message` olarak verilir: `encrypted_message` iç stanza için tetiklenmez ve iç stanza'nın
+  stream'i olmadığından `msg["encrypted"]` çözemez.
   Testler: `test_multi_device.py`, `test_mobile_edits.py`.
 - **Şifreli medya** `aesgcm://` (XEP-0454, mobil istemciler OMEMO'da kullanır):
   `xmppcore/aesgcm.py` + `_fetch_url_bytes`; çözme anahtarı AI metnine, sesli okumaya ve

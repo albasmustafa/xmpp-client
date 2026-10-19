@@ -86,8 +86,11 @@ def test_omemo_correction_is_decrypted_then_applied(bot, monkeypatch):
 
 
 class _FakePgp:
+    def __init__(self, text="pgp düzeltilmiş"):
+        self.text = text
+
     def decrypt(self, data, jid=None):
-        return "pgp düzeltilmiş"
+        return self.text
 
 
 PGP_X = "<x xmlns='jabber:x:encrypted'>-----ARMOR-----</x>"
@@ -113,3 +116,31 @@ def test_pgp_message_without_correction_still_arrives(bot, monkeypatch):
     _feed(bot, _msg(PGP_X, "This message is encrypted"))
     assert _kinds(bot) == ["msg"]
     assert bot.gui_q.items[0][1]["encrypted"] == "pgp"
+
+
+def _received_carbon(extra, body="This message is encrypted"):
+    # Telefona (aynı hesabın başka cihazına) gelen mesajın kopyası
+    inner = (f"<message xmlns='jabber:client' from='{CONTACT}' "
+             f"to='{OWN}/telefon' type='chat' id='c-1'>"
+             f"<body>{body}</body>{extra}</message>")
+    return _md._carbon("received", inner)
+
+
+def test_pgp_received_carbon_is_decrypted(bot, monkeypatch):
+    # Kanıt: telefona gelen PGP mesajının kopyası hiç olay üretmiyordu
+    # (encrypted_message olayı carbon içindeki stanza için tetiklenmez)
+    monkeypatch.setitem(bot.plugin._plugins, "xep_0027",
+                        _FakePgp("telefona gelen pgp"))
+    _feed(bot, _received_carbon(PGP_X))
+    assert _kinds(bot) == ["msg"]
+    data = bot.gui_q.items[0][1]
+    assert (data["from"], data["body"], data["encrypted"], data["mid"]) == (
+        "ayse@example.org", "telefona gelen pgp", "pgp", "c-1")
+
+
+def test_pgp_received_carbon_correction_is_applied(bot, monkeypatch):
+    monkeypatch.setitem(bot.plugin._plugins, "xep_0027", _FakePgp())
+    _feed(bot, _received_carbon(CORRECTION + PGP_X))
+    assert bot.gui_q.items == [("msg_correction", {
+        "from": "ayse@example.org", "orig_id": "o-2",
+        "body": "pgp düzeltilmiş", "nick": "monal"})]
