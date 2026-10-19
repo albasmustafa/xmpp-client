@@ -48,7 +48,7 @@ gerçekten çalıştır.
   (`_on_carbon_sent/_received`, messages.py) ve odada aynı takma adlı oturum
   (`_muc_own_message`; giden filtre `_remember_sent_id` → `_sent_ids`) kendi mesajımızı
   `own_msg` olayıyla verir; presence tüm kaynaklardan birleştirilir (presence.py). Düzeltme/
-  geri çekme mesajları `_on_message`'a girmez (kendi olayları var; OMEMO'lu düzeltme çözülüp
+  geri çekme mesajları `_on_message`'a girmez (kendi olayları var; OMEMO'lu ve PGP'li düzeltme çözülüp
   `msg_correction` olur). Telefonda yapılan düzeltme/geri çekme/tepki (carbon_sent) aynı
   olaylarla `from`=karşı taraf ve gönderen `"Ben"` olarak gelir (`own_to`). Tepki olayı
   gönderenin TAM kümesidir (XEP-0444): kümede olmayan eski tepkisi kalkar.

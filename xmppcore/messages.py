@@ -304,10 +304,11 @@ class MessagesMixin:
             self.gui_q.put(("marker_displayed", {"from": frm, "mid": mid}))
 
     def _on_message_correction(self, msg, own_to=None):
-        """Gelen mesaj düzeltmesi (XEP-0308). OMEMO'lu düzeltmenin gövdesi
-        yalnız yedek metindir: çözülünce _decrypt_and_deliver iletir.
+        """Gelen mesaj düzeltmesi (XEP-0308). OMEMO'lu/PGP'li düzeltmenin
+        gövdesi yalnız yedek metindir: çözülünce _decrypt_and_deliver ya da
+        _on_pgp_message iletir.
         `own_to`: başka cihazımızda yapılmış düzeltme (carbon), o sohbete."""
-        if _has_child(msg.xml, *_OMEMO_TAGS):
+        if _has_child(msg.xml, *_OMEMO_TAGS, "{jabber:x:encrypted}x"):
             return
         frm = own_to or str(msg["from"].bare)
         orig_id = ""

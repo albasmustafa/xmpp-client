@@ -1432,6 +1432,23 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                 room = str(msg["from"].bare)
                 if sender == self.my_nicks.get(room, ""):
                     return
+            # Şifreli düzeltme (XEP-0308): <replace> şifresiz kısımda durur;
+            # çözülen metin orijinal mesaja uygulanır
+            orig_id = ""
+            if _has_child(msg.xml, _CORRECTION):
+                try:
+                    orig_id = str(msg["replace"]["id"] or "")
+                except Exception:
+                    orig_id = ""
+            if orig_id:
+                self.gui_q.put(("msg_correction", {
+                    "from": str(msg["from"].bare),
+                    "orig_id": orig_id,
+                    "body": _strip_quoted_fallback(msg, plaintext),
+                    "nick": str(msg["from"].resource or msg["from"].user),
+                }))
+                return
+            if mtype == "groupchat":
                 self.gui_q.put(("msg", {
                     "from": room,
                     "nick": sender,

@@ -83,3 +83,33 @@ def test_omemo_correction_is_decrypted_then_applied(bot, monkeypatch):
     assert bot.gui_q.items == [("msg_correction", {
         "from": "ayse@example.org", "orig_id": "o-2",
         "body": "şifreli telefondan", "nick": "monal"})]
+
+
+class _FakePgp:
+    def decrypt(self, data, jid=None):
+        return "pgp düzeltilmiş"
+
+
+PGP_X = "<x xmlns='jabber:x:encrypted'>-----ARMOR-----</x>"
+
+
+@pytest.mark.parametrize("mtype, frm, nick", [
+    ("chat", CONTACT, "monal"), ("groupchat", f"{ROOM}/ayse", "ayse")])
+def test_pgp_correction_is_decrypted_then_applied(bot, monkeypatch,
+                                                  mtype, frm, nick):
+    # Kanıt: düzeltme yedek gövdeyi ("This message is encrypted") orijinalin
+    # yerine yazıyor, çözülen metin ise YENİ mesaj olarak düşüyordu
+    bot.my_nicks = {ROOM: "tuskun"}
+    monkeypatch.setitem(bot.plugin._plugins, "xep_0027", _FakePgp())
+    _feed(bot, _msg(CORRECTION + PGP_X, "This message is encrypted",
+                    frm, mtype))
+    assert bot.gui_q.items == [("msg_correction", {
+        "from": frm.split("/")[0], "orig_id": "o-2",
+        "body": "pgp düzeltilmiş", "nick": nick})]
+
+
+def test_pgp_message_without_correction_still_arrives(bot, monkeypatch):
+    monkeypatch.setitem(bot.plugin._plugins, "xep_0027", _FakePgp())
+    _feed(bot, _msg(PGP_X, "This message is encrypted"))
+    assert _kinds(bot) == ["msg"]
+    assert bot.gui_q.items[0][1]["encrypted"] == "pgp"
