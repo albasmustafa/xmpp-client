@@ -883,6 +883,23 @@ def test_composer_menu_opens_assistant_and_offers_writing_tools(monkeypatch):
     assert made[0].items[2][0] == "⏹ Dikteyi bitir"
 
 
+def test_composer_menu_keeps_grab_so_outside_click_closes_it(monkeypatch):
+    # Kanıt: X11'de tk_popup beklemeden döner ve menünün dışarı tıklamayı
+    # görmesini sağlayan global grab'i kurar (tk/menu.tcl ::tk_popup). Hemen
+    # ardından grab_release çağrılınca menü açık kalıyor, dışarı tıklayınca
+    # kapanmıyordu (gerçek Tk: grab_current() None).
+    w = _w(monkeypatch)
+    _submenus(w)
+    calls = []
+    monkeypatch.setattr(_Menu, "tk_popup",
+                        lambda self, x, y: calls.append("popup"))
+    monkeypatch.setattr(_Menu, "grab_release",
+                        lambda self: calls.append("release"))
+    xmpp.MainWindow._ai_composer_menu(w, types.SimpleNamespace(
+        x_root=1, y_root=2))
+    assert calls == ["popup"]
+
+
 def test_composer_menu_shows_undo_only_when_available(monkeypatch):
     w = _w(monkeypatch)
     made = _submenus(w)

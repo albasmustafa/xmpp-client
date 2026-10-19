@@ -4915,10 +4915,9 @@ class MainWindow:
             x, y = event.x_root, event.y_root
         else:
             x, y = self.root.winfo_pointerxy()
-        try:
-            menu.tk_popup(x, y)
-        finally:
-            menu.grab_release()
+        # grab_release YOK: X11'de tk_popup hemen döner ve dışarı tıklamayı
+        # yakalayan global grab'i kurar; bırakılırsa menü açık kalır
+        menu.tk_popup(x, y)
 
     # — Mesaj başına eylemler (çeviri / ses→metin / görsel) —
     def _ai_audio_source(self, row):
