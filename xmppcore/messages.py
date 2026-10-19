@@ -146,19 +146,29 @@ class MessagesMixin:
             # Telefonda okundu → masaüstünde de okunmamış kalmasın
             self.gui_q.put(("read_elsewhere", to))
             return
-        if _has_child(xml, _CORRECTION, _REACTIONS, *_RETRACTS):
-            return          # telefondaki düzeltme/geri çekme/tepki: yeni mesaj değil
+        # Telefondaki geri çekme/tepki/düzeltme yeni mesaj değildir: o kişinin
+        # sohbetindeki kendi mesajımıza uygulanır (own_to=kişi)
+        if _has_child(xml, *_RETRACTS):
+            self._on_message_retract(inner, own_to=to)
+            return
+        if _has_child(xml, _REACTIONS):
+            self._on_reactions(inner, own_to=to)
+            return
         if xml.find("{jabber:x:encrypted}x") is not None:
             return          # PGP kopyası kendi anahtarımızla çözülemez
         if self._omemo_enabled():
             try:
                 xep = _get_xep(self, "xep_0384")
                 if xep.is_encrypted(inner):
+                    # Şifreli düzeltme de buradan: çözülüp uygulanır
                     _spawn_task(self, self._decrypt_and_deliver(
                         inner, "chat", own_to=to))
                     return
             except Exception as e:
                 _log.warning("OMEMO şifreli-mesaj denetimi başarısız: %s", e)
+        if _has_child(xml, _CORRECTION):
+            self._on_message_correction(inner, own_to=to)
+            return
         if inner["body"]:
             self.gui_q.put(("own_msg", {
                 "to": to,
@@ -293,12 +303,13 @@ class MessagesMixin:
         if mid:
             self.gui_q.put(("marker_displayed", {"from": frm, "mid": mid}))
 
-    def _on_message_correction(self, msg):
+    def _on_message_correction(self, msg, own_to=None):
         """Gelen mesaj düzeltmesi (XEP-0308). OMEMO'lu düzeltmenin gövdesi
-        yalnız yedek metindir: çözülünce _decrypt_and_deliver iletir."""
+        yalnız yedek metindir: çözülünce _decrypt_and_deliver iletir.
+        `own_to`: başka cihazımızda yapılmış düzeltme (carbon), o sohbete."""
         if _has_child(msg.xml, *_OMEMO_TAGS):
             return
-        frm = str(msg["from"].bare)
+        frm = own_to or str(msg["from"].bare)
         orig_id = ""
         try:
             orig_id = msg["replace"]["id"]
@@ -310,12 +321,13 @@ class MessagesMixin:
                 "from": frm,
                 "orig_id": orig_id,
                 "body": body,
-                "nick": str(msg["from"].resource or msg["from"].user),
+                "nick": ("Ben" if own_to
+                         else str(msg["from"].resource or msg["from"].user)),
             }))
 
-    def _on_message_retract(self, msg):
-        """Gelen mesaj silme (XEP-0424)."""
-        frm = str(msg["from"].bare)
+    def _on_message_retract(self, msg, own_to=None):
+        """Gelen mesaj silme (XEP-0424). `own_to`: bkz. düzeltme."""
+        frm = own_to or str(msg["from"].bare)
         retracted_id = ""
         try:
             retracted_id = msg["retract"]["id"]
@@ -327,10 +339,11 @@ class MessagesMixin:
                 "retracted_id": retracted_id,
             }))
 
-    def _on_reactions(self, msg):
-        """Gelen tepkiler (XEP-0444)."""
-        frm = str(msg["from"].bare)
-        nick = str(msg["from"].resource or msg["from"].user)
+    def _on_reactions(self, msg, own_to=None):
+        """Gelen tepkiler (XEP-0444). `own_to`: başka cihazımızdaki kendi
+        tepkimiz; masaüstündeki kendi tepkilerimiz gibi "Ben" adıyla."""
+        frm = own_to or str(msg["from"].bare)
+        nick = "Ben" if own_to else str(msg["from"].resource or msg["from"].user)
         target_id = ""
         emojis = set()
         try:

@@ -1335,12 +1335,15 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                         except Exception:
                             orig_id = ""
                     if orig_id:
+                        # own_to: düzeltme başka cihazımızda yapıldı (carbon)
                         self.gui_q.put(("msg_correction", {
-                            "from": str(msg["from"].bare),
+                            "from": own_to or str(msg["from"].bare),
                             "orig_id": orig_id,
                             "body": (body if mtype == "groupchat"
                                      else _strip_quoted_fallback(msg, body)),
-                            "nick": str(msg["from"].resource or msg["from"].user),
+                            "nick": ("Ben" if own_to else
+                                     str(msg["from"].resource
+                                         or msg["from"].user)),
                         }))
                         return
                     if mtype == "groupchat":
@@ -11953,22 +11956,21 @@ class MainWindow:
             # Tepki deposunu güncelle — [2M] (jid, mid) kapsamlı
             rkey = (frm, target_id)
             reactions = self._reactions.setdefault(rkey, {})
-            if emojis:
-                for em in emojis:
-                    senders = reactions.setdefault(em, [])
-                    if nick not in senders:
-                        senders.append(nick)
+            # Gelen küme gönderenin TAM kümesidir (XEP-0444): kümede olmayan
+            # eski tepkileri kalkar; boş küme = hepsini geri çekme
+            for em in list(reactions.keys()):
+                if em not in emojis and nick in reactions[em]:
+                    reactions[em].remove(nick)
                     if persist:
-                        _db_save_reaction(frm, target_id, em, nick, True)
-            else:
-                # Boş küme = geri çekme: nick'i tüm emojilerden çıkar
-                for em in list(reactions.keys()):
-                    if nick in reactions[em]:
-                        reactions[em].remove(nick)
-                        if persist:
-                            _db_save_reaction(frm, target_id, em, nick, False)
-                    if not reactions[em]:
-                        del reactions[em]
+                        _db_save_reaction(frm, target_id, em, nick, False)
+                if not reactions[em]:
+                    del reactions[em]
+            for em in emojis:
+                senders = reactions.setdefault(em, [])
+                if nick not in senders:
+                    senders.append(nick)
+                if persist:
+                    _db_save_reaction(frm, target_id, em, nick, True)
             if not reactions:
                 self._reactions.pop(rkey, None)
             # Kendi tepkilerim (başka cihazdan gelmiş olabilir)

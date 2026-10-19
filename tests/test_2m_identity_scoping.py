@@ -300,11 +300,13 @@ def test_same_mid_ten_times_in_one_jid(monkeypatch):
 def test_alternating_reaction_events(monkeypatch):
     monkeypatch.setattr(xmpp, "_db_save_reaction", lambda *a: None)
     w = _reaction_mw()
+    sets = {"a@x": [], "b@x": []}
     for i in range(6):
         frm = "a@x" if i % 2 == 0 else "b@x"
-        em = f"e{i}"
+        # Her tepki olayı gönderenin TAM kümesidir (XEP-0444)
+        sets[frm].append(f"e{i}")
         xmpp.MainWindow._handle(w, "msg_reactions",
-                                _react_event(frm, "X", [em]))
+                                _react_event(frm, "X", list(sets[frm])))
     assert w._reactions[("a@x", "X")] == {"e0": ["Ali"], "e2": ["Ali"],
                                           "e4": ["Ali"]}
     assert w._reactions[("b@x", "X")] == {"e1": ["Ali"], "e3": ["Ali"],

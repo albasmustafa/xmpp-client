@@ -49,7 +49,10 @@ gerçekten çalıştır.
   (`_muc_own_message`; giden filtre `_remember_sent_id` → `_sent_ids`) kendi mesajımızı
   `own_msg` olayıyla verir; presence tüm kaynaklardan birleştirilir (presence.py). Düzeltme/
   geri çekme mesajları `_on_message`'a girmez (kendi olayları var; OMEMO'lu düzeltme çözülüp
-  `msg_correction` olur). Testler: `test_multi_device.py`, `test_mobile_edits.py`.
+  `msg_correction` olur). Telefonda yapılan düzeltme/geri çekme/tepki (carbon_sent) aynı
+  olaylarla `from`=karşı taraf ve gönderen `"Ben"` olarak gelir (`own_to`). Tepki olayı
+  gönderenin TAM kümesidir (XEP-0444): kümede olmayan eski tepkisi kalkar.
+  Testler: `test_multi_device.py`, `test_mobile_edits.py`.
 - **Şifreli medya** `aesgcm://` (XEP-0454, mobil istemciler OMEMO'da kullanır):
   `xmppcore/aesgcm.py` + `_fetch_url_bytes`; çözme anahtarı AI metnine, sesli okumaya ve
   bildirimlere girmez (`test_aesgcm.py`).

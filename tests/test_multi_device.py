@@ -351,16 +351,104 @@ def test_received_carbon_meta_goes_to_its_handler(bot, extra, body, kind):
     assert [k for k, _ in bot.gui_q.items] == [kind]   # yeni mesaj DEĞİL
 
 
-@pytest.mark.parametrize("extra, body", [
-    ("<replace xmlns='urn:xmpp:message-correct:0' id='o-1'/>", "düzeltildi"),
-    ("<retract xmlns='urn:xmpp:message-retract:1' id='o-1'/>", "geri çekildi"),
+@pytest.mark.parametrize("extra, body, event", [
+    ("<replace xmlns='urn:xmpp:message-correct:0' id='o-1'/>", "düzeltildi",
+     ("msg_correction", {"from": "ayse@example.org", "orig_id": "o-1",
+                         "body": "düzeltildi", "nick": "Ben"})),
+    ("<retract xmlns='urn:xmpp:message-retract:1' id='o-1'/>", "geri çekildi",
+     ("msg_retract", {"from": "ayse@example.org", "retracted_id": "o-1"})),
     ("<reactions xmlns='urn:xmpp:reactions:0' id='o-1'><reaction>👍</reaction>"
-     "</reactions>", ""),
+     "</reactions>", "",
+     ("msg_reactions", {"from": "ayse@example.org", "nick": "Ben",
+                        "target_id": "o-1", "emojis": ["👍"]})),
 ])
-def test_sent_carbon_meta_is_not_shown_as_new_message(bot, extra, body):
+def test_edit_retract_react_on_phone_applies_to_contact_chat(bot, extra, body,
+                                                             event):
+    """Telefonda yapılan düzeltme/geri çekme/tepki yeni mesaj değildir;
+    karşı tarafın sohbetindeki kendi mesajımıza (from=kişi) uygulanır.
+    Önce sessizce atılıyordu: masaüstünde eski metin/tepki kalıyordu."""
     inner = _inner(PHONE, "ayse@example.org", extra, body)
+    msg = _stanza(bot, _carbon("sent", inner))
+    bot.plugin["xep_0280"]._handle_carbon_sent(msg)      # slixmpp yolu
+    assert bot.gui_q.items == [event]
+
+
+def test_reactions_withdrawn_on_phone_send_empty_set(bot):
+    inner = _inner(PHONE, "ayse@example.org",
+                   "<reactions xmlns='urn:xmpp:reactions:0' id='o-1'/>")
+    xmpp.XMPPBot._on_carbon_sent(bot, _stanza(bot, _carbon("sent", inner)))
+    assert bot.gui_q.items == [("msg_reactions", {
+        "from": "ayse@example.org", "nick": "Ben", "target_id": "o-1",
+        "emojis": []})]
+
+
+def test_omemo_correction_on_phone_is_decrypted_into_contact_chat(
+        bot, monkeypatch):
+    spawned = []
+    monkeypatch.setattr(messages_mod, "_spawn_task",
+                        lambda owner, coro: spawned.append(coro))
+    monkeypatch.setitem(bot.plugin._plugins, "xep_0384", _FakeOmemo())
+    monkeypatch.setattr(xmpp, "HAS_OMEMO", True)
+    inner = _inner(
+        PHONE, "ayse@example.org",
+        "<replace xmlns='urn:xmpp:message-correct:0' id='o-1'/>"
+        "<encrypted xmlns='eu.siacs.conversations.axolotl'><header sid='1'/>"
+        "</encrypted><store xmlns='urn:xmpp:hints'/>",
+        body="I sent you an OMEMO encrypted message")
+    xmpp.XMPPBot._on_carbon_sent(bot, _stanza(bot, _carbon("sent", inner)))
+    # Yedek metin düzeltme olarak uygulanmaz; çözme görevi başlar
+    assert bot.gui_q.items == [] and len(spawned) == 1
+    asyncio.run(spawned[0])
+    assert bot.gui_q.items == [("msg_correction", {
+        "from": "ayse@example.org", "orig_id": "o-1",
+        "body": "şifreli telefondan", "nick": "Ben"})]
+
+
+def test_pgp_correction_on_phone_is_ignored(bot):
+    """PGP kopyası kendi anahtarımızla çözülemez: yedek metin, düzeltme
+    olarak orijinalin yerine yazılmamalı."""
+    inner = _inner(PHONE, "ayse@example.org",
+                   "<replace xmlns='urn:xmpp:message-correct:0' id='o-1'/>"
+                   "<x xmlns='jabber:x:encrypted'>QUJD</x>",
+                   body="This message is encrypted")
     xmpp.XMPPBot._on_carbon_sent(bot, _stanza(bot, _carbon("sent", inner)))
     assert bot.gui_q.items == []
+
+
+# ── GUI: tepki kümesi değişince eskisi kalkar (XEP-0444 tam küme) ────────────
+
+def _reaction_win(monkeypatch, store, mine=None):
+    win = object.__new__(xmpp.MainWindow)
+    win.jid, win.active, win.rooms, win.my_nick = OWN, None, [], {}
+    win._reactions = store
+    win._my_reactions = dict(mine or {})
+    saved = []
+    monkeypatch.setattr(xmpp, "_db_save_reaction",
+                        lambda *a: saved.append(a))
+    return win, saved
+
+
+def test_changed_reaction_from_phone_replaces_old_one(monkeypatch):
+    key = ("ayse@example.org", "o-1")
+    win, saved = _reaction_win(monkeypatch, {key: {"👍": ["Ben"]}},
+                               mine={key: {"👍"}})
+    xmpp.MainWindow._handle(win, "msg_reactions", {
+        "from": "ayse@example.org", "nick": "Ben", "target_id": "o-1",
+        "emojis": ["❤️"]})
+    assert win._reactions[key] == {"❤️": ["Ben"]}
+    assert win._my_reactions[key] == {"❤️"}
+    assert ("ayse@example.org", "o-1", "👍", "Ben", False) in saved
+    assert ("ayse@example.org", "o-1", "❤️", "Ben", True) in saved
+
+
+def test_changed_reaction_keeps_other_senders(monkeypatch):
+    key = ("ayse@example.org", "o-1")
+    win, _saved = _reaction_win(monkeypatch,
+                                {key: {"👍": ["monal", "Ben"]}})
+    xmpp.MainWindow._handle(win, "msg_reactions", {
+        "from": "ayse@example.org", "nick": "monal", "target_id": "o-1",
+        "emojis": ["😂"]})
+    assert win._reactions[key] == {"👍": ["Ben"], "😂": ["monal"]}
 
 
 def test_read_on_phone_clears_unread_on_desktop(bot):
