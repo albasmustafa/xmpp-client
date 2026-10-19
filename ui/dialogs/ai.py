@@ -1242,7 +1242,8 @@ _CLAUDE_MODELS = ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5")
 
 
 def show_settings(parent, settings, has_key, whisper_models, on_save,
-                  on_test, *, tts_engines=("auto",), mcp_command=""):
+                  on_test, *, tts_engines=("auto",), keep_alive_choices,
+                  mcp_command=""):
     """AI ayarları penceresi: sekmeler (Model, Claude, Özellikler, Ses, MCP);
     durum satırı ve düğmeler sabit altta. Pencere içeriğe göre boyutlanır
     (en uzun sekme küçük ekranlara da sığacak kadar kısa tutulur).
@@ -1334,8 +1335,13 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
     _row(page, "Sohbet modeli", v_model)
     _row(page, "Görsel modeli", v_vision)
     _row(page, "Gömme modeli", v_embed)
+    v_keep = tk.StringVar(value=settings["keep_alive"])
+    _row(page, "Model sıcak", v_keep, values=keep_alive_choices)
     _hint(page, f"Kurulum: ollama pull {settings['ollama_model']}  ·  "
-                f"ollama pull {settings['embed_model']}")
+                f"ollama pull {settings['embed_model']}\n"
+                "Model, bu süre boyunca bellekte tutulur; boşta geçen "
+                "isteklerde yeniden yükleme beklemesi olmaz (5 dk = Ollama "
+                "varsayılanı).")
 
     # ── 2) Claude ───────────────────────────────────────────────────────────
     page = _page("☁ Claude")
@@ -1416,6 +1422,7 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
             "ollama_model": v_model.get().strip(),
             "ollama_vision_model": v_vision.get().strip(),
             "embed_model": v_embed.get().strip(),
+            "keep_alive": v_keep.get().strip(),
             "claude_model": v_cmodel.get().strip(),
             "cloud_for_encrypted": bool(v_cloud_enc.get()),
             "target_language": v_lang.get().strip(),

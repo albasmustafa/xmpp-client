@@ -46,6 +46,7 @@ DEFAULTS = {
     "ollama_model": "gemma3:4b",           # sohbet/metin (çok dilli)
     "ollama_vision_model": "gemma3:4b",    # görsel açıklama
     "embed_model": "bge-m3",               # anlamsal arama (çok dilli)
+    "keep_alive": "30m",                   # modeli bellekte tutma süresi
     "claude_model": "claude-opus-5-5",
     "claude_api_key": "",                  # _encode_pw ile şifreli saklanır
     "cloud_for_encrypted": False,
@@ -63,6 +64,7 @@ DEFAULTS = {
 }
 
 WHISPER_MODELS = ("tiny", "base", "small", "medium", "large-v3")
+KEEP_ALIVE_CHOICES = ("5m", "10m", "30m", "1h", "4h")  # 5m = Ollama varsayılanı
 TTS_ENGINES = ("auto", "piper", "espeak-ng", "espeak", "spd-say")
 
 # Bağlam bütçeleri (karakter): yerel modeller küçük bağlamla çalışır.
@@ -119,6 +121,8 @@ def load_settings(cfg: dict | None) -> dict:
         s["provider"] = DEFAULTS["provider"]
     if s["whisper_model"] not in WHISPER_MODELS:
         s["whisper_model"] = DEFAULTS["whisper_model"]
+    if s["keep_alive"] not in KEEP_ALIVE_CHOICES:
+        s["keep_alive"] = DEFAULTS["keep_alive"]
     if s["tts_engine"] not in TTS_ENGINES:
         s["tts_engine"] = DEFAULTS["tts_engine"]
     if not re.fullmatch(r"[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})?",
@@ -314,6 +318,7 @@ def ollama_chat(settings: dict, system: str, user: str,
         "model": model,
         "messages": _ollama_messages(system, user, images, history),
         "stream": on_delta is not None,
+        "keep_alive": settings["keep_alive"],
         "options": {"temperature": 0.3, "num_ctx": _OLLAMA_NUM_CTX},
     }
     if max_tokens is not None:
@@ -343,7 +348,7 @@ def ollama_embed(settings: dict, texts: list[str]) -> list[list[float]]:
     if not texts:
         return []
     payload = {"model": settings["embed_model"], "input": texts,
-               "truncate": True}
+               "truncate": True, "keep_alive": settings["keep_alive"]}
     res = _ollama_request(settings, "/api/embed", payload,
                           _OLLAMA_EMBED_TIMEOUT)
     vecs = res.get("embeddings")

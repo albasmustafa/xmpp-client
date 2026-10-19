@@ -45,6 +45,7 @@ def dialog(request, monkeypatch):
         _W(), ai.load_settings({}), False, ai.WHISPER_MODELS,
         lambda values, key: saved.append((values, key)),
         lambda *a: None, tts_engines=ai.TTS_ENGINES,
+        keep_alive_choices=ai.KEEP_ALIVE_CHOICES,
         mcp_command="claude mcp add xmpp -- py /p/xmpp_mcp.py")
     return dlg, saved
 
@@ -101,6 +102,7 @@ def test_settings_are_grouped_into_tabs(dialog):
                       "🔌 MCP"]
     pages = dict(nb.tabs)
     assert _find(pages["🤖 Model"], "Sohbet modeli")
+    assert _find(pages["🤖 Model"], "Model sıcak")
     assert _find(pages["🎙 Ses"], "Whisper modeli")
     assert _find(pages["🎙 Ses"], "Motor")
     assert _find(pages["🔌 MCP"], "📋")

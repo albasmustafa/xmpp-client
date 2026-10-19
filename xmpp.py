@@ -6612,6 +6612,7 @@ class MainWindow:
                              bool(settings["claude_api_key"]),
                              _ai.WHISPER_MODELS, _save, _test,
                              tts_engines=_ai.TTS_ENGINES,
+                             keep_alive_choices=_ai.KEEP_ALIVE_CHOICES,
                              mcp_command=self._mcp_command())
 
     # ── Clipboard yapıştır (Ctrl+V resim) ─────────────────────────────────────

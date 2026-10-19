@@ -38,17 +38,20 @@ def test_load_settings_defaults_local_first():
     assert s["provider"] == ai.PROVIDER_OLLAMA
     assert s["cloud_for_encrypted"] is False
     assert s["claude_model"] == "claude-opus-5-5"
+    assert s["keep_alive"] == "30m"
 
 
 def test_load_settings_validates_values():
     s = ai.load_settings({"ai": {"provider": "openai", "whisper_model": "x",
                                  "ollama_url": "http://h:1/",
-                                 "ollama_model": "  ", "cloud_for_encrypted": 1}})
+                                 "ollama_model": "  ", "cloud_for_encrypted": 1,
+                                 "keep_alive": "forever"}})
     assert s["provider"] == ai.PROVIDER_OLLAMA
     assert s["whisper_model"] == "small"
     assert s["ollama_url"] == "http://h:1"
     assert s["ollama_model"] == ai.DEFAULTS["ollama_model"]
     assert s["cloud_for_encrypted"] is True
+    assert s["keep_alive"] == ai.DEFAULTS["keep_alive"]
 
 
 def test_merge_settings_encrypts_and_keeps_api_key(monkeypatch):
@@ -269,6 +272,21 @@ def test_ollama_chat_payload_and_vision_model(monkeypatch):
     assert p1["messages"][0] == {"role": "system", "content": "S"}
     assert p2["model"] == "m-vis"
     assert p2["messages"][1]["images"] == ["aW1n"]
+
+
+def test_ollama_keep_alive_sent_for_chat_and_embed(monkeypatch):
+    """keep_alive ayarı sohbet ve gömme isteklerine taşınır (model sıcak kalır)."""
+    def _h(req, payload):
+        if req.full_url.endswith("/api/embed"):
+            return _HTTPResp(json.dumps({"embeddings": [[0.0]]}).encode())
+        return _HTTPResp(json.dumps({"message": {"content": "ok"}}).encode())
+    seen = _fake_urlopen(monkeypatch, _h)
+    s = _settings(keep_alive="1h")
+    ai.ollama_chat(s, "S", "U")
+    ai.ollama_embed(s, ["x"])
+    (_url, p1, _), (_u2, p2, _t2) = seen
+    assert p1["keep_alive"] == "1h"
+    assert p2["keep_alive"] == "1h"
 
 
 def test_ollama_missing_model_hint(monkeypatch):
