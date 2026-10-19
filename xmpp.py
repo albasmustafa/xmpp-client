@@ -4831,35 +4831,38 @@ class MainWindow:
                        font=(FONT, 9))
 
     def _ai_fill_chat_items(self, menu, jid):
-        """Sohbet AI eylemleri: bağlama özel öğe üstte, gerisi iki alt
-        menüde (bu sohbet / tüm sohbetler), ardından asistan ve ayarlar."""
+        """Sohbet AI eylemleri (⋮ menüsü): asistan üstte; özet, sorular,
+        geçmişe sor gibi sonuçlar asistanın içinde açılır
+        (`_ai_assistant_run`); düzenlenebilir listeler kendi penceresinde."""
+        run = self._ai_assistant_run
+        menu.add_command(label="✨ Asistan…", accelerator="Ctrl+Shift+K",
+                         command=self._ai_assistant_open)
         unread = (getattr(self, "_ai_unread_at_open", None) or {}).get(jid, 0)
         if unread:
             menu.add_command(
                 label=f"📝 Okunmamışları özetle ({unread})",
-                command=lambda: self._ai_summarize(jid, unread_only=True))
+                command=lambda: run("summarize_unread", jid))
         this = self._ai_new_menu(menu)
         this.add_command(label="📝 Sohbeti özetle",
-                         command=lambda: self._ai_summarize(jid))
+                         command=lambda: run("summarize_chat", jid))
         this.add_command(label="📅 Görev ve etkinlikleri çıkar",
                          command=lambda: self._ai_extract_actions(jid))
         menu.add_cascade(label="💬 Bu sohbet", menu=this)
         every = self._ai_new_menu(menu)
         every.add_command(label="📥 Neler kaçırdım?",
-                          accelerator="Ctrl+Shift+M", command=self._ai_digest)
+                          accelerator="Ctrl+Shift+M",
+                          command=lambda: run("missed"))
         every.add_command(label="❓ Yanıt bekleyen sorular",
                           accelerator="Ctrl+Shift+Q",
-                          command=self._ai_pending_questions)
+                          command=lambda: run("pending_questions"))
         every.add_command(label="📝 Yanıt taslakları",
                           accelerator="Ctrl+Shift+R",
                           command=self._ai_drafts_window)
         every.add_command(label="💬 Geçmişe sor…", accelerator="Ctrl+Shift+H",
-                          command=self._ai_ask_history)
+                          command=lambda: run("ask_history"))
         every.add_command(label="🧠 Anlamsal arama…",
                           command=self._ai_semantic_search_dialog)
         menu.add_cascade(label="🗂 Tüm sohbetler", menu=every)
-        menu.add_command(label="✨ Asistan…", accelerator="Ctrl+Shift+K",
-                         command=self._ai_assistant_open)
         menu.add_separator()
         menu.add_command(label="⚙ AI Ayarları…",
                          command=self._ai_settings_dialog)
@@ -4867,20 +4870,27 @@ class MainWindow:
     def _ai_build_chat_menu(self, parent):
         """⋮ başlık menüsündeki ✨ alt menüsü."""
         sub = self._ai_new_menu(parent)
+        jid = self.active
         sub.add_command(label="💡 Yanıt öner",
-                        command=self._ai_suggest_replies)
+                        command=lambda: self._ai_assistant_run(
+                            "suggest_replies", jid))
         sub.add_separator()
-        self._ai_fill_chat_items(sub, self.active)
+        self._ai_fill_chat_items(sub, jid)
         return sub
 
     def _ai_composer_menu(self, event=None):
-        """Giriş kutusundaki ✨ butonu: yazma araçları üstte, sohbet
-        eylemleri alt menülerde."""
+        """Giriş kutusundaki ✨ butonu: asistan (bu sohbet) üstte, ardından
+        yazma araçları. Sohbet eylemleri asistanın düğmelerindedir."""
         if not self.active:
             return
+        jid = self.active
         menu = self._ai_new_menu(self.root)
+        menu.add_command(label="✨ Asistan (bu sohbet)…",
+                         accelerator="Ctrl+Shift+K",
+                         command=self._ai_assistant_open)
         menu.add_command(label="💡 Yanıt öner",
-                         command=self._ai_suggest_replies)
+                         command=lambda: self._ai_assistant_run(
+                             "suggest_replies", jid))
         dictating = (getattr(self, "_recording", False)
                      and getattr(self, "_rec_mode", "voice") == "dictate")
         menu.add_command(label=("⏹ Dikteyi bitir" if dictating
@@ -4899,7 +4909,8 @@ class MainWindow:
             menu.add_command(label="↶ AI değişikliğini geri al",
                              command=self._ai_undo_rewrite)
         menu.add_separator()
-        self._ai_fill_chat_items(menu, self.active)
+        menu.add_command(label="⚙ AI Ayarları…",
+                         command=self._ai_settings_dialog)
         if event is not None:
             x, y = event.x_root, event.y_root
         else:
@@ -5392,17 +5403,29 @@ class MainWindow:
         win.set_quick_actions(context, _agent.quick_actions(
             label, unread, missed, drafts))
 
-    def _ai_agent_quick(self, key, label):
-        """Hızlı eylem düğmesi: plan modele sorulmaz, doğrudan yürütülür."""
-        win = getattr(self, "_ai_assistant_win", None)
-        if win is None or not win.alive():
+    def _ai_agent_quick(self, key, label, jid=None):
+        """Hızlı eylem düğmesi: plan modele sorulmaz, doğrudan yürütülür.
+        `jid`: menüden gelen belirli sohbet (yoksa asistanın bağlamı)."""
+        win = self._ai_inline_target()
+        if win is None:
             return
         if key == "ask_history":
-            win.prefill(_agent.HISTORY_PREFIX)
+            self._ai_ask_history(inline=True)   # soru kartı, takip kipinde
             return
         win.add_user(label)
         self._ai_agent_log_add("user", label)
-        self._ai_agent_handle(win, _agent.normalize_plan({"action": key}))
+        plan = _agent.normalize_plan({"action": key})
+        if jid:
+            self._ai_agent_run(win, plan, jid)
+        else:
+            self._ai_agent_handle(win, plan)
+
+    def _ai_assistant_run(self, key, jid=None):
+        """Menü/kısayol girişi: asistanı açar, eylemi onun içinde çalıştırır
+        (tek merkez). Dönüş "break" (Tk kısayolu)."""
+        self._ai_assistant_open()
+        self._ai_agent_quick(key, _agent.ACTION_LABELS[key], jid)
+        return "break"
 
     @staticmethod
     def _ai_assistant_subtitle(settings) -> str:
@@ -10489,11 +10512,13 @@ class MainWindow:
         self.root.bind("<Control-r>", lambda _: self._reply_last_incoming())
         self.root.bind("<Control-Shift-E>", lambda _: self._edit_last_own())
         self.root.bind("<Control-Shift-D>", lambda _: self._delete_last_own())
-        self.root.bind("<Control-Shift-M>", lambda _: self._ai_digest())
-        self.root.bind("<Control-Shift-H>", lambda _: self._ai_ask_history())
+        self.root.bind("<Control-Shift-M>",
+                       lambda _: self._ai_assistant_run("missed"))
+        self.root.bind("<Control-Shift-H>",
+                       lambda _: self._ai_assistant_run("ask_history"))
         self.root.bind("<Control-Shift-S>", lambda _: self._ai_dictate())
         self.root.bind("<Control-Shift-Q>",
-                       lambda _: self._ai_pending_questions())
+                       lambda _: self._ai_assistant_run("pending_questions"))
         self.root.bind("<Control-Shift-K>", self._ai_assistant_open)
         self.root.bind("<Control-Shift-R>", lambda _: self._ai_drafts_window())
         self.root.bind("<Control-b>", lambda _: self._backup_dialog())

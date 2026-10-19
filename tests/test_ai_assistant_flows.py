@@ -817,9 +817,12 @@ def test_chat_menu_items_and_order(monkeypatch):
     w = _w(monkeypatch)
     _submenus(w)
     w._ai_unread_at_open = {"a@b": 2}
+    w._ai_extract_actions = _Cap()
+    w._ai_assistant_run = _Cap()
     menu = _Menu()
     xmpp.MainWindow._ai_fill_chat_items(w, menu, "a@b")
     assert _tree(menu) == [
+        ("✨ Asistan…", "Ctrl+Shift+K", None),
         ("📝 Okunmamışları özetle (2)", None, None),
         ("💬 Bu sohbet", "▸", [
             ("📝 Sohbeti özetle", None, None),
@@ -830,12 +833,20 @@ def test_chat_menu_items_and_order(monkeypatch):
             ("📝 Yanıt taslakları", "Ctrl+Shift+R", None),
             ("💬 Geçmişe sor…", "Ctrl+Shift+H", None),
             ("🧠 Anlamsal arama…", None, None)]),
-        ("✨ Asistan…", "Ctrl+Shift+K", None),
         ("—", None, None),
         ("⚙ AI Ayarları…", None, None)]
-    w._ai_extract_actions = _Cap()
-    menu.items[1][2].items[1][2]()
+    # Düzenlenebilir liste kendi penceresinde; sonuçlar asistanın içinde
+    menu.items[2][2].items[1][2]()
     assert w._ai_extract_actions.calls == [(("a@b",), {})]
+    menu.items[1][2]()
+    menu.items[2][2].items[0][2]()
+    every = menu.items[3][2].items
+    for i in (0, 1, 3):         # neler kaçırdım, sorular, geçmişe sor
+        every[i][2]()
+    assert w._ai_assistant_run.calls == [
+        (("summarize_unread", "a@b"), {}), (("summarize_chat", "a@b"), {}),
+        (("missed",), {}), (("pending_questions",), {}),
+        (("ask_history",), {})]
 
 
 def test_chat_menu_hides_unread_item_without_unread(monkeypatch):
@@ -843,27 +854,33 @@ def test_chat_menu_hides_unread_item_without_unread(monkeypatch):
     _submenus(w)
     menu = _Menu()
     xmpp.MainWindow._ai_fill_chat_items(w, menu, "a@b")
-    assert menu.items[0][0] == "💬 Bu sohbet"
+    assert [lbl for lbl, _a, _c in menu.items[:2]] == ["✨ Asistan…",
+                                                      "💬 Bu sohbet"]
 
 
-def test_composer_menu_offers_dictation(monkeypatch):
+def test_composer_menu_opens_assistant_and_offers_writing_tools(monkeypatch):
     w = _w(monkeypatch)
     made = _submenus(w)
+    w._ai_assistant_open = _Cap()
+    w._ai_assistant_run = _Cap()
     ev = types.SimpleNamespace(x_root=1, y_root=2)
     xmpp.MainWindow._ai_composer_menu(w, ev)
     main = made[0]
     labels = [lbl for lbl, _a, _c in main.items]
-    assert labels[:3] == ["💡 Yanıt öner", "🎙 Sesle yaz (dikte)",
-                          "✍ Taslağı düzenle"]
-    rewrite = main.items[2][2]
+    assert labels == ["✨ Asistan (bu sohbet)…", "💡 Yanıt öner",
+                      "🎙 Sesle yaz (dikte)", "✍ Taslağı düzenle", "—",
+                      "⚙ AI Ayarları…"]
+    rewrite = main.items[3][2]
     assert [lbl for lbl, _a, _c in rewrite.items] == [
         label for label, _i in xmpp._ai.REWRITE_MODES.values()]
-    assert "—" in labels and labels[-1] == "⚙ AI Ayarları…"
-    assert len([x for x in labels if x != "—"]) <= 8      # sade üst düzey
+    main.items[0][2]()
+    main.items[1][2]()
+    assert len(w._ai_assistant_open.calls) == 1
+    assert w._ai_assistant_run.calls == [(("suggest_replies", "a@b"), {})]
     made.clear()
     w._recording, w._rec_mode = True, "dictate"
     xmpp.MainWindow._ai_composer_menu(w, ev)
-    assert made[0].items[1][0] == "⏹ Dikteyi bitir"
+    assert made[0].items[2][0] == "⏹ Dikteyi bitir"
 
 
 def test_composer_menu_shows_undo_only_when_available(monkeypatch):
@@ -872,21 +889,23 @@ def test_composer_menu_shows_undo_only_when_available(monkeypatch):
     w._ai_undo = (w.active, "eski")
     xmpp.MainWindow._ai_composer_menu(w, types.SimpleNamespace(
         x_root=1, y_root=2))
-    assert made[0].items[3][0] == "↶ AI değişikliğini geri al"
+    assert made[0].items[4][0] == "↶ AI değişikliğini geri al"
 
 
-def test_shortcuts_bind_ai_actions(monkeypatch):
+def test_shortcuts_route_ai_actions_into_assistant(monkeypatch):
     w = _w(monkeypatch)
     binds = {}
     w.root = types.SimpleNamespace(
         bind=lambda seq, fn: binds.__setitem__(seq, fn))
     w._msg_entry = None
     w._sidebar_search = None
-    for name in ("_ai_digest", "_ai_ask_history", "_ai_dictate"):
-        setattr(w, name, _Cap())
+    w._ai_dictate = _Cap()
+    w._ai_assistant_run = _Cap()
     xmpp.MainWindow._bind_shortcuts(w)
-    for seq, name in (("<Control-Shift-M>", "_ai_digest"),
-                      ("<Control-Shift-H>", "_ai_ask_history"),
-                      ("<Control-Shift-S>", "_ai_dictate")):
+    for seq in ("<Control-Shift-M>", "<Control-Shift-H>",
+                "<Control-Shift-Q>", "<Control-Shift-S>"):
         binds[seq](None)
-        assert len(getattr(w, name).calls) == 1
+    assert w._ai_assistant_run.calls == [
+        (("missed",), {}), (("ask_history",), {}),
+        (("pending_questions",), {})]
+    assert len(w._ai_dictate.calls) == 1

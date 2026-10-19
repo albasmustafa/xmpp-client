@@ -295,26 +295,39 @@ def quick_intent(text: str) -> dict | None:
     return normalize_plan({"action": action}) if action else None
 
 
+# Hızlı eylem / menü / kısayol etiketleri (asistanda komut balonu olur)
+ACTION_LABELS = {
+    "summarize_unread": "📝 Okunmamışları özetle",
+    "summarize_chat": "📝 Sohbeti özetle",
+    "suggest_replies": "💡 Yanıt öner",
+    "extract_tasks": "📅 Görevleri çıkar",
+    "missed": "📥 Neler kaçırdım?",
+    "pending_questions": "❓ Bekleyen sorular",
+    "drafts": "📝 Taslaklar",
+    "ask_history": "💬 Geçmişe sor…",
+}
+
+
 def quick_actions(chat: str = "", unread: int = 0, missed: int = 0,
                   drafts: int = 0) -> list[tuple[str, str]]:
     """Asistanın hızlı eylem düğmeleri: [(etiket, eylem)].
 
     `chat`: açık sohbetin etiketi ("" = yok) · `unread`: o sohbette açılışta
     okunmamış sayısı · `missed`: tüm okunmamışlar · `drafts`: hazır taslak.
-    "ask_history" düğmesi soru kutusunu açar (soruyu kullanıcı yazar).
+    "ask_history" düğmesi soru kartını açar (soruyu kullanıcı yazar).
     """
+    def item(key, count=0):
+        label = ACTION_LABELS[key]
+        return (f"{label} ({count})" if count else label, key)
     items = []
     if chat:
         if unread:
-            items.append((f"📝 Okunmamışları özetle ({unread})",
-                          "summarize_unread"))
-        items += [("📝 Sohbeti özetle", "summarize_chat"),
-                  ("💡 Yanıt öner", "suggest_replies"),
-                  ("📅 Görevleri çıkar", "extract_tasks")]
-    items.append(("📥 Neler kaçırdım?" + (f" ({missed})" if missed else ""),
-                  "missed"))
-    items.append(("❓ Bekleyen sorular", "pending_questions"))
+            items.append(item("summarize_unread", unread))
+        items += [item("summarize_chat"), item("suggest_replies"),
+                  item("extract_tasks")]
+    items.append(item("missed", missed))
+    items.append(item("pending_questions"))
     if drafts:
-        items.append((f"📝 Taslaklar ({drafts})", "drafts"))
-    items.append(("💬 Geçmişe sor…", "ask_history"))
+        items.append(item("drafts", drafts))
+    items.append(item("ask_history"))
     return items

@@ -611,7 +611,7 @@ def test_quick_commands_skip_the_model(aw, text, method, args, kwargs):
         text)["action"]
 
 
-def test_quick_button_runs_without_model_and_history_prefills(aw):
+def test_quick_button_runs_without_model_and_history_opens_card(aw):
     aw.active = "ayse@x.org"
     aw._ai_summarize = _Cap()
     xmpp.MainWindow._ai_agent_quick(aw, "summarize_unread",
@@ -621,8 +621,25 @@ def test_quick_button_runs_without_model_and_history_prefills(aw):
         "user", "📝 Okunmamışları özetle (3)")
     assert aw._ai_summarize.calls == [(("ayse@x.org",),
                                        dict(INLINE, unread_only=True))]
+    aw._ai_ask_history = _Cap()
+    n = len(win.events)
     xmpp.MainWindow._ai_agent_quick(aw, "ask_history", "💬 Geçmişe sor…")
-    assert win.events[-1] == ("prefill", agent.HISTORY_PREFIX)
+    assert aw._ai_ask_history.calls == [((), INLINE)]
+    assert len(win.events) == n                  # kart başlığı yeter
+
+
+def test_menu_and_shortcut_entry_runs_inside_assistant(aw):
+    aw._ai_assistant_open = _Cap()
+    aw._ai_summarize = _Cap()
+    aw._ai_digest = _Cap()
+    assert xmpp.MainWindow._ai_assistant_run(
+        aw, "summarize_chat", "isil@x.org") == "break"
+    assert aw._ai_summarize.calls == [(("isil@x.org",), INLINE)]
+    xmpp.MainWindow._ai_assistant_run(aw, "missed")
+    assert aw._ai_digest.calls == [((), INLINE)]
+    assert len(aw._ai_assistant_open.calls) == 2
+    assert aw._ai_assistant_win.events[0] == ("user", "📝 Sohbeti özetle")
+    assert set(agent.ACTION_LABELS) <= set(agent.ACTIONS)
 
 
 def test_refresh_shows_context_and_counts(aw):

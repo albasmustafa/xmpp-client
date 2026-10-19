@@ -158,10 +158,16 @@ gerçekten çalıştır.
   eder (`Conversation`, `_ai_turn`, `_ai_followup`). Pencere kapanınca `cancel` olayı
   akışı keser (`AICancelled`, `_ai_submit` sessizce yutar). Asistan turları geçmişe yalnız
   METİN olarak döner (düşünme blokları saklanmaz); Claude'da üst düzey `cache_control`.
-- **Giriş noktaları:** giriş kutusundaki ✨ butonu, ⋮ başlık menüsü → ✨ AI Asistanı, mesaj
-  sağ tık menüsü → ✨ AI, hover çubuğundaki ✨ butonu; kısayollar Ctrl+Shift+M (neler
-  kaçırdım), Ctrl+Shift+H (geçmişe sor), Ctrl+Shift+S (dikte başlat/bitir),
-  Ctrl+Shift+Q (yanıt bekleyen sorular), Ctrl+Shift+K (asistan), Ctrl+Shift+R (taslaklar).
+- **Giriş noktaları — ✨ Asistan tek merkez:** kenar çubuğundaki asistan girişi,
+  Ctrl+Shift+K ve giriş kutusundaki ✨ menüsünün ilk öğesi asistanı açar. ⋮ başlık
+  menüsü → ✨ AI Asistanı öğeleri ve kısayollar Ctrl+Shift+M (neler kaçırdım),
+  Ctrl+Shift+H (geçmişe sor), Ctrl+Shift+Q (yanıt bekleyen sorular) asistanı açıp sonucu
+  onun içinde gösterir (`_ai_assistant_run(eylem, jid)` → `_ai_agent_quick`; etiketler
+  `agent.ACTION_LABELS`). Giriş kutusu ✨ menüsünde yalnız yazma araçları kalır (yanıt
+  öner — öneriler asistanda, dikte Ctrl+Shift+S, taslağı düzenle, geri al). Görev
+  çıkarma, taslaklar
+  (Ctrl+Shift+R) ve anlamsal arama kendi penceresindedir; mesaj başına araçlar (çeviri,
+  ses→metin, görsel, sesli okuma) sağ tık / hover ✨ menüsünde ve ayrı pencerededir.
 - **Sağlayıcı:** varsayılan yerel Ollama (`gemma3:4b`, gömme `bge-m3`). İsteğe bağlı Claude
   (`anthropic` SDK, varsayılan `claude-opus-5-5`, sunucu tarafı `fallbacks: "default"`).
   Ayarlar config'te `"ai"` anahtarında; API anahtarı `_encode_pw` ile şifreli saklanır.
