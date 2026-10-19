@@ -81,7 +81,11 @@ def _get_db():
         return _app._db_conn
 
 def _db_store_msg(jid, sender, body, is_me, timestamp, tag, oob="", encrypted=False,
-                  mid="", local_path="", reply_id="", reply_sender="", reply_body=""):
+                  mid="", local_path="", reply_id="", reply_sender="",
+                  reply_body="", stored_at=None):
+    """Mesajı kalıcıya yaz. `stored_at` verilmezse şimdi kaydedilir; MAM
+    geçmişinde mesajın gerçek zamanı bu kolona yazılır (web arayüzü
+    tarih sırası ve gün ayırıcıları stored_at okur)."""
     try:
         db = _get_db()
         with _db_lock:
@@ -91,10 +95,25 @@ def _db_store_msg(jid, sender, body, is_me, timestamp, tag, oob="", encrypted=Fa
                 "stored_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (jid, sender, body, int(is_me), timestamp, tag, oob, int(encrypted),
                  mid, local_path, reply_id, reply_sender, reply_body,
-                 datetime.now().strftime(STORED_AT_FMT)))
+                 stored_at or datetime.now().strftime(STORED_AT_FMT)))
             db.commit()
     except Exception:
         _log.error("Mesaj DB'ye yazılamadı (jid=%s)", jid, exc_info=True)
+
+
+def _db_mid_exists(jid, mid) -> bool:
+    """Bu sohbette bu mid ile kayıtlı satır var mı? (MAM dedupe'si)"""
+    if not (jid and mid):
+        return False
+    try:
+        db = _get_db()
+        with _db_lock:
+            row = db.execute("SELECT 1 FROM messages WHERE jid=? AND mid=? "
+                             "LIMIT 1", (jid, mid)).fetchone()
+        return row is not None
+    except Exception:
+        _log.error("mid sorgusu başarısız (jid=%s)", jid, exc_info=True)
+        return False
 
 
 def _db_update_msg_body(jid, mid, new_body):
@@ -205,6 +224,43 @@ def _db_load_msgs(jid, limit=200):
         return [(r[0], r[1], bool(r[2]), r[3], r[4], r[5], bool(r[6]), r[7] or "",
                  r[8] or "", r[9] or "", r[10] or "", r[11] or "")
                 for r in rows]
+    except Exception:
+        _log.error("Mesajlar yüklenemedi (jid=%s)", jid, exc_info=True)
+        return []
+
+
+def _db_load_msgs_full(jid, limit=200, before=None):
+    """_db_load_msgs ile aynı alanlar + stored_at ve id (web arayüzü).
+
+    Salt okunur. Sıra stored_at (boşlar en eski sayılır) sonra id'dir —
+    MAM'dan sonradan yazılan eski mesajlar canlı mesajların önüne doğru
+    tarihlenir. `before`: (stored_at, id) sayfalama imleci; verilen
+    girişten ESKİ olanlar döner (sonsuz geçmiş kaydırma). Dönüş satırları:
+    (id, sender, body, is_me, timestamp, tag, oob, encrypted, local_path,
+     mid, reply_id, reply_sender, reply_body, stored_at).
+    """
+    sentinel = "0000-00-00T00:00:00"
+    try:
+        db = _get_db()
+        with _db_lock:
+            sql = ("SELECT id, sender, body, is_me, timestamp, tag, oob, "
+                   "encrypted, local_path, mid, reply_id, reply_sender, "
+                   "reply_body, COALESCE(stored_at, '') FROM messages "
+                   "WHERE jid=?")
+            args: list = [jid]
+            if before:
+                cur_ts, cur_id = before
+                sql += (" AND (COALESCE(NULLIF(stored_at,''), ?), id) < "
+                        "(?, ?)")
+                args += [sentinel, str(cur_ts or sentinel), int(cur_id)]
+            sql += (" ORDER BY COALESCE(NULLIF(stored_at,''), ?) DESC, "
+                    "id DESC LIMIT ?")
+            args += [sentinel, int(limit)]
+            rows = db.execute(sql, args).fetchall()
+        rows.reverse()
+        return [(r[0], r[1], r[2], bool(r[3]), r[4], r[5], r[6] or "",
+                 bool(r[7]), r[8] or "", r[9] or "", r[10] or "",
+                 r[11] or "", r[12] or "", r[13]) for r in rows]
     except Exception:
         _log.error("Mesajlar yüklenemedi (jid=%s)", jid, exc_info=True)
         return []

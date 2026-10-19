@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XMPP — Web</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<!-- ── Giriş ─────────────────────────────────────────────────────────── -->
+<div id="login-view" class="login-wrap hidden">
+  <form id="login-form" class="login-card">
+    <h1>💬 XMPP</h1>
+    <p class="dim">Tarayıcıdan sohbet — masaüstü istemcinin web hâli</p>
+    <label>JID
+      <input id="l-jid" type="text" placeholder="ad@sunucu.im" autocomplete="username">
+    </label>
+    <label>Parola
+      <input id="l-pw" type="password" autocomplete="current-password">
+    </label>
+    <details>
+      <summary class="dim">Gelişmiş</summary>
+      <label>Sunucu (boş = otomatik)
+        <input id="l-server" type="text" placeholder="ör. xmpp.sunucu.im:5222 değil — sadece host">
+      </label>
+      <label>Port
+        <input id="l-port" type="number" value="5222">
+      </label>
+    </details>
+    <label class="chk"><input id="l-remember" type="checkbox"> Şifreyi hatırla</label>
+    <div id="l-error" class="error hidden"></div>
+    <button id="l-submit" type="submit" class="primary">Bağlan</button>
+  </form>
+</div>
+
+<!-- ── Ana görünüm ───────────────────────────────────────────────────── -->
+<div id="main-view" class="app hidden">
+  <header class="topbar">
+    <div class="me">
+      <span id="me-dot" class="dot online"></span>
+      <span id="me-jid" class="me-jid"></span>
+    </div>
+    <div class="topbar-actions">
+      <select id="presence-select" title="Durum">
+        <option value="online">Çevrimiçi</option>
+        <option value="away">Uzakta</option>
+        <option value="xa">Çok uzakta</option>
+        <option value="dnd">Rahatsız etmeyin</option>
+      </select>
+      <input id="presence-status" type="text" placeholder="durum mesajı">
+      <button id="btn-settings" title="Ayarlar">⚙</button>
+      <button id="btn-logout" title="Çıkış">⎋</button>
+    </div>
+  </header>
+
+  <div class="cols">
+    <!-- Kenar çubuğu -->
+    <aside class="sidebar">
+      <div class="side-tools">
+        <input id="filter" type="search" placeholder="Ara…">
+        <button id="btn-join-room" title="Odaya katıl">➕</button>
+        <button id="btn-discover" title="Oda keşfet">🔍</button>
+      </div>
+      <ul id="contact-list" class="contact-list"></ul>
+    </aside>
+
+    <!-- Sohbet -->
+    <main class="chat">
+      <div class="chat-header">
+        <div class="chat-title">
+          <span id="chat-dot" class="dot hidden"></span>
+          <div>
+            <div id="chat-name">Bir sohbet seçin</div>
+            <div id="chat-sub" class="dim small"></div>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <button id="btn-enc" class="hidden" title="Şifreleme modu">🔓 Düz</button>
+          <button id="btn-members" class="hidden" title="Oda üyeleri">👥</button>
+          <button id="btn-leave-room" class="hidden" title="Odadan ayrıl">🚪</button>
+        </div>
+      </div>
+
+      <div id="messages" class="messages">
+        <div class="empty-hint" id="empty-hint">Soldan bir sohbet seçin</div>
+      </div>
+      <div id="typing-line" class="typing-line hidden">yazıyor…</div>
+
+      <div id="reply-bar" class="reply-bar hidden">
+        <span id="reply-preview"></span>
+        <button id="reply-cancel">✕</button>
+      </div>
+      <div id="edit-bar" class="reply-bar hidden">
+        <span>✎ düzenleme</span>
+        <button id="edit-cancel">✕</button>
+      </div>
+
+      <div class="composer">
+        <textarea id="composer" rows="1"
+          placeholder="Mesaj yazın — Enter gönder, Shift+Enter satır"></textarea>
+        <button id="btn-send" title="Gönder">➤</button>
+      </div>
+    </main>
+
+    <!-- Oda üyeleri -->
+    <aside id="members-panel" class="members hidden">
+      <h3>Üyeler</h3>
+      <ul id="member-list"></ul>
+    </aside>
+
+    <!-- AI paneli -->
+    <aside id="ai-panel" class="ai-panel hidden">
+      <div class="ai-head">
+        <h3>✨ AI</h3>
+        <div id="ai-provider" class="dim small"></div>
+        <button id="ai-close">✕</button>
+      </div>
+      <div class="ai-actions">
+        <button data-ai="summary">Özet</button>
+        <button data-ai="digest">Neler kaçırdım?</button>
+        <button data-ai="ask">Geçmişe sor</button>
+        <button data-ai="translate">Çeviri</button>
+        <button data-ai="assistant">Sohbet</button>
+      </div>
+      <label class="chk hidden" id="ai-cloud-row">
+        <input id="ai-allow-cloud" type="checkbox">
+        Şifreli içerik buluta (Claude) gidebilir — bu istek için izin ver
+      </label>
+      <div id="ai-input-row" class="ai-input-row hidden">
+        <textarea id="ai-input" rows="2" placeholder="Soru ya da metin…"></textarea>
+        <button id="ai-submit">Gönder</button>
+      </div>
+      <div id="ai-output" class="ai-output"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ── Pencereler ────────────────────────────────────────────────────── -->
+<dialog id="dlg-join">
+  <form method="dialog" class="dlg-body">
+    <h3>Odaya Katıl</h3>
+    <label>Oda (room@service)
+      <input id="j-room" type="text" placeholder="oda@chat.sunucu.im">
+    </label>
+    <label>Takma ad
+      <input id="j-nick" type="text">
+    </label>
+    <menu>
+      <button value="cancel">İptal</button>
+      <button id="j-go" value="ok" class="primary">Katıl</button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="dlg-rooms">
+  <div class="dlg-body">
+    <h3>Keşfedilen Odalar</h3>
+    <ul id="rooms-list" class="rooms-list"><li class="dim">Aranıyor…</li></ul>
+    <menu><button id="rooms-close">Kapat</button></menu>
+  </div>
+</dialog>
+
+<dialog id="dlg-settings">
+  <div class="dlg-body settings-body">
+    <h3>⚙ Ayarlar</h3>
+    <section>
+      <h4>Genel</h4>
+      <label>Tema
+        <select id="s-theme"></select>
+      </label>
+      <label class="chk"><input id="s-notifications" type="checkbox"> Masaüstü bildirimleri</label>
+      <label class="chk"><input id="s-sounds" type="checkbox"> Bildirim sesi</label>
+      <label class="chk"><input id="s-receipts" type="checkbox"> Okundu bilgisi gönder</label>
+      <label class="chk"><input id="s-typing" type="checkbox"> Yazıyor bildirimi gönder</label>
+      <label class="chk"><input id="s-rejoin" type="checkbox"> Odalara otomatik katıl</label>
+      <label class="chk"><input id="s-previews" type="checkbox"> Bağlantılardan görsel önizleme yükle (gizlilik: kapalıysa yalnız bağlantı gösterilir)</label>
+    </section>
+    <section>
+      <h4>AI</h4>
+      <label>Sağlayıcı
+        <select id="s-provider">
+          <option value="ollama">Yerel (Ollama)</option>
+          <option value="claude">Bulut (Claude)</option>
+          <option value="off">Kapalı</option>
+        </select>
+      </label>
+      <label>Ollama adresi <input id="s-ollama-url" type="text"></label>
+      <label>Sohbet modeli <input id="s-ollama-model" type="text"></label>
+      <label>Görsel modeli <input id="s-ollama-vision" type="text"></label>
+      <label>Gömme modeli <input id="s-embed" type="text"></label>
+      <label>Model sıcak (keep_alive)
+        <select id="s-keep-alive"></select>
+      </label>
+      <label>Claude modeli <input id="s-claude-model" type="text"></label>
+      <label>Claude API anahtarı
+        <input id="s-api-key" type="password" placeholder="değiştirmek için yazın">
+      </label>
+      <label class="chk"><input id="s-del-key" type="checkbox"> Kayıtlı API anahtarını sil</label>
+      <label class="chk"><input id="s-cloud-enc" type="checkbox"> Şifreli sohbetler de buluta gidebilir (her seferinde sorulur)</label>
+      <label class="chk"><input id="s-leak" type="checkbox"> Hassas veri uyarısı (yerel)</label>
+      <label class="chk"><input id="s-auto-stt" type="checkbox"> Sesli mesajları otomatik yazıya dök (yerel)</label>
+      <label class="chk"><input id="s-inline" type="checkbox"> Satır içi yazma önerisi (yalnız yerel)</label>
+      <label class="chk"><input id="s-away" type="checkbox"> Uzaktayken yanıt taslağı hazırla</label>
+    </section>
+    <menu>
+      <button id="s-cancel">İptal</button>
+      <button id="s-save" class="primary">Kaydet</button>
+    </menu>
+  </div>
+</dialog>
+
+<dialog id="dlg-confirm">
+  <div class="dlg-body">
+    <h3>⚠ Hassas veri uyarısı</h3>
+    <div id="leak-findings"></div>
+    <p class="dim small">Bu mesaj şifresiz gönderilecek. Yine de göndersin mi?</p>
+    <menu>
+      <button id="leak-no">İptal</button>
+      <button id="leak-yes" class="danger">Yine de gönder</button>
+    </menu>
+  </div>
+</dialog>
+
+<div id="toasts"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

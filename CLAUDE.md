@@ -9,8 +9,9 @@ oyunlar…); bu kurallar yalnız bu klasördeki **xmpp.py projesi** içindir.
 Dosyalar: `xmpp.py` (facade, ~12,8K satır) · `xmppcore/` (config, storage, i18n, theme, helpers,
 XMPPBot mixin'leri, `ai.py`) · `ui/` (durumsuz Tk görünüm katmanı: `chat/`, `dialogs/`,
 `sidebar.py`…) · `jingle_ft.py` (P2P dosya aktarımı) · `xmpp_mcp.py` (MCP sunucusu) ·
+`webapp/` (tarayıcı arayüzü: headless köprü + aiohttp sunucusu; aşağıda) ·
 `tests/` · `tools/` (uçtan uca betikler) · `docs/` (tasarım belgeleri) · `xmpp-client.sh`
-(başlatıcı) · `_arsiv/` (eski yedekler; git dışı).
+(başlatıcı) · `xmpp-web.sh` (web başlatıcısı) · `_arsiv/` (eski yedekler; git dışı).
 
 > Dikkat: Klasör Ekim 2026'da diskin kökünden buraya taşındı (taşıma commit'i `90f32f8f`).
 > Depo başka projelerin commit edilmemiş değişikliklerini de barındırır: commit atarken
@@ -153,3 +154,43 @@ gerçekten çalıştır.
   `tests/test_ai_questions.py`, `tests/test_ai_agent.py`, `tests/test_ai_drafts.py`,
   `tests/test_ai_inline_complete.py`, `tests/test_ai_tts.py`, `tests/test_ai_settings_view.py`,
   `tests/test_mcp_server.py` (gerçek stdio süreci dahil).
+
+### Tarayıcı arayüzü (`webapp/`, `./xmpp-web.sh` → http://127.0.0.1:8420/)
+- **Mimari:** masaüstüyle aynı XMPPBot çekirdeği, Tk'siz. `bridge.py:WebSession`
+  `xmpp.start()` ile aynı thread modelini kurar (bot ayrı asyncio döngüsünde, olaylar
+  `gui_q` ile); `_apply`, MainWindow `_handle`/`_store`'un Tk'siz karşılığıdır — davranış
+  farkları burada notlanır (TTL/kaybolan mesaj, ayrı sohbet penceresi, dikte/taslak gibi
+  masaüstü-özel kısımlar yok). Durum + SQLite yazımı köprüde, pencere işleri tarayıcıdadır.
+- **MAM (XEP-0313) — iki istemcide de geçmiş:** masaüstü `_load_chat`'ta yerel geçmiş
+  boşsa arşivin son sayfasını çeker (`_load_mam_history`; **odalar dahil** — oda arşivi
+  odanın kendisinden `jid=`, 1:1 `with=` ile; `ArchiveMixin` yönü odada takma adla
+  (resource) belirler, `nick` alanı resource'tan gelir). "Daha eski" `_load_older_mam`
+  archive_id imleciyle sayfalar. Köprü: `open_chat`'ta DB boşsa `initial`, "daha eski
+  MAM" `load_older_mam` komutu; `mam_results` tek-kuşak token + niyet ([2F-Blocker]
+  aynen) ile tüketilir, **DB'ye yazılır** (masaüstü bellek-only'dir — bilinçli fark:
+  web geçmişi DB'den okur; `stored_at` gerçek MAM zamanıdır). `/api/history`
+  stored_at+id sıralı ve (stored_at, id) imleçli sayfalanır.
+- **Sunucu:** `server.py` (aiohttp; yeni bağımlılık YOK — aiohttp zaten requirements'ta).
+  Tek hesaplı, varsayılan 127.0.0.1:8420. REST: `/api/login|logout|prefill|history|settings`,
+  `/api/ai/{summary|translate|digest|ask|assistant}` (aiapi.py; `AIPrivacyError` → 403,
+  izin tarayıcıdaki onay kutusuyla istek başına verilir). WS `/ws?ticket=`: hello snapshot +
+  olay akışı (gui_q izdüşümü) + komut (`send`, `typing`, `mark_displayed`, `correct`,
+  `retract`, `react`, `join_room`, `set_enc`, `load_older_mam`… → `WebSession.command`).
+- **Güvenlik modeli (pentest 2026-10 düzeltmeleri):** token yalnız `X-Auth-Token`
+  başlığında taşınır (URL'de yok); WS tek kullanımlık 30 sn'lik bilet ile açılır
+  (`POST /api/ws-ticket`, bilet token'a eşlenir). `_origin_guard` middleware'i yerel
+  döngü dışı Host (DNS rebinding) ve yabancı Origin (tarayıcı-CSRF) istekleri 403'ler;
+  `/api/login` ayrıca `X-Requested-With: xmpp-web` başlığı ister (basit istek CSRF'i
+  kapalı) ve dakikada 10 denemeyle sınırlıdır. Loopback dışı `--host` yalnız
+  `--insecure` ile açılır (denetimler atlanır, düz metin HTTP). Uzak görsel
+  önizlemeleri `remote_previews` ayarıyla kapatılabilir. Bilinen kalıntı riskler
+  (kabul edilmiş): Fernet anahtarı şifreli parolanın yanındadır (ev LUKS altında),
+  oturum token'larının ömrü sınırsızdır (yerel yüzey).
+- **Frontend:** `webapp/static/` (vanilla JS, derlemesiz). Tema renkleri `xmppcore/theme`
+  paletinden CSS değişkeni olarak gelir (`/api/settings` → `theme_colors`).
+- **Ölçek:** web köprüsü aynı `~/.xmpp_client.json` ve mesaj DB'sini paylaşır; masaüstüyle
+  aynı anda çalışabilir (çoklu cihaz yolu: carbons + aynı OMEMO deposu). `storage.py`'ye
+  web için eklenen `_db_load_msgs_full` salt-okunurdur; gövde mutasyonları hâlâ yalnız
+  `storage.py`'dendir.
+- Testler: `tests/test_webapp.py` (sahte bot + sahte döngüyle `_apply`/`command` ve
+  aiohttp TestClient ile REST/WS; ağ ve Tk yok).

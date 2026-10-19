@@ -12323,7 +12323,9 @@ class MainWindow:
                     self.send_response(code)
                     self.send_header("Content-Type", "application/json; charset=utf-8")
                     self.send_header("Content-Length", str(len(payload)))
-                    self.send_header("Access-Control-Allow-Origin", "*")
+                    # Access-Control-Allow-Origin bilinçli YOK: tüketiciler
+                    # tarayıcı değil (CLI/AI araçları); "*" sahte bir
+                    # esneklik bırakır, auth'suz bir yol eklenirse açık olur.
                     self.end_headers()
                     self.wfile.write(payload)
                 except (BrokenPipeError, ConnectionResetError):
