@@ -182,7 +182,9 @@ gerçekten çalıştır.
   önce koyar (`parse_plan(…, request=metin)`). Durum menüsü (`STATUS_OPTIONS`) aynı
   sözlüğü `STATUS_LABELS`'tan alır ("Uzakta" = away); Durum Mesajı penceresi
   (`presence.status_choices`, 2×2), Ayarlar ve web arayüzü de aynı adları kullanır ("chat" =
-  Çevrimiçi; `test_status_vocabulary.py`). `_ai_assistant_refresh` çipleri bağlam/okunmamış/
+  Çevrimiçi; `test_status_vocabulary.py`). Durum Mesajı penceresi mevcut durumla (`_my_show`,
+  `_status_text`) açılır; pencere, /status ve Ayarlar yayını `_show_my_status` ile kenar
+  çubuğuna ve `_my_show`'a yansır (`test_status_dialog_state.py`). `_ai_assistant_refresh` çipleri bağlam/okunmamış/
   taslak sayısıyla tazeler: `_load_chat` (sayaç sıfırlandıktan SONRA), gelen mesaj,
   `own_msg`/`read_elsewhere` ve `_ai_drafts_refresh` çağırır; çipler değişmediyse yeniden
   kurulmaz (`test_ai_assistant_counts.py`). Çipler ⋮ menüsü gibi "💬 Bu sohbet" / "🗂 Tüm sohbetler"

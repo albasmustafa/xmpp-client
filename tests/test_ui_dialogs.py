@@ -219,7 +219,7 @@ def test_status_dialog_delegates_and_applies(monkeypatch):
     captured = []
     monkeypatch.setattr(
         ui_presence, "show_status",
-        lambda parent, on_apply: captured.append((parent, on_apply)))
+        lambda parent, on_apply, **kw: captured.append((parent, on_apply)))
     saved = {}
     monkeypatch.setattr(xmpp, "_load_config", lambda: {})
     monkeypatch.setattr(xmpp, "_save_config", lambda c: saved.update(c))
@@ -228,6 +228,9 @@ def test_status_dialog_delegates_and_applies(monkeypatch):
     calls = []
     win.bot = types.SimpleNamespace(
         set_status_message=lambda t, s: calls.append((t, s)))
+    win.status_var = types.SimpleNamespace(set=lambda v: None)
+    win._status_label = types.SimpleNamespace(config=lambda **kw: None)
+    win._ai_away_returned = lambda: None
 
     xmpp.MainWindow._status_dialog(win)
 
@@ -241,7 +244,7 @@ def test_status_dialog_delegates_and_applies(monkeypatch):
 def test_status_dialog_bot_none_noop(monkeypatch):
     captured = []
     monkeypatch.setattr(ui_presence, "show_status",
-                        lambda p, cb: captured.append(cb))
+                        lambda p, cb, **kw: captured.append(cb))
     win = object.__new__(xmpp.MainWindow)
     win.root = "ROOT"
     win.bot = None

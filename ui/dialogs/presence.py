@@ -17,8 +17,11 @@ def status_choices():
             ("dnd", labels["dnd"]), ("xa", labels["xa"])]
 
 
-def show_status(parent, on_apply):
-    """Durum mesajı + görünürlük seçimi (MainWindow._status_dialog)."""
+def show_status(parent, on_apply, text="", show="chat"):
+    """Durum mesajı + görünürlük seçimi (MainWindow._status_dialog).
+
+    `text`/`show`: mevcut durum; pencere onunla açılır (yalnız yazıyı
+    değiştirmek Meşgul'ü Çevrimiçi'ne çevirmesin)."""
     A = _app()
     pop = tk.Toplevel(parent)
     pop.title("Durum Mesajı")
@@ -30,13 +33,13 @@ def show_status(parent, on_apply):
     tk.Label(pop, text="Durum Mesajı", fg=A.FG, bg=A.BG_CARD,
              font=(A.FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")
 
-    status_var = tk.StringVar()
+    status_var = tk.StringVar(value=text)
     status_entry = A.PlaceholderEntry(pop, placeholder="Durum yazın...",
                                       textvariable=status_var,
                                       font=(A.FONT, 10), style="Modern.TEntry")
     status_entry.pack(fill="x", padx=16, pady=(0, 12))
 
-    show_var = tk.StringVar(value="chat")
+    show_var = tk.StringVar(value=show)
     sf = tk.Frame(pop, bg=A.BG_CARD)
     sf.pack(fill="x", padx=16)
     # 2×2: yan yana dört seçenek 340 px'e sığmıyordu ("Uzun süre uzakta"

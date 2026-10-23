@@ -3161,10 +3161,23 @@ class MainWindow:
         self._status_label.config(text=f"● {label}", fg=color)
         # Durum mesajı korunur (metinsiz presence onu siliyordu)
         self.bot.set_presence(show, status=getattr(self, "_status_text", ""))
+        self._note_my_show(show)
+
+    def _note_my_show(self, show):
+        """Kendi durumumuz değişti: uzaktan dönüşte taslak kancası."""
         was_away = getattr(self, "_my_show", "online") in self._AWAY_SHOWS
         self._my_show = show
         if was_away and show not in self._AWAY_SHOWS:
             self._ai_away_returned()
+
+    def _show_my_status(self, show):
+        """Durum Mesajı / Ayarlar / /status yayınını kenar çubuğuna ve
+        `_my_show`'a yansıt ("chat" = Çevrimiçi)."""
+        show = "online" if show in ("chat", "", None) else show
+        label, color = self._ai_status_option(show)
+        self.status_var.set(label)
+        self._status_label.config(text=f"● {label}", fg=color)
+        self._note_my_show(show)
 
     def _retry_connection(self, _=None):
         """Bağlantıyı hemen yeniden dene (kenar çubuğu menüsü)."""
@@ -7265,7 +7278,10 @@ class MainWindow:
         def _apply(text, show):
             if self.bot:
                 self._publish_status(text, show)
-        _ui_presence.show_status(self.root, _apply)
+        my_show = getattr(self, "_my_show", "online") or "online"
+        _ui_presence.show_status(
+            self.root, _apply, text=getattr(self, "_status_text", "") or "",
+            show="chat" if my_show == "online" else my_show)
 
     def _publish_status(self, text, show="chat"):
         """Durum mesajını yayınla ve kaydet: yeniden bağlanınca (ve açılışta)
@@ -7275,6 +7291,7 @@ class MainWindow:
         cfg["status_text"], cfg["presence_show"] = text, show
         _save_config(cfg)
         self.bot.set_status_message(text, show)
+        self._show_my_status(show)
 
     # ── Profil kartı diyaloğu ─────────────────────────────────────────────────
     def _profile_card(self, jid=None):
@@ -10028,6 +10045,7 @@ class MainWindow:
                                                 v["presence_show"])
         if self.bot:
             self.bot.set_status_message(v["status_text"], v["presence_show"])
+            self._show_my_status(v["presence_show"])
 
     # ── Kayıtlı tercihler (açılışta) ─────────────────────────────────────────
     def _load_saved_prefs(self, cfg):
