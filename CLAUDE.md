@@ -184,7 +184,12 @@ gerçekten çalıştır.
   (`presence.status_choices`, 2×2), Ayarlar ve web arayüzü de aynı adları kullanır ("chat" =
   Çevrimiçi; `test_status_vocabulary.py`). Durum Mesajı penceresi mevcut durumla (`_my_show`,
   `_status_text`) açılır; pencere, /status ve Ayarlar yayını `_show_my_status` ile kenar
-  çubuğuna ve `_my_show`'a yansır (`test_status_dialog_state.py`). `_ai_assistant_refresh` çipleri bağlam/okunmamış/
+  çubuğuna ve `_my_show`'a yansır (`test_status_dialog_state.py`). Menü seçimi de
+  `presence_show` olarak kaydedilir; bağlanınca `_restore_status_prefs` kenar çubuğunu ve
+  `_my_show`'u her zaman eşitler. Otomatik uzakta yalnız Çevrimiçi'yken devreye girer
+  (`_auto_away`; elle Meşgul/Uzakta ezilmez) ve durum mesajını korur
+  (`test_status_persistence.py`). `status_hint` durumdan çıkışı ("meşgulden çıkar") ve
+  olumsuz emri ("meşgul yapma") modele bırakır (`test_status_hint_direction.py`). `_ai_assistant_refresh` çipleri bağlam/okunmamış/
   taslak sayısıyla tazeler: `_load_chat` (sayaç sıfırlandıktan SONRA), gelen mesaj,
   `own_msg`/`read_elsewhere` ve `_ai_drafts_refresh` çağırır; çipler değişmediyse yeniden
   kurulmaz (`test_ai_assistant_counts.py`). Çipler ⋮ menüsü gibi "💬 Bu sohbet" / "🗂 Tüm sohbetler"
@@ -235,6 +240,9 @@ gerçekten çalıştır.
   ekran kartında CPU daha hızlı) ön yükleme ve gerçek istekte aynıdır. İsteğe bağlı Claude
   (`anthropic` SDK, varsayılan `claude-opus-5-5`, sunucu tarafı `fallbacks: "default"`).
   Ayarlar config'te `"ai"` anahtarında; API anahtarı `_encode_pw` ile şifreli saklanır.
+  İstem kuralları gerçek e2b ölçümünden gelir (`test_ai_prompt_quality.py`): özetler
+  kullanıcıya "siz" der ve istek yönünü korur (`_PERSON_RULE`), "neler kaçırdım" bekleyenleri
+  önce listeler, görev çıkarma her toplantıyı alır, öneriler bekleyen soruyu yanıtlar.
 - **Gizlilik sözleşmesi:** şifreli sohbet içeriği buluta, `cloud_for_encrypted` kapalıyken
   yalnız istek başına alınan açık onayla gider (`ensure_allowed` → `AIPrivacyError` →
   `_ai_gate`); takip soruları da ayrı istektir, her biri yeniden sorulur. Çok sohbetli
