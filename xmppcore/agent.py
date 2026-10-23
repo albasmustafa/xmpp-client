@@ -158,16 +158,25 @@ _STATUS_RES = tuple(
     (re.compile(r"(?<![a-z0-9])" + re.escape(word)
                 + ("" if suffix else r"(?![a-z0-9])")), show)
     for word, show, suffix in _STATUS_WORDS)
-_NEGATION_RE = re.compile(r"(?<![a-z0-9])(?:degil|not(?![a-z0-9]))|n't")
+_NEGATION_RE = re.compile(
+    r"(?<![a-z0-9])(?:degil|not(?![a-z0-9])|yapma(?:yin|yiniz)?(?![a-z0-9]))"
+    r"|n't")
+# Durumdan çıkış ("meşgulden çıkar", "uzaktan dön", "modundan çık"): hangi
+# duruma geçileceği belli değil — karar modelin (onay kartı yine gelir)
+_LEAVE_RE = re.compile(r"(?<![a-z0-9])(?:mesgul|uzak|cevrimici|musait|mod)"
+                       r"[a-z]*(?:den|dan|ten|tan)(?![a-z0-9])")
 
 
 def status_hint(text: str) -> str | None:
     """Metindeki durum sözü → durum ("meşgulüm" → dnd) ya da None.
 
-    Olumsuzsa ("meşgul değilim") ya da birden çok farklı durum geçiyorsa
-    None: karar modele kalır.
+    Olumsuzsa ("meşgul değilim", "meşgul yapma"), durumdan çıkışsa
+    ("meşgulden çıkar") ya da birden çok farklı durum geçiyorsa None: karar
+    modele kalır.
     """
     rest, found = fold(text), set()
+    if _LEAVE_RE.search(rest):
+        return None
     for rx, show in _STATUS_RES:
         rest, hits = rx.subn(" ", rest)
         if hits:

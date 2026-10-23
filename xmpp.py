@@ -3162,11 +3162,19 @@ class MainWindow:
         # Durum mesajı korunur (metinsiz presence onu siliyordu)
         self.bot.set_presence(show, status=getattr(self, "_status_text", ""))
         self._note_my_show(show)
+        # Seçim kaydedilir: yeniden bağlanınca (_restore_status_prefs) aynısı
+        # yayınlanır; Durum Mesajı / Ayarlar ile aynı anahtar ("chat" = online)
+        self._status_show = "chat" if show == "online" else show
+        cfg = _load_config()
+        cfg["presence_show"] = self._status_show
+        _save_config(cfg)
 
     def _note_my_show(self, show):
-        """Kendi durumumuz değişti: uzaktan dönüşte taslak kancası."""
+        """Kendi durumumuz değişti: uzaktan dönüşte taslak kancası. Elle
+        seçim otomatik uzaktayı sonlandırır (dönüşte ezilmez)."""
         was_away = getattr(self, "_my_show", "online") in self._AWAY_SHOWS
         self._my_show = show
+        self._auto_away = False
         if was_away and show not in self._AWAY_SHOWS:
             self._ai_away_returned()
 
@@ -10080,14 +10088,12 @@ class MainWindow:
         show = (getattr(self, "_status_show", None)
                 or cfg.get("presence_show", "chat") or "chat")
         busy = show in ("away", "dnd", "xa")
+        # Kenar çubuğu ve _my_show yayınlananla aynı olur ("connected" etiketi
+        # Çevrimiçi'ye çekiyordu, _my_show eski kalıp taslak üretiyordu)
+        self._show_my_status(show)
         if not text and not busy:
             return
         self.bot.set_status_message(text, show)
-        if busy:
-            label, color = self._ai_status_option(show)
-            self.status_var.set(label)
-            self._status_label.config(text=f"● {label}", fg=color)
-            self._my_show = show
 
     # ── Canlı tema / font yenileme ─────────────────────────────────────────────
     def _refresh_theme(self):
@@ -10240,9 +10246,12 @@ class MainWindow:
         self._last_activity_ts = time.time()
         if self._is_idle:
             self._is_idle = False
-            if self.bot:
-                self.bot.set_presence("online")
+            # Yalnız otomatik uzaktayı geri al (elle seçilen durum kalır)
+            if self.bot and getattr(self, "_auto_away", False):
+                self.bot.set_presence(
+                    "online", status=getattr(self, "_status_text", ""))
                 self._status_label.config(text=f"● {STATUS_OPTIONS[0][0]}", fg=ONLINE)
+            self._auto_away = False
             self._ai_away_returned()
 
     def _start_idle_checker(self):
@@ -10256,8 +10265,11 @@ class MainWindow:
             elapsed = time.time() - self._last_activity_ts
             if elapsed >= self._idle_after_min * 60 and not self._is_idle:
                 self._is_idle = True
-                if self.bot:
-                    self.bot.set_presence("away")
+                # Elle seçilmiş Meşgul/Uzakta ezilmez; durum mesajı korunur
+                if self.bot and getattr(self, "_my_show", "online") == "online":
+                    self._auto_away = True
+                    self.bot.set_presence(
+                        "away", status=getattr(self, "_status_text", ""))
                     self._status_label.config(text="● Uzakta (oto)", fg=AWAY)
         if not getattr(self, "_closing", False):
             self._idle_check_id = self._after(30000, self._check_idle)

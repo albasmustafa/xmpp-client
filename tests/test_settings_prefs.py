@@ -88,13 +88,13 @@ def test_status_text_only_keeps_online_label(monkeypatch):
     w, sent, labels = _status_win(monkeypatch, {"status_text": "Buradayım"})
     xmpp.MainWindow._restore_status_prefs(w)
     assert sent == [("Buradayım", "chat")]
-    assert labels == []
+    assert labels == ["● Çevrimiçi"] and w._my_show == "online"
 
 
 def test_no_saved_status_sends_nothing(monkeypatch):
     w, sent, labels = _status_win(monkeypatch, {"presence_show": "chat"})
     xmpp.MainWindow._restore_status_prefs(w)
-    assert sent == [] and labels == []
+    assert sent == [] and labels == ["● Çevrimiçi"]
 
 
 def test_connected_handler_restores_status():
