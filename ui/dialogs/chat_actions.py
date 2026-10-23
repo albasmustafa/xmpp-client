@@ -30,7 +30,7 @@ def show_forward(parent, contacts, rooms, body, sender, on_forward):
     pop.configure(bg=A.BG_CARD)
     pop.geometry("320x400")
     pop.transient(parent)
-    pop.attributes("-topmost", True)
+    A._make_popover(pop)
 
     tk.Label(pop, text="İletilecek kişi/oda seçin:",
              fg=A.FG, bg=A.BG_CARD, font=(A.FONT, 10, "bold")).pack(

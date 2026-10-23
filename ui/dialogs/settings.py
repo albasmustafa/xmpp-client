@@ -52,7 +52,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     dlg.configure(bg=A.SHADOW)
     dlg.geometry("560x640")
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg, form=True)
     dlg.resizable(False, True)
 
     shadow = tk.Frame(dlg, bg=A.SHADOW, padx=3, pady=3)
@@ -204,8 +204,12 @@ def show_settings(parent, cfg, state, actions, on_save):
     show_var = tk.StringVar(value=cfg.get("presence_show", "chat"))
     show_f = tk.Frame(t1, bg=A.BG_CARD)
     show_f.pack(fill="x", pady=(6, 0))
-    for val, txt, dot in [("chat", "Müsait", "🟢"), ("away", "Uzakta", "🟡"),
-                          ("dnd", "Meşgul", "🔴"), ("xa", "Uzun Süre Uzakta", "🟠")]:
+    # Adlar durum menüsüyle aynı (STATUS_OPTIONS; "chat" = Çevrimiçi)
+    labels = {show: label for label, show in A.STATUS_OPTIONS}
+    for val, txt, dot in [("chat", labels["online"], "🟢"),
+                          ("away", labels["away"], "🟡"),
+                          ("dnd", labels["dnd"], "🔴"),
+                          ("xa", labels["xa"], "🟠")]:
         tk.Radiobutton(show_f, text=f"{dot} {txt}", variable=show_var,
                        value=val, bg=A.BG_CARD, fg=A.FG, selectcolor=A.BG_HOVER,
                        activebackground=A.BG_CARD, font=(A.FONT, 8)).pack(

@@ -39,6 +39,7 @@ def show_common_groups(parent, name, jid, rooms, room_members):
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("340x300")
     dlg.transient(parent)
+    A._make_popover(dlg)
 
     tk.Label(dlg, text=f"🏠 {name} ile Ortak Gruplar", font=(A.FONT, 11, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 8))
@@ -76,7 +77,7 @@ def show_join_room(parent, default_conf, default_nick, on_discover, on_join):
     dlg.configure(bg=A.SHADOW)
     dlg.resizable(False, False)
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg, form=True)
 
     shadow = tk.Frame(dlg, bg=A.SHADOW, padx=3, pady=3)
     shadow.pack(padx=20, pady=20)
@@ -165,7 +166,7 @@ def show_create_room(parent, default_conf, default_nick, on_create):
     dlg.configure(bg=A.SHADOW)
     dlg.resizable(False, False)
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg, form=True)
 
     shadow = tk.Frame(dlg, bg=A.SHADOW, padx=3, pady=3)
     shadow.pack(padx=20, pady=20)
@@ -276,7 +277,7 @@ def show_bookmarks(parent, jid, active, rooms, my_nick, bookmarks,
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("440x380")
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg)
 
     tk.Label(dlg, text="📑  Yer İmleri", font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 8), anchor="w")
@@ -346,7 +347,7 @@ def show_room_config(parent, room, form, on_submit):
     win.configure(bg=A.BG_PANEL)
     win.geometry("520x560")
     win.transient(parent)
-    A._safe_grab_set(win)
+    A._make_popover(win, form=True)
 
     # Başlık
     tk.Label(win, text=f"⚙  {room}", font=(A.FONT, 11, "bold"),
@@ -504,7 +505,7 @@ def show_room_admin(parent, room, members, subject, contacts,
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("460x440")
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg, form=True)
 
     nb = ttk.Notebook(dlg)
     nb.pack(fill="both", expand=True, padx=12, pady=12)
@@ -619,7 +620,7 @@ def show_rooms_browser(parent, default_nick, rooms, on_join):
     dlg.geometry("660x560")
     dlg.minsize(520, 440)
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg)
     dlg.resizable(True, True)
 
     shadow = tk.Frame(dlg, bg=A.SHADOW, padx=3, pady=3)
@@ -762,7 +763,6 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
     dlg.geometry("660x600")
     dlg.minsize(520, 440)
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
     dlg.resizable(True, True)
 
     _alive = [True]
@@ -771,6 +771,7 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
         _alive[0] = False
         dlg.destroy()
     dlg.protocol("WM_DELETE_WINDOW", _on_close)
+    A._make_popover(dlg, close=_on_close)    # geç yanıt kapalı pencereye yazılmaz
 
     shadow = tk.Frame(dlg, bg=A.SHADOW, padx=3, pady=3)
     shadow.pack(fill="both", expand=True, padx=14, pady=14)

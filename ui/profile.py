@@ -24,10 +24,10 @@ def show_status_menu(parent, on_select, x_root, y_root):
                    bg=A.BG_CARD, fg=A.FG, activebackground=A.ACCENT2,
                    activeforeground=A.FG_ME, borderwidth=1,
                    relief="flat", font=(A.FONT, 9))
-    colors = {"Online": A.ONLINE, "Away": A.AWAY,
-              "Meşgul": A.RED, "Uzakta": A.RED}
+    # Renk duruma göre (etikete değil); MainWindow._ai_status_option ile aynı
+    colors = {"online": A.ONLINE, "away": A.AWAY}
     for label, show in A.STATUS_OPTIONS:
-        c = colors.get(label, A.FG)
+        c = colors.get(show, A.RED)
         menu.add_command(
             label=f"  ●  {label}",
             command=lambda lbl=label, s=show, cl=c: on_select(lbl, s, cl),
@@ -47,6 +47,7 @@ def show_story_dialog(parent, on_publish):
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("380x340")
     dlg.transient(parent)
+    A._make_popover(dlg, form=True)
 
     tk.Label(dlg, text="📖 Hikaye / Durum Paylaş", font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 8))
@@ -121,7 +122,7 @@ def show_avatar_dialog(parent, jid, avatar_data, photo_refs, *,
     dlg.configure(bg=A.SHADOW)
     dlg.resizable(False, False)
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg)
 
     shadow = tk.Frame(dlg, bg=A.SHADOW, padx=3, pady=3)
     shadow.pack(padx=20, pady=20)

@@ -10,6 +10,11 @@ B3 — Büyük harf/boşluk/`xmpp:` önekli oda adresi normalize edilmiyordu:
      anlaşılmıyordu.
 B4 — Keşif sonuç/hata bildirimi sys balonu olarak gidiyordu; açık sohbet
      yokken görünmüyordu.
+B5 — Sonuçlar yalnız kullanıcı sayısına göre sıralanıyordu: sunucu kelimeyi
+     açıklamada da eşlediği için açıklamasına yüzlerce anahtar kelime dolduran
+     kalabalık odalar ("Indonesia, Jawa, … Linux, Python, …") aramayla ilgisiz
+     olduğu hâlde en üste çıkıyordu. Sonuçlar alaka düzeyine göre sıralanmalı,
+     yalnız şişirilmiş açıklamada geçen eşleşmeler en sona düşmeli.
 """
 import asyncio
 import contextlib
@@ -299,6 +304,111 @@ def test_parse_room_search_accepts_result_shape():
                                     {"name": "adressiz"}]}}
     assert [i["address"] for i in xmpp._parse_room_search(payload)] == ["a@c"]
     assert xmpp._parse_room_search({"result": "bozuk"}) == []
+
+
+# ── B5) Alaka sıralaması ─────────────────────────────────────────────────────
+_STUFFED = ", ".join(
+    "Indonesia Indochat Jawa Sumatera Kalimantan Sulawesi Papua Bali Lombok "
+    "Sumbawa Flores Sumba Timor Rote Maluku Halmahera Seram Ambon Batam "
+    "Bintan Karimun Natuna Mentawai Madura Buru Ternate Jakarta Banten "
+    "Tangerang Surabaya Bandung Semarang Jogja Solo Medan Padang Lampung "
+    "Linux Python Java JavaScript Debian Android HTML CSS ubuntu".split())
+
+
+def _search_payload():
+    """search.jabber.network'ün "linux" için gerçek yanıtından kısaltılmış."""
+    return {"query": {}, "result": {"more": True, "items": [
+        {"address": "indonesia@conference.conversations.im",
+         "name": "🇮🇩 INDONESIA 🇮🇩 Conversations", "description": _STUFFED,
+         "nusers": 216},
+        {"address": "floss@rooms.dismail.de", "name": "FLOSS",
+         "description": "Linux, BSD, XMPP, ...", "nusers": 53},
+        {"address": "angrytux@conference.trashserver.net",
+         "name": "Linux & FLOSS", "description": "Linux & FLOSS",
+         "nusers": 258},
+        {"address": "linux@muc.loqi.im", "name": "Linux/Unix",
+         "description": "Everything related to Linux", "nusers": 270},
+        {"address": "mobile-linux@conference.conversations.im",
+         "name": "Mobile Linux", "description": "", "nusers": 48},
+        {"address": "furrylinux@chat.jabberfr.org", "name": "boykisser",
+         "description": "", "nusers": 4},
+    ]}}
+
+
+def test_search_ranks_by_relevance_and_sinks_stuffed_descriptions():
+    items = xmpp._parse_room_search(_search_payload(), ["linux"])
+    addrs = [i["address"] for i in items]
+    # Tam ad/adres > adda kelime > adres parçası > açıklama > yığın açıklama
+    assert addrs == ["linux@muc.loqi.im",
+                     "angrytux@conference.trashserver.net",
+                     "mobile-linux@conference.conversations.im",
+                     "furrylinux@chat.jabberfr.org",
+                     "floss@rooms.dismail.de",
+                     "indonesia@conference.conversations.im"]
+
+
+def test_stuffed_room_still_found_for_its_own_topic():
+    """Yığın açıklamalı oda, adında geçen konuyla aranınca yine en üstte."""
+    items = xmpp._parse_room_search(_search_payload(), ["indonesia"])
+    assert items[0]["address"] == "indonesia@conference.conversations.im"
+
+
+def test_prose_and_urls_are_not_keyword_stuffing():
+    from xmppcore import format as _fmt
+    """Virgüllü düzyazı ve URL eğik çizgileri yığın sayılmaz (gerçek veri)."""
+    lounge = ("A friendly hangout for gamers, programmers, tinkerers and retro "
+              "computing fans. Tell us what you are playing, show off what you "
+              "are building, ask for help with code, swap stories about old "
+              "consoles, DOS games and 8-bit machines, talk MUDs, roguelikes "
+              "and indie games, or just kick back and chat, Linux too.")
+    openwrt = ("matrix.org/legal/code-of-conduct https://forum.openwrt.org/x/y "
+               "openwrt.org/bugs guides: openwrt.org/docs/guide-quick-start "
+               "wireless mesh networking, free space radio, open source, "
+               "Linux routers, wifi, WISP, https://matrix.to/#/#OpenWrt:m.org")
+    assert not _fmt._is_stuffed(lounge)
+    assert not _fmt._is_stuffed(openwrt)
+    assert _fmt._is_stuffed(_STUFFED)
+
+
+def test_search_relevance_is_case_and_turkish_insensitive():
+    payload = {"result": {"items": [
+        {"address": "sohbet@x.org", "name": "Genel", "nusers": 90,
+         "description": "Türkçe GELİŞTİRİCİ sohbeti ve daha fazlası"},
+        {"address": "gelistirici@x.org", "name": "Geliştirici", "nusers": 3},
+    ]}}
+    addrs = [i["address"] for i in
+             xmpp._parse_room_search(payload, ["geliştirici"])]
+    assert addrs == ["gelistirici@x.org", "sohbet@x.org"]
+
+
+def test_search_keeps_server_match_we_cannot_explain():
+    """Sunucu başka bir biçimde eşleştirdiyse (ör. kök bulma) sonuç atılmaz."""
+    payload = {"result": {"items": [
+        {"address": "a@x.org", "name": "Alfa", "nusers": 5},
+        {"address": "linux@x.org", "name": "Linux", "nusers": 1}]}}
+    addrs = [i["address"] for i in xmpp._parse_room_search(payload, ["linux"])]
+    assert addrs == ["linux@x.org", "a@x.org"]
+
+
+def test_search_multiple_keywords_need_all_strong():
+    payload = {"result": {"items": [
+        {"address": "debian@x.org", "name": "Debian",
+         "description": "Linux dağıtımı", "nusers": 80},
+        {"address": "linux-debian@x.org", "name": "Debian Linux",
+         "nusers": 2}]}}
+    addrs = [i["address"] for i in
+             xmpp._parse_room_search(payload, ["linux", "debian"])]
+    assert addrs == ["linux-debian@x.org", "debian@x.org"]
+
+
+def test_search_worker_passes_keywords_for_ranking(monkeypatch):
+    _reqs, done, errors = _run_search(
+        monkeypatch, "linux",
+        lambda req: _Resp(json.dumps(_search_payload()).encode()))
+    assert errors == []
+    addrs = [i["address"] for i in done[0]]
+    assert addrs[0] == "linux@muc.loqi.im"
+    assert addrs[-1] == "indonesia@conference.conversations.im"
 
 
 # ── B4) Keşif bildirimi her zaman görünür ───────────────────────────────────

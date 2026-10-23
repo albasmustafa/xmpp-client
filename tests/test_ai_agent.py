@@ -163,8 +163,8 @@ class _FakeWin:
     def set_subtitle(self, t):
         pass
 
-    def set_quick_actions(self, context, items):
-        self.quick = (context, list(items))
+    def set_quick_actions(self, context, groups):
+        self.quick = (context, list(groups))
 
     def prefill(self, t):
         self.events.append(("prefill", t))
@@ -186,6 +186,8 @@ def aw(monkeypatch):
     w.rooms = {"proje@conf.x.org": {}}
     w.bot = types.SimpleNamespace(muc_service="conf.x.org")
     w._ai_assistant_win = _FakeWin()
+    w._ai_warmed = []
+    monkeypatch.setattr(xmpp._ai, "ollama_warm", w._ai_warmed.append)
     cfg = {"ai": {"provider": "ollama"}}
     monkeypatch.setattr(xmpp, "_load_config", lambda: cfg)
     w.cfg = cfg
@@ -450,6 +452,44 @@ def test_open_reuses_window_and_replays_log(aw, monkeypatch):
     assert created[0].kw["on_speak"] == aw._ai_speak_text
 
 
+def test_open_warms_local_model_in_background(aw, monkeypatch):
+    """Asistan açılınca model arka planda belleğe yüklenir (ilk isteğin
+    yükleme beklemesi — HDD'de dakikayı bulur — kullanıcıya düşmesin)."""
+    started = []
+
+    class _T:
+        def __init__(self, target=None, args=(), daemon=None):
+            self.target, self.args, self.daemon = target, args, daemon
+            self.alive = True
+            started.append(self)
+
+        def start(self):
+            self.target(*self.args)
+
+        def is_alive(self):
+            return self.alive
+    monkeypatch.setattr(xmpp.threading, "Thread", _T)
+    monkeypatch.setattr(xmpp._ui_ai, "AssistantWindow",
+                        lambda *a, **kw: _FakeWin())
+    aw._ai_assistant_win.alive_flag = False
+    xmpp.MainWindow._ai_assistant_open(aw)
+    assert len(started) == 1 and started[0].daemon
+    assert [s["provider"] for s in aw._ai_warmed] == ["ollama"]
+    xmpp.MainWindow._ai_assistant_open(aw)            # açık pencere: yok
+    aw._ai_assistant_win.alive_flag = False
+    xmpp.MainWindow._ai_assistant_open(aw)            # önceki hâlâ sürüyor
+    assert len(started) == 1
+    started[0].alive = False
+    aw._ai_assistant_win.alive_flag = False
+    xmpp.MainWindow._ai_assistant_open(aw)
+    assert len(started) == 2
+    aw.cfg["ai"]["provider"] = "claude"               # bulutta yükleme yok
+    started[1].alive = False
+    aw._ai_assistant_win.alive_flag = False
+    xmpp.MainWindow._ai_assistant_open(aw)
+    assert len(started) == 2
+
+
 def test_sidebar_entry_and_shortcuts_wired():
     sidebar_src = inspect.getsource(xmpp.MainWindow._build_sidebar)
     assert "build_assistant_entry" in sidebar_src
@@ -524,6 +564,80 @@ def test_quick_intent_leaves_detailed_requests_to_model(text):
     assert agent.quick_intent(text) is None
 
 
+# "Durumumu meşgul yap" (2026-10-21): yerel model "meşgul"ü away (gemma4
+# e2b) ya da xa (gemma3) planlıyordu; durum menüsü de "Uzakta"yı xa'ya
+# bağlıyordu. Durum sözü kullanıcının metninden yerelde okunur.
+@pytest.mark.parametrize("text,status", [
+    ("Durumumu meşgul yap", "dnd"), ("MEŞGULÜM", "dnd"),
+    ("rahatsız etmeyin moduna al", "dnd"),
+    ("toplantıdayım, beni rahatsız etmesinler", "dnd"),
+    ("set my status to do not disturb", "dnd"),
+    ("uzaktayım", "away"), ("Uzun süre uzakta olacağım", "xa"),
+    ("çevrimiçi ol", "online"), ("ÇEVRİMİÇİ", "online"),
+    ("müsaitim artık", "online"),
+    ("meşgul değilim", None), ("I'm not busy", None),
+    ("uzakta ya da meşgul", None), ("Ali'ye selam yaz", None), ("", None),
+])
+def test_status_hint_reads_status_words(text, status):
+    assert agent.status_hint(text) == status
+
+
+@pytest.mark.parametrize("text,status", [
+    ("Durumumu meşgul yap", "dnd"), ("meşgul ol", "dnd"),
+    ("Meşgule geç.", "dnd"), ("rahatsız etmeyin moduna al", "dnd"),
+    ("durum: uzakta", "away"), ("beni uzakta olarak işaretle", "away"),
+    ("Uzun süre uzakta yap", "xa"), ("Çevrimiçi ol!", "online"),
+])
+def test_quick_intent_sets_status_without_model(text, status):
+    plan = agent.quick_intent(text)
+    assert (plan["action"], plan["status"]) == ("set_status", status)
+
+
+@pytest.mark.parametrize("text", [
+    "meşgulüm", "Ali'nin durumu meşgul mü?", "Ali'ye meşgul olduğumu yaz",
+    "meşgul değilim", "durumumu değiştir", "meşgul olmak istiyorum"])
+def test_quick_intent_leaves_unclear_status_to_model(text):
+    assert agent.quick_intent(text) is None
+
+
+def test_model_status_yields_to_users_word():
+    raw = json.dumps(_plan(action="set_status", status="away"))
+    assert agent.parse_plan(raw, request="Beni meşgul göster")[
+        "status"] == "dnd"
+    assert agent.parse_plan(raw)["status"] == "away"     # istek yok: model
+    assert agent.parse_plan(raw, request="durumu değiştir")[
+        "status"] == "away"
+    msg = json.dumps(_plan(action="send_message", target="Ali",
+                           text="Meşgulüm"))
+    assert agent.parse_plan(msg, request="Ali'ye meşgul olduğumu yaz")[
+        "status"] == ""
+
+
+def test_set_status_description_names_turkish_words():
+    desc = agent.ACTIONS["set_status"]
+    for word in ("çevrimiçi", "uzakta", "meşgul", "rahatsız etmeyin",
+                 "uzun süre uzakta"):
+        assert word in desc
+
+
+def test_status_command_through_model_uses_users_word(aw):
+    win = _say(aw, "Toplantıdayım, beni meşgul göster",
+               _plan(action="set_status", status="away"))
+    assert win.cards[0][1] == "Meşgul"
+
+
+def test_status_command_needs_no_model(aw):
+    win = _say(aw, "Durumumu meşgul yap", _plan(reply="kullanılmamalı"))
+    assert aw.calls == [] and win.cards[0][1] == "Meşgul"
+
+
+def test_status_labels_share_one_vocabulary():
+    assert xmpp.STATUS_OPTIONS == [(label, show) for show, label
+                                   in agent.STATUS_LABELS.items()]
+    assert dict(xmpp.STATUS_OPTIONS)["Uzakta"] == "away"
+    assert xmpp.MainWindow._ai_status_option("xa")[0] == "Uzun süre uzakta"
+
+
 @pytest.mark.parametrize("target,expected", [
     ("", True), ("bu sohbet", True), ("Bu Sohbet'e", True),
     ("bu kişiyle", True), ("BURASI", True), ("this chat", True),
@@ -552,15 +666,32 @@ def test_quick_actions_follow_context():
         "missed", "pending_questions", "ask_history"]
     items = agent.quick_actions("Ayşe", unread=3, missed=7, drafts=2)
     assert items == [
-        ("📝 Okunmamışları özetle (3)", "summarize_unread"),
+        ("📬 Okunmamışları özetle (3)", "summarize_unread"),
         ("📝 Sohbeti özetle", "summarize_chat"),
         ("💡 Yanıt öner", "suggest_replies"),
         ("📅 Görevleri çıkar", "extract_tasks"),
         ("📥 Neler kaçırdım? (7)", "missed"),
         ("❓ Bekleyen sorular", "pending_questions"),
-        ("📝 Taslaklar (2)", "drafts"),
-        ("💬 Geçmişe sor…", "ask_history")]
+        ("✍ Taslaklar (2)", "drafts"),
+        ("🔎 Geçmişe sor…", "ask_history")]
     assert all(k in agent.ACTIONS for _l, k in items)
+
+
+def test_quick_action_groups_split_this_chat_from_all_chats():
+    groups = agent.quick_action_groups("Ayşe", unread=3, missed=7, drafts=2)
+    assert [t for t, _i in groups] == ["💬 Bu sohbet", "🗂 Tüm sohbetler"]
+    assert [k for _l, k in groups[0][1]] == [
+        "summarize_unread", "summarize_chat", "suggest_replies",
+        "extract_tasks"]
+    assert [i for _t, items in groups for i in items] == agent.quick_actions(
+        "Ayşe", 3, 7, 2)
+    # Açık sohbet yoksa yalnız genel grup
+    assert [t for t, _i in agent.quick_action_groups()] == ["🗂 Tüm sohbetler"]
+
+
+def test_action_icons_are_distinct():
+    icons = [lbl.split()[0] for lbl in agent.ACTION_LABELS.values()]
+    assert len(icons) == len(set(icons))
 
 
 @pytest.mark.parametrize("target", ["", "bu sohbet"])
@@ -615,15 +746,15 @@ def test_quick_button_runs_without_model_and_history_opens_card(aw):
     aw.active = "ayse@x.org"
     aw._ai_summarize = _Cap()
     xmpp.MainWindow._ai_agent_quick(aw, "summarize_unread",
-                                    "📝 Okunmamışları özetle (3)")
+                                    "📬 Okunmamışları özetle (3)")
     win = aw._ai_assistant_win
     assert aw.calls == [] and win.events[0] == (
-        "user", "📝 Okunmamışları özetle (3)")
+        "user", "📬 Okunmamışları özetle (3)")
     assert aw._ai_summarize.calls == [(("ayse@x.org",),
                                        dict(INLINE, unread_only=True))]
     aw._ai_ask_history = _Cap()
     n = len(win.events)
-    xmpp.MainWindow._ai_agent_quick(aw, "ask_history", "💬 Geçmişe sor…")
+    xmpp.MainWindow._ai_agent_quick(aw, "ask_history", "🔎 Geçmişe sor…")
     assert aw._ai_ask_history.calls == [((), INLINE)]
     assert len(win.events) == n                  # kart başlığı yeter
 
@@ -647,9 +778,9 @@ def test_refresh_shows_context_and_counts(aw):
     aw._ai_unread_at_open = {"ayse@x.org": 2}
     aw._unread_counts = {"isil@x.org": 4, "proje@conf.x.org": 0}
     xmpp.MainWindow._ai_assistant_refresh(aw)
-    context, items = aw._ai_assistant_win.quick
+    context, groups = aw._ai_assistant_win.quick
     assert context.startswith("💬 Bağlam: Ayşe")
-    assert items == agent.quick_actions("Ayşe", 2, 4, 0)
+    assert groups == agent.quick_action_groups("Ayşe", 2, 4, 0)
     aw.active = None
     xmpp.MainWindow._ai_assistant_refresh(aw)
     assert aw._ai_assistant_win.quick[0].startswith("Açık sohbet yok")
@@ -664,27 +795,148 @@ def test_switching_chat_refreshes_assistant_context():
     assert "self._ai_assistant_refresh()" in src
 
 
+def _chips(win):
+    """Görünümdeki çip etiketleri, sırayla."""
+    out = []
+
+    def walk(w):
+        if w.kw.get("cursor") == "hand2" and w.binds.get("<Button-1>"):
+            out.append(w)
+        for c in w.winfo_children():
+            walk(c)
+    walk(win._quick)
+    return out
+
+
 @pytest.mark.usefixtures("fake_tk")
 def test_assistant_view_quick_actions_and_prefill():
     picked = []
     win = ui_ai.AssistantWindow(_W(), "alt", lambda t: None,
                                 on_quick=lambda k, lbl: picked.append(k))
-    win.set_quick_actions("💬 Bağlam: Ayşe", agent.quick_actions("Ayşe"))
+    win.set_quick_actions("💬 Bağlam: Ayşe", agent.quick_action_groups("Ayşe"))
     assert _find(win.top, "💬 Bağlam: Ayşe") is not None
-    rows = [c for c in win._quick.winfo_children() if c.kw.get("text") is None]
-    assert all(len(r.children) <= win.QUICK_PER_ROW for r in rows)
+    assert _find(win.top, "💬 Bu sohbet") is not None      # iki grup başlığı
+    assert _find(win.top, "🗂 Tüm sohbetler") is not None
+    old = list(win._quick.winfo_children())
     _find(win.top, "💡 Yanıt öner").click()
     assert picked == ["suggest_replies"]
-    win.set_busy("Düşünüyor…")
-    _find(win.top, "📥 Neler kaçırdım?").click()
-    assert picked == ["suggest_replies"]         # meşgulken çalışmaz
-    win.set_busy(None)
-    win.set_quick_actions("Açık sohbet yok", agent.quick_actions())
-    assert all(r.destroyed for r in rows)        # eski düğmeler gitti
-    live = [b.kw["text"] for r in win._quick.winfo_children()
-            for b in r.winfo_children()]
-    assert live == [lbl for lbl, _k in agent.quick_actions()]
+    win.set_quick_actions("Açık sohbet yok", agent.quick_action_groups())
+    assert all(w.destroyed for w in old)                 # eski düğmeler gitti
+    assert [c.kw["text"] for c in _chips(win)] == [
+        lbl for lbl, _k in agent.quick_actions()]
+    live = [w.kw.get("text") for w in win._quick.winfo_children()]
+    assert "🗂 Tüm sohbetler" not in live                # tek grup: başlık yok
     win._entry._showing_ph = True
     win.prefill(agent.HISTORY_PREFIX)
     assert win._text() == agent.HISTORY_PREFIX.strip()
     assert win._entry._showing_ph is False
+
+
+@pytest.mark.usefixtures("fake_tk")
+def test_quick_chips_wrap_to_window_width():
+    """Sabit "satırda 3 düğme" dar pencerede sağdan kesiliyordu."""
+    win = ui_ai.AssistantWindow(_W(), "alt", lambda t: None,
+                                on_quick=lambda k, lbl: None)
+    win.set_quick_actions("bağlam", agent.quick_action_groups(
+        "Ayşe", unread=4, missed=9, drafts=2))
+    for width in (520, 300):
+        for box in win._quick_boxes:
+            box.width = width
+            for fn in box.binds["<Configure>"]:
+                fn(types.SimpleNamespace(width=width))
+            chips = [c for c in box.winfo_children()]
+            assert chips and all(c.placed is not None for c in chips)
+            for c in chips:                  # çip = 1 px kenarlı etiket
+                w = c.winfo_children()[0].winfo_reqwidth() + 2
+                assert c.placed["x"] == 0 or c.placed["x"] + w <= width
+            rows = {c.placed["y"] for c in chips}
+            assert box.kw["height"] == max(rows) + 24 + 2
+    # dar pencerede daha çok satır
+    box = win._quick_boxes[0]
+    assert len({c.placed["y"] for c in box.winfo_children()}) >= 2
+    # bağlam satırı ve alt başlık da pencere genişliğinde kırılır
+    for fn in win._quick.binds["<Configure>"]:
+        fn(types.SimpleNamespace(width=300))
+    assert win._context_lbl.kw["wraplength"] <= 300
+    head = next(
+        w for w in win.top.children if win._subtitle in w.children)
+    for fn in head.binds["<Configure>"]:
+        fn(types.SimpleNamespace(width=300))
+    assert win._subtitle.kw["wraplength"] <= 300
+    bottom = next(w for w in win.top.children if win._status in w.children)
+    for fn in bottom.binds["<Configure>"]:
+        fn(types.SimpleNamespace(width=300))
+    assert win._status.kw["wraplength"] <= 300
+
+
+@pytest.mark.usefixtures("fake_tk")
+def test_quick_click_while_busy_is_queued_and_runs_after():
+    """Meşgulken tıklama sessizce yok sayılıyordu; şimdi sıraya girer."""
+    picked = []
+    win = ui_ai.AssistantWindow(_W(), "alt", lambda t: None,
+                                on_quick=lambda k, lbl: picked.append(k))
+    win.set_quick_actions("bağlam", agent.quick_action_groups("Ayşe"))
+    win.set_busy("Düşünüyor…")
+    _find(win.top, "📥 Neler kaçırdım?").click()
+    _find(win.top, "📥 Neler kaçırdım?").click()         # aynısı bir kez
+    _find(win.top, "📝 Sohbeti özetle").click()
+    assert picked == []
+    status = win._status.kw["text"]
+    assert "Düşünüyor" in status and "sırada" in status
+    assert "Neler kaçırdım?" in status and "Sohbeti özetle" in status
+    win.set_busy(None)
+    assert picked == []                  # bitiş geri çağrısı önce tamamlansın
+    win.top.run_idle()
+    assert picked == ["missed", "summarize_chat"]
+    assert "sırada" not in win._status.kw["text"]
+
+
+@pytest.mark.usefixtures("fake_tk")
+def test_queue_waits_if_assistant_becomes_busy_again():
+    picked = []
+    win = ui_ai.AssistantWindow(_W(), "alt", lambda t: None,
+                                on_quick=lambda k, lbl: (
+                                    picked.append(k),
+                                    win.set_busy("Yazıya dökülüyor…")))
+    win.set_quick_actions("bağlam", agent.quick_action_groups("Ayşe"))
+    win.set_busy("Düşünüyor…")
+    _find(win.top, "📥 Neler kaçırdım?").click()
+    _find(win.top, "❓ Bekleyen sorular").click()
+    win.set_busy(None)
+    win.top.run_idle()
+    assert picked == ["missed"]          # ilki yine meşgul etti: ikinci bekler
+    win.set_busy(None)
+    win.top.run_idle()
+    assert picked == ["missed", "pending_questions"]
+
+
+@pytest.mark.usefixtures("fake_tk")
+def test_clear_drops_queued_actions():
+    picked = []
+    win = ui_ai.AssistantWindow(_W(), "alt", lambda t: None,
+                                on_quick=lambda k, lbl: picked.append(k))
+    win.set_quick_actions("bağlam", agent.quick_action_groups("Ayşe"))
+    win.set_busy("Düşünüyor…")
+    _find(win.top, "📥 Neler kaçırdım?").click()
+    win.clear()
+    win.set_busy(None)
+    win.top.run_idle()
+    assert picked == []
+
+
+@pytest.mark.usefixtures("fake_tk")
+def test_busy_status_shows_elapsed_seconds(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr(ui_ai.time, "monotonic", lambda: now[0])
+    win = ui_ai.AssistantWindow(_W(), "alt", lambda t: None)
+    win.set_busy("Düşünüyor…")
+    assert win._status.kw["text"] == "⏳ Düşünüyor…"
+    now[0] = 112.4
+    fn, a = win.top.timers[-1]
+    fn(*a)
+    assert win._status.kw["text"] == "⏳ Düşünüyor… 12 sn"
+    win.set_busy(None)
+    assert win._status.kw["text"] == ""
+    n = len(win.top.timers)
+    fn(*a)                               # eski zamanlayıcı: yazmaz, kurmaz
+    assert win._status.kw["text"] == "" and len(win.top.timers) == n

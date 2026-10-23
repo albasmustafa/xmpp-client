@@ -5,6 +5,8 @@ import types
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import fake_selectable  # noqa: E402
+
 import xmpp  # noqa: E402
 
 
@@ -282,6 +284,7 @@ def test_append_audio_ordering_and_worker(monkeypatch):
     _patch_audio_tk(monkeypatch)
     monkeypatch.setattr(xmpp._render, "tk", types.SimpleNamespace(
         Frame=_W, Label=_W, Canvas=_W, StringVar=_W, Toplevel=_W))
+    fake_selectable.install(monkeypatch, _W)   # seçilebilir gövde
     w = object.__new__(xmpp.MainWindow)
     w.active = "a@b"
     w.msg_frame = _W()

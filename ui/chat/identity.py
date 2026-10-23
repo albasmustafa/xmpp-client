@@ -30,44 +30,24 @@ def update_bubble_text(row, new_text, *, edited=False, retracted=False,
                        formatter, theme):
     """Bir mesaj balonunun metin içeriğini güncelle (saf UI)."""
     text = new_text if retracted else (f"{new_text}  ✏" if edited else new_text)
-    # 1) _append'in bıraktığı güvenli referans (tercih edilen yol)
-    lbl = getattr(row, "_body_label", None)
-    if lbl is not None:
+    # 1) _append'in bıraktığı seçilebilir gövde (tercih edilen yol);
+    #    düzeltme markdown'ı korur, metin seçilebilir kalır
+    box = getattr(row, "_body_text", None)
+    if box is not None:
         try:
-            if lbl.winfo_exists():
+            if box.winfo_exists():
                 if retracted:
-                    lbl.config(text=text, fg=theme["FG_DIM"],
-                               font=(theme["FONT"], 9, "italic"))
+                    box.set_content(text, fg=theme["FG_DIM"],
+                                    font=(theme["FONT"], 9, "italic"))
                 else:
-                    lbl.config(text=text)
+                    parts = list(formatter(new_text))
+                    if edited:
+                        parts.append(("  ✏", None))
+                    box.set_content(parts)
                 return
         except Exception:
             pass
-    # 2) Markdown parçalı balon: içeriği yeniden çiz
-    frame = getattr(row, "_body_frame", None)
-    if frame is not None:
-        try:
-            if frame.winfo_exists():
-                for c in frame.winfo_children():
-                    c.destroy()
-                if retracted:
-                    tk.Label(frame, text=text, fg=theme["FG_DIM"],
-                             font=(theme["FONT"], 9, "italic")).pack(anchor="w")
-                else:
-                    for part, style in formatter(new_text):
-                        if style == "bold":
-                            f = (theme["FONT"], 11, "bold")
-                        elif style == "italic":
-                            f = (theme["FONT"], 11, "italic")
-                        elif style == "code":
-                            f = ("Courier", 10)
-                        else:
-                            f = (theme["FONT"], 11)
-                        tk.Label(frame, text=part, font=f).pack(side="left")
-                return
-        except Exception:
-            pass
-    # 3) Geriye dönük: eski balonlar için sezgisel tarama
+    # 2) Geriye dönük: eski balonlar için sezgisel tarama
     for child in row.winfo_children():
         if isinstance(child, tk.Frame):
             for sub in child.winfo_children():

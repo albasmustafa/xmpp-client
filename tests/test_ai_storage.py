@@ -15,8 +15,10 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import xmpp  # noqa: E402
-from xmppcore import ai  # noqa: E402
-from xmppcore import storage  # noqa: E402
+from xmppcore import (
+    ai,  # noqa: E402
+    storage,  # noqa: E402
+)
 
 SKIP = (ai.RETRACTED_BODY, ai.VOICE_PLACEHOLDER)
 

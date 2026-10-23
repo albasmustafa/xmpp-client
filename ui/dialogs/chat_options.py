@@ -26,6 +26,7 @@ def show_disappearing(parent, current_ttl, on_apply):
     pop.configure(bg=A.BG_CARD)
     pop.geometry("300x200")
     pop.transient(parent)
+    A._make_popover(pop)
 
     tk.Label(pop, text="Kaybolan Mesajlar", fg=A.FG, bg=A.BG_CARD,
              font=(A.FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")
@@ -64,7 +65,7 @@ def show_clear_history(parent, total, chats, has_active,
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("340x220")
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg)
 
     tk.Label(dlg, text="🗑 Mesaj Geçmişini Sil", font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 12))

@@ -52,6 +52,7 @@ import jingle_ft
 from jingle_ft import JingleFTManager
 from ui import profile as _ui_profile
 from ui import rooms as _ui_rooms_menu
+from ui import selectable as _selectable
 from ui import sidebar as _ui_sidebar
 from ui.chat import ChatShell as _ChatShell
 from ui.chat import actions as _actions_ui
@@ -73,6 +74,20 @@ from ui.dialogs import rooms as _ui_rooms
 from ui.dialogs import settings as _ui_settings
 from ui.dialogs import simple as _ui_simple
 from ui.timers import after_alive as _after_alive
+
+# Veri kökü burada çözülür: taşınmış profilin klasörü yoksa (disk takılı
+# değil) boş profille açılmak yerine uyarıp çık (bkz. constants._user_home)
+try:
+    import xmppcore.constants  # noqa: F401
+except SystemExit as _missing:
+    try:
+        _r = tk.Tk()
+        _r.withdraw()
+        messagebox.showerror("XMPP İstemcisi", str(_missing), parent=_r)
+        _r.destroy()
+    except tk.TclError:
+        pass                            # ekran yok: ileti stderr'de kalır
+    raise
 from xmppcore import aesgcm as _aesgcm
 from xmppcore import agent as _agent
 from xmppcore import ai as _ai
@@ -94,7 +109,7 @@ from xmppcore.config import _decode_pw as _decode_pw
 from xmppcore.config import _get_fernet_key as _get_fernet_key
 
 # ── Faz 1 yaprak modülleri (facade yeniden dışa aktarımı) ────────────────────
-from xmppcore.constants import _CONFIG_PATH, _log
+from xmppcore.constants import _CONFIG_PATH, _log, _user_home
 from xmppcore.constants import _DB_PATH as _DB_PATH
 from xmppcore.format import (
     _bookmark_add,
@@ -254,6 +269,270 @@ def _safe_grab_set(window, retries: int = 40, delay_ms: int = 25):
                 pass
 
     _try(retries)
+
+
+# Formda değişiklik sayılan kullanıcı girdileri (Tk sınıf adları). Etiket,
+# tek seçimli sonuç listesi ve Treeview girdi değildir.
+_FORM_INPUTS = frozenset({
+    "Entry", "TEntry", "Spinbox", "TSpinbox", "TCombobox", "Text",
+    "Checkbutton", "TCheckbutton", "Radiobutton", "TRadiobutton",
+    "Scale", "TScale", "Listbox"})
+_FORM_WARN_MS = 4000
+
+
+def _form_value(w):
+    """Form girdisinin değeri; girdi değilse ya da kapalıysa None."""
+    try:
+        cls = w.winfo_class()
+        if cls not in _FORM_INPUTS:
+            return None
+        if (w.instate(["disabled"]) if hasattr(w, "instate")
+                else str(w.cget("state")) == "disabled"):
+            return None                 # kodun doldurduğu salt-okunur alan
+        get_value = getattr(w, "get_value", None)
+        if callable(get_value):         # PlaceholderEntry: ipucu değer değil
+            return get_value()
+        if cls == "Text":
+            return w.get("1.0", "end-1c")
+        if cls.endswith(("Checkbutton", "Radiobutton")):
+            var = str(w.cget("variable"))
+            return w.getvar(var) if var else None
+        if cls == "Listbox":            # tek seçimli liste gezinmedir
+            if str(w.cget("selectmode")) not in ("multiple", "extended"):
+                return None
+            return tuple(w.curselection())
+        return w.get()
+    except (tk.TclError, AttributeError, TypeError):
+        return None
+
+
+def _descendants(w):
+    try:
+        children = w.winfo_children()
+    except (tk.TclError, AttributeError):
+        return
+    for child in children:
+        yield child
+        yield from _descendants(child)
+
+
+def _form_warning(win):
+    """Formun üstünde uyarı şeridi; kaldıran işlevi döndürür."""
+    try:
+        bar = tk.Label(win, text="⚠ Değişiklikler kaybolacak — kapatmak için "
+                                 "yine dışarı tıkla",
+                       bg=AWAY, fg="#111111", font=(FONT, 9, "bold"),
+                       padx=10, pady=6, anchor="w", justify="left",
+                       wraplength=max(160, win.winfo_width() - 24))
+        bar.place(x=0, y=0, relwidth=1)
+        bar.lift()
+    except tk.TclError:
+        return lambda: None
+
+    def _hide():
+        try:
+            bar.destroy()
+        except tk.TclError:
+            pass
+    return _hide
+
+
+def _make_popover(win, close=None, form=False):
+    """Pencereyi açılır kart yap: uygulamada dışına tıklanınca ya da Esc'e
+    basılınca kapanır (profil kartı, seçiciler, bilgi pencereleri).
+
+    Tk yerel grab'i (grab.n): işaretçi pencere ağacının dışındayken düğme
+    basmaları grab penceresine bildirilir; basma pencerenin dışındaysa
+    kapatılır. Alt pencereler (dosya seçici, messagebox, combobox listesi)
+    ağacın içindedir; kendi grab'lerini kurup bırakırlar. Grab'i geri
+    vermeyenlerden (simpledialog) sonra pencereye dönülünce yeniden alınır;
+    kart kapanınca grab, açılmadan önce tutan pencereye (ör. modal Ayarlar)
+    geri verilir. Tekerlek (düğme 4/5) kapatmaz. `close`: kapatma işi
+    (varsayılan destroy).
+
+    `form=True` (yazı/seçim içeren pencereler): değişiklik yoksa dışarı
+    tıklama kapatır; varsa ilk tıklama uyarı şeridi gösterir, şerit
+    görünürken ikinci tıklama kapatır. Forma dönmek (tıklama/tuş) uyarıyı
+    sıfırlar. Değişiklik: kurulunca alınan ilk değerden farklı kullanıcı
+    girdisi (`_form_value`); sonradan eklenen alan ilk odak/tıklamada
+    kaydedilir. Esc her zaman hemen kapatır.
+    """
+    close = close or win.destroy
+    prefix = f"{win}."
+    pending = []                        # kapanınca iptal: komut silinmiş olur
+    initial = {}                        # form: alan yolu → ilk değer
+    warning = []                        # form: [(kaldırıcı, zamanlayıcı)]
+
+    def _later(ms, fn, *a):
+        try:
+            ident = (win.after(ms, fn, *a) if ms
+                     else win.after_idle(fn, *a))
+        except tk.TclError:
+            return None
+        pending.append(ident)
+        return ident
+    try:
+        prev = win.grab_current()
+    except tk.TclError:
+        prev = None
+
+    def _close(_e=None):
+        try:
+            if win.winfo_exists():
+                close()
+        except tk.TclError:
+            pass
+
+    def _remember(w):
+        key = str(w)
+        if key not in initial and hasattr(w, "winfo_class"):
+            value = _form_value(w)
+            if value is not None:
+                initial[key] = value
+
+    def _snapshot():
+        for w in _descendants(win):
+            _remember(w)
+
+    def _changed():
+        for w in _descendants(win):
+            old = initial.get(str(w))
+            if old is not None:
+                value = _form_value(w)
+                if value is not None and value != old:
+                    return True
+        return False
+
+    def _calm(_e=None):
+        while warning:
+            hide, ident = warning.pop()
+            hide()
+            try:
+                win.after_cancel(ident)
+            except (tk.TclError, ValueError):
+                pass
+
+    def _outside():
+        if form and not warning and _changed():
+            warning.append((_form_warning(win), _later(_FORM_WARN_MS, _calm)))
+            return
+        _close()
+
+    def _press(e):
+        if getattr(e, "num", 1) not in (1, 2, 3):
+            return
+        if str(e.widget).startswith(prefix):
+            if form:                    # pencerenin içindeki bir widget
+                _remember(e.widget)
+                _calm()
+            return
+        try:
+            x0, y0 = win.winfo_rootx(), win.winfo_rooty()
+            inside = (x0 <= e.x_root < x0 + win.winfo_width()
+                      and y0 <= e.y_root < y0 + win.winfo_height())
+        except tk.TclError:
+            return
+        if not inside or e.widget is not win:
+            _outside()
+        elif form:
+            _calm()
+
+    def _focus(e=None):
+        if form:
+            _remember(getattr(e, "widget", None))
+        try:
+            if win.winfo_exists() and win.grab_current() is None:
+                _safe_grab_set(win)
+        except tk.TclError:
+            pass
+
+    def _restore(e):
+        if e.widget is not win:
+            return
+        for ident in pending:
+            try:
+                win.after_cancel(ident)
+            except tk.TclError:
+                pass
+        pending.clear()
+        if prev is not None and prev is not win:
+            _safe_grab_set(prev)
+
+    def _show():
+        _fit_content(win)
+        _place_over_parent(win)
+        try:
+            win.deiconify()
+        except tk.TclError:
+            pass
+        if form:                        # içerik kuruldu: ilk değerler
+            _snapshot()
+
+    def _first_map(e):
+        # Gizliyken Tk açık boyutu (ör. 380x300) bildirmez: görününce gerçek
+        # boyutla bir kez yeniden ortala (sonra kullanıcı taşıyabilir)
+        if e.widget is win and not getattr(win, "_popover_placed", False):
+            win._popover_placed = True
+            _later(30, _place_over_parent, win)
+
+    win.bind("<ButtonPress>", _press, add="+")
+    win.bind("<Escape>", _close, add="+")
+    win.bind("<FocusIn>", _focus, add="+")
+    win.bind("<Destroy>", _restore, add="+")
+    win.bind("<Map>", _first_map, add="+")
+    if form:
+        win.bind("<KeyPress>", _calm, add="+")
+    # Geçici (transient) olmayan pencereyi Hyprland döşer: boyut/konum onun olur
+    try:
+        master = getattr(win, "master", None)
+        if master is not None and not win.transient():
+            win.transient(master.winfo_toplevel())
+    except (tk.TclError, AttributeError):
+        pass
+    # Konumsuz Toplevel X11'de +0+0'da açılır (Hyprland: ekranın sol üst
+    # köşesi): gizli başla, içerik kurulunca açan pencerenin ortasında göster
+    win.withdraw()
+    _later(0, _show)
+    _safe_grab_set(win)
+
+
+def _fit_content(win):
+    """İçerik kesilmesin: en küçük boyut içeriğin istediği boyut olur (ekranı
+    aşmadan; pencerenin kendi en küçüğü korunur). Tk, koddaki sabit boyutu
+    (ör. 340x200) buna büyütür — sabit pikseller büyük yazılı ekranda
+    seçenekleri ve alttaki düğmeleri kesiyordu."""
+    try:
+        win.update_idletasks()
+        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+        cur_w, cur_h = win.minsize()
+        win.minsize(max(cur_w, min(win.winfo_reqwidth(), sw - 40)),
+                    max(cur_h, min(win.winfo_reqheight(), sh - 80)))
+    except (tk.TclError, TypeError, ValueError):
+        pass
+
+
+def _place_over_parent(win):
+    """Pencereyi açan pencerenin ortasına yerleştir (ekranın içinde kalır);
+    açan pencere görünmüyorsa (tepside) ekranın ortasına."""
+    try:
+        win.update_idletasks()
+        if win.winfo_ismapped():
+            w, h = win.winfo_width(), win.winfo_height()
+        else:
+            w, h = win.winfo_reqwidth(), win.winfo_reqheight()
+        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+        master = getattr(win, "master", None)
+        parent = master.winfo_toplevel() if master is not None else None
+        if parent is not None and parent.winfo_ismapped():
+            x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
+            y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
+        else:
+            x, y = (sw - w) // 2, (sh - h) // 2
+        x = max(0, min(x, sw - w))
+        y = max(0, min(y, sh - h))
+        win.geometry(f"+{x}+{y}")
+    except tk.TclError:
+        pass
 
 
 def _ipv6_available() -> bool:
@@ -649,6 +928,15 @@ def _rounded_rect(canvas, x1, y1, x2, y2, r, **kw):
     return canvas.create_polygon(pts, smooth=True, **kw)
 
 
+_TOOLTIP_TAG = "Tooltip"
+
+
+def _tooltip_click(event):
+    hide = getattr(event.widget, "_tooltip_hide", None)
+    if hide is not None:
+        hide()
+
+
 def _add_tooltip(widget, text: str):
     """Hover'da görünen sade balon (ikon-only butonlar için)."""
     state = {"win": None}
@@ -679,6 +967,16 @@ def _add_tooltip(widget, text: str):
     widget.bind("<Enter>", _show, "+")
     widget.bind("<Leave>", _hide, "+")
     widget.bind("<Destroy>", _hide, "+")
+    # Tıklama menü/pencere açarsa <Leave> gelmez: balon asılı kalmasın.
+    # Gizleyici ayrı ve önde duran etikette: Tk aynı etikette yalnız en
+    # özgül bağlamayı çalıştırır, widget'ın kendi <Button-1>'i onu ezerdi.
+    # Etiket yorumlayıcı başına bir kez bağlanır (düğme başına sızıntı yok).
+    widget._tooltip_hide = _hide
+    if not widget.bind_class(_TOOLTIP_TAG, "<ButtonPress>"):
+        widget.bind_class(_TOOLTIP_TAG, "<ButtonPress>", _tooltip_click)
+    tags = tuple(widget.bindtags())
+    if _TOOLTIP_TAG not in tags:
+        widget.bindtags((_TOOLTIP_TAG,) + tags)
 
 
 def _avatar(parent, size, letter, color=None, bg=None, photo_data=None,
@@ -956,7 +1254,9 @@ try:
     from slixmpp_omemo import XEP_0384 as _XEP_0384_Base
     from slixmpp_omemo import TrustLevel
 
-    _OMEMO_DIR = pathlib.Path(os.path.expanduser("~/.xmpp_omemo"))
+    # Diğer kullanıcı dosyaları gibi veri kökünde (taşınmış profil, testler);
+    # ev dizinine sabit olunca profil taşınınca yeni OMEMO kimliği doğardı
+    _OMEMO_DIR = pathlib.Path(_user_home()) / ".xmpp_omemo"
     _OMEMO_DIR.mkdir(parents=True, exist_ok=True)
 
     class _OmemoStorageImpl(_OmemoStorage):
@@ -2437,12 +2737,9 @@ PRESENCE_COLOR = {
     "dnd": RED, "unavailable": FG_DIM,
 }
 
-STATUS_OPTIONS = [
-    ("Online",  "online"),
-    ("Away",    "away"),
-    ("Meşgul",  "dnd"),
-    ("Uzakta",  "xa"),
-]
+# Asistanla tek sözlük: "Uzakta" away'dir (eskiden menüde xa'ydı)
+STATUS_OPTIONS = [(label, show) for show, label
+                  in _agent.STATUS_LABELS.items()]
 
 # Bilinen halka açık MUC konferans sunucuları
 _KNOWN_MUC_SERVERS = [
@@ -2688,8 +2985,8 @@ class MainWindow:
                  fg=FG, bg=BG_PANEL).pack(anchor="w")
 
         # Durum: tıklanabilir label + popup menü (combobox yerine)
-        self.status_var = tk.StringVar(value="Online")
-        self._status_label = tk.Label(info_f, text="● Online",
+        self.status_var = tk.StringVar(value=STATUS_OPTIONS[0][0])
+        self._status_label = tk.Label(info_f, text=f"● {STATUS_OPTIONS[0][0]}",
                                        font=(FONT, 8), fg=ONLINE,
                                        bg=BG_PANEL, cursor="hand2")
         self._status_label.pack(anchor="w")
@@ -2781,6 +3078,9 @@ class MainWindow:
         self.contact_list.bind("<Enter>",            self._contact_hover_start)
         self.contact_list.bind("<Leave>",            self._contact_hover_end)
         self.contact_list.bind("<Motion>",           self._contact_hover_motion)
+        # Tıklama kartı kapatır (<Button-3> daha özgül: ayrıca eklenir)
+        self.contact_list.bind("<ButtonPress>",      self._contact_hover_click)
+        self.contact_list.bind("<Button-3>", self._contact_hover_click, add="+")
 
         # ── Odalar ──
         rh = tk.Frame(sb, bg=BG_PANEL, padx=16)
@@ -3101,13 +3401,13 @@ class MainWindow:
             same_sender=same_sender, compact=compact, reply_to=reply_to,
             display_body=display_body, formatter=self._format_markdown,
             avatar_factory=_avatar, avatar_photo=sender_photo,
-            photo_refs=self._photo_refs, on_jump=self._jump_to_message)
+            photo_refs=self._photo_refs, on_jump=self._jump_to_message,
+            text_factory=_selectable.selectable_text)
         row, bubble = view.row, view.bubble
         bubble_bg = view.colors["bubble_bg"]
-        if view.body_kind == "label":
-            row._body_label = view.body_widget  # güncelleme/düzeltme referansı
-        elif view.body_kind == "frame":
-            row._body_frame = view.body_widget
+        if view.body_kind == "text":
+            # güncelleme/düzeltme, vurgu ve seçimi kopyalama referansı
+            row._body_text = view.body_widget
 
         # Resimler — mesaj başına zengin görsel sınırı (2E): ilk
         # _MAX_INLINE_IMAGES benzersiz URL zengin akış; fazlası URL başına
@@ -3488,6 +3788,7 @@ class MainWindow:
             self.root, _chat_theme(),
             (lambda: self._open_aesgcm_file(url)) if _aesgcm.parse(url)
             else (lambda: _safe_open_url(url)))
+        _make_popover(top)
 
         # Arka planda büyük halini indir
         def _load_full():
@@ -4063,6 +4364,7 @@ class MainWindow:
         top.configure(bg=BG)
         top.geometry("600x430")
         top.transient(self.root)
+        _make_popover(top)
         frame = tk.Frame(top, bg=BG)
         frame.pack(fill="both", expand=True)
         lb = tk.Listbox(frame, bg=BG_CARD, fg=FG, selectbackground=SEL_BG,
@@ -4315,23 +4617,23 @@ class MainWindow:
         _identity.scroll_to_row(self.chat_canvas, self.msg_frame, row)
 
     def _flash_row(self, row, pulses: int = 3):
-        """Vurgu: metin etiketinin arka planını kısa süre değiştir."""
-        lbl = getattr(row, "_body_label", None)
-        if lbl is None:
+        """Vurgu: metnin arka planını kısa süre değiştir."""
+        box = getattr(row, "_body_text", None)
+        if box is None:
             return
         try:
-            normal = lbl.cget("bg")
+            normal = box.cget("bg")
         except Exception:
             return
         seq = [SEL_BG, normal] * pulses
         def _step(i=0):
             try:
-                if not lbl.winfo_exists():
+                if not box.winfo_exists():
                     return
                 if i >= len(seq):
-                    lbl.config(bg=normal)
+                    _selectable.set_bg(box, normal)
                     return
-                lbl.config(bg=seq[i])
+                _selectable.set_bg(box, seq[i])
                 self.root.after(110, _step, i + 1)
             except Exception:
                 pass
@@ -4358,9 +4660,11 @@ class MainWindow:
             "pin": bool(body and self.active and not retracted),
             "react": bool(mid and can_send and not retracted),
         }
+        # Mesajın bir kısmı seçiliyse "Kopyala" yalnız seçimi alır
+        chosen = _selectable.selected_text(getattr(row, "_body_text", None))
         callbacks = {
             "on_copy": lambda: (self.root.clipboard_clear(),
-                                self.root.clipboard_append(body)),
+                                self.root.clipboard_append(chosen or body)),
             "on_jump": lambda: self._jump_to_message(
                 (reply_ref or {}).get("id", "")),
             "on_edit": lambda: self._edit_message_dialog(mid, body, mtype),
@@ -4540,6 +4844,7 @@ class MainWindow:
         pop.configure(bg=BG_CARD)
         pop.geometry("380x300")
         pop.transient(self.root)
+        _make_popover(pop)
 
         for body, sender in pins:
             f = tk.Frame(pop, bg=BG_HOVER, padx=12, pady=8)
@@ -4851,7 +5156,7 @@ class MainWindow:
         unread = (getattr(self, "_ai_unread_at_open", None) or {}).get(jid, 0)
         if unread:
             menu.add_command(
-                label=f"📝 Okunmamışları özetle ({unread})",
+                label=f"📬 Okunmamışları özetle ({unread})",
                 command=lambda: run("summarize_unread", jid))
         this = self._ai_new_menu(menu)
         this.add_command(label="📝 Sohbeti özetle",
@@ -4866,10 +5171,10 @@ class MainWindow:
         every.add_command(label="❓ Yanıt bekleyen sorular",
                           accelerator="Ctrl+Shift+Q",
                           command=lambda: run("pending_questions"))
-        every.add_command(label="📝 Yanıt taslakları",
+        every.add_command(label="✍ Yanıt taslakları",
                           accelerator="Ctrl+Shift+R",
                           command=self._ai_drafts_window)
-        every.add_command(label="💬 Geçmişe sor…", accelerator="Ctrl+Shift+H",
+        every.add_command(label="🔎 Geçmişe sor…", accelerator="Ctrl+Shift+H",
                           command=lambda: run("ask_history"))
         every.add_command(label="🧠 Anlamsal arama…",
                           command=self._ai_semantic_search_dialog)
@@ -5124,6 +5429,7 @@ class MainWindow:
         lbl = _audio_ui.transcript_note(
             bubble, _chat_theme(), bubble.cget("bg"), text,
             is_me=getattr(row, "_is_me", False),
+            text_factory=_selectable.selectable_text,
             before=getattr(row, "_meta_frame", None))
         row._stt_label = lbl
         self._bind_message_menu(lbl, row)
@@ -5386,7 +5692,20 @@ class MainWindow:
         for role, text in getattr(self, "_ai_agent_log", ()):
             (win.add_user if role == "user" else win.add_reply)(text)
         self._ai_assistant_refresh()
+        self._ai_warm_model(settings)
         return "break"
+
+    def _ai_warm_model(self, settings):
+        """Yerel modeli arka planda belleğe yükle (worker Tk'ya dokunmaz);
+        önceki yükleme sürerken yenisi başlatılmaz."""
+        if settings.get("provider") != _ai.PROVIDER_OLLAMA:
+            return
+        prev = getattr(self, "_ai_warm_thread", None)
+        if prev is not None and prev.is_alive():
+            return
+        t = self._ai_warm_thread = threading.Thread(
+            target=_ai.ollama_warm, args=(settings,), daemon=True)
+        t.start()
 
     def _ai_agent_context(self) -> str:
         """Asistanın bağlamı: ana pencerede açık sohbet ("" = yok)."""
@@ -5394,7 +5713,8 @@ class MainWindow:
 
     def _ai_assistant_refresh(self):
         """Bağlam satırı ve hızlı eylemler (açık sohbet, okunmamış, taslak
-        sayısı değişince). Asistan kapalıysa bir şey yapmaz."""
+        sayısı değişince). Asistan kapalıysa bir şey yapmaz; çipler
+        değişmediyse yeniden kurulmaz (her gelen mesajda çağrılır)."""
         win = getattr(self, "_ai_assistant_win", None)
         if win is None or not win.alive():
             return
@@ -5410,8 +5730,13 @@ class MainWindow:
                    "verilen komutlar bu sohbete" if label
                    else "Açık sohbet yok — komutlarda kişi ya da oda adını "
                         "yazın")
-        win.set_quick_actions(context, _agent.quick_actions(
-            label, unread, missed, drafts))
+        groups = _agent.quick_action_groups(label, unread, missed, drafts)
+        shown = getattr(self, "_ai_quick_shown", None)
+        if shown is not None and shown[0] is win and shown[1:] == (
+                context, groups):
+            return
+        self._ai_quick_shown = (win, context, groups)
+        win.set_quick_actions(context, groups)
 
     def _ai_agent_quick(self, key, label, jid=None):
         """Hızlı eylem düğmesi: plan modele sorulmaz, doğrudan yürütülür.
@@ -5489,7 +5814,7 @@ class MainWindow:
         def job():
             return _agent.parse_plan(_ai.chat(
                 settings, conv.system, user, history=history, effort="low",
-                schema=_agent.PLAN_SCHEMA))
+                schema=_agent.PLAN_SCHEMA), request=text)
 
         def done(plan):
             win.set_busy(None)
@@ -5856,6 +6181,7 @@ class MainWindow:
         win = getattr(self, "_ai_drafts_win", None)
         if win is not None and win.alive():
             win.set_entries(self._ai_drafts_view())
+        self._ai_assistant_refresh()            # "✍ Taslaklar (n)" çipi
 
     # — Satır içi öneri (yazarken; yalnız yerel model) —
     # Sözcük bitip (boşluk) yazım _AI_COMPLETE_DELAY_MS duraksayınca kısa
@@ -6639,7 +6965,7 @@ class MainWindow:
             effort="low", pin_first=False, cache=False)
         state = {"previous": ""}
         win, cancel = self._ai_open_window(
-            "💬 Geçmişe sor",
+            "🔎 Geçmişe sor",
             f"{_ai.provider_label(settings)} · arama yerel "
             f"({settings['embed_model']})", conv,
             on_ask=lambda q: self._ai_rag_turn(win, conv, q, cancel, state),
@@ -6833,6 +7159,7 @@ class MainWindow:
                              _ai.WHISPER_MODELS, _save, _test,
                              tts_engines=_ai.TTS_ENGINES,
                              keep_alive_choices=_ai.KEEP_ALIVE_CHOICES,
+                             gpu_choices=_ai.OLLAMA_GPU_CHOICES,
                              mcp_command=self._mcp_command())
 
     # ── Clipboard yapıştır (Ctrl+V resim) ─────────────────────────────────────
@@ -6884,6 +7211,7 @@ class MainWindow:
         pop.configure(bg=BG_CARD)
         pop.geometry("360x400")
         pop.transient(self.root)
+        _make_popover(pop)
 
         tk.Label(pop, text="Engelli Kişiler", fg=FG, bg=BG_CARD,
                  font=(FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")
@@ -6960,6 +7288,7 @@ class MainWindow:
         pop.configure(bg=BG_CARD)
         pop.geometry("340x320")
         pop.transient(self.root)
+        _make_popover(pop)
 
         # Avatar
         photo_data = self._avatars.get(jid)
@@ -7039,6 +7368,7 @@ class MainWindow:
         pop.configure(bg=BG_CARD)
         pop.geometry("440x350")
         pop.transient(self.root)
+        _make_popover(pop)
 
         tk.Label(pop, text="OMEMO Parmak İzleri", fg=FG, bg=BG_CARD,
                  font=(FONT, 12, "bold")).pack(padx=16, pady=(16, 4), anchor="w")
@@ -7787,7 +8117,6 @@ class MainWindow:
         if seen is None:
             seen = self._ai_unread_at_open = {}
         seen[target] = self._unread_counts.get(target, 0)
-        self._ai_assistant_refresh()            # asistanın bağlamı değişti
         # Okunmamış sayacı sıfırla
         if self._unread_counts.get(target, 0) > 0:
             self._unread_counts[target] = 0
@@ -7795,6 +8124,9 @@ class MainWindow:
             total = sum(self._unread_counts.values())
             badge = f" [{total}]" if total > 0 else ""
             self.root.title(f"XMPP — {self.jid}{badge}")
+        # Asistanın bağlamı değişti; sayaç sıfırlandıktan sonra (açılan
+        # sohbet "Neler kaçırdım?" sayısında kalmasın)
+        self._ai_assistant_refresh()
         # Kısa isim göster
         short = target.split("@")[0] if "@" in target else target
         self.chat_title.config(text=short)
@@ -8156,19 +8488,37 @@ class MainWindow:
         self._hover_timer = None
 
     def _contact_hover_end(self, event):
-        if hasattr(self, '_hover_timer') and self._hover_timer:
+        self._hover_quiet_idx = None
+        self._contact_card_hide()
+
+    def _contact_card_hide(self):
+        """Bekleyen kartı iptal et, görüneni kapat."""
+        if getattr(self, "_hover_timer", None):
             self.root.after_cancel(self._hover_timer)
-        if hasattr(self, '_contact_card_pop') and self._contact_card_pop:
+            self._hover_timer = None
+        if getattr(self, "_contact_card_pop", None):
             try:
                 self._contact_card_pop.destroy()
             except Exception:
                 pass
             self._contact_card_pop = None
 
+    def _contact_hover_click(self, event):
+        """Kişiye tıklama kartı kapatır; fare o satırda kıpırdadıkça kart
+        yeniden açılmaz (başka satıra geçince ya da listeden çıkınca açılır)."""
+        self._contact_card_hide()
+        self._hover_quiet_idx = self.contact_list.nearest(event.y)
+
     def _contact_hover_motion(self, event):
-        if hasattr(self, '_hover_timer') and self._hover_timer:
+        if getattr(self, "_hover_timer", None):
             self.root.after_cancel(self._hover_timer)
+            self._hover_timer = None
         idx = self.contact_list.nearest(event.y)
+        quiet = getattr(self, "_hover_quiet_idx", None)
+        if quiet is not None:
+            if idx == quiet:
+                return
+            self._hover_quiet_idx = None
         if 0 <= idx < len(self._contact_jids):
             jid = self._contact_jids[idx]
             self._hover_timer = self.root.after(
@@ -8612,7 +8962,7 @@ class MainWindow:
         pop.configure(bg=BG_CARD)
         pop.geometry("340x320")
         pop.transient(self.root)
-        pop.attributes("-topmost", True)
+        _make_popover(pop)
 
         nb = ttk.Notebook(pop)
         nb.pack(fill="both", expand=True, padx=4, pady=4)
@@ -8927,6 +9277,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("460x400")
         dlg.transient(self.root)
+        _make_popover(dlg)
 
         # Arama çubuğu
         top = tk.Frame(dlg, bg=BG_CARD, padx=16, pady=12)
@@ -9258,7 +9609,7 @@ class MainWindow:
                              "User-Agent": "deneme-xmpp/1.0"})
                 with urllib.request.urlopen(req, timeout=12) as r:
                     data = json.loads(_read_bounded(r, _NET_JSON_MAX))
-                items = _parse_room_search(data)
+                items = _parse_room_search(data, keywords)
                 self._safe_after(0, on_done, items)
             except urllib.error.HTTPError as ex:
                 msg = too_short if ex.code == 400 else f"HTTP {ex.code}"
@@ -9757,13 +10108,29 @@ class MainWindow:
                             except Exception:
                                 pass
                     if wtype == "Text":
+                        # İmleç, seçim ve etiketler (ör. mesajdaki `kod`
+                        # parçasının arka planı) de yeni temaya geçer
+                        for opt in ("insertbackground", "selectbackground",
+                                    "selectforeground",
+                                    "inactiveselectbackground"):
+                            try:
+                                new = _map_color(str(w.cget(opt)))
+                                if new:
+                                    w.config(**{opt: new})
+                            except Exception:
+                                pass
                         try:
-                            old_ins = str(w.cget("insertbackground"))
-                            new_ins = _map_color(old_ins)
-                            if new_ins:
-                                w.config(insertbackground=new_ins)
+                            tags = [t for t in w.tag_names() if t != "sel"]
                         except Exception:
-                            pass
+                            tags = []
+                        for tag in tags:
+                            for opt in ("background", "foreground"):
+                                try:
+                                    new = _map_color(str(w.tag_cget(tag, opt)))
+                                    if new:
+                                        w.tag_configure(tag, **{opt: new})
+                                except Exception:
+                                    pass
             except Exception:
                 pass
             for child in w.winfo_children():
@@ -9788,6 +10155,15 @@ class MainWindow:
         sz = size or 10
 
         def _walk(w):
+            if _selectable.is_box(w):
+                # Seçilebilir mesaj/yanıt metni: yalnız aile değişir (boyut,
+                # kalın/italik, kodun eş aralıklı yazısı korunur), yeniden
+                # ölçülür — tek boyuta zorlanınca metin kesilirdi
+                try:
+                    _selectable.set_family(w, FONT)
+                except Exception:
+                    pass
+                return
             try:
                 wtype = w.winfo_class()
                 if wtype == "Label":
@@ -9848,7 +10224,7 @@ class MainWindow:
             self._is_idle = False
             if self.bot:
                 self.bot.set_presence("online")
-                self._status_label.config(text="● Online", fg=ONLINE)
+                self._status_label.config(text=f"● {STATUS_OPTIONS[0][0]}", fg=ONLINE)
             self._ai_away_returned()
 
     def _start_idle_checker(self):
@@ -10111,7 +10487,7 @@ class MainWindow:
         pop.configure(bg=BG_CARD)
         pop.geometry("400x360")
         pop.transient(self.root)
-        pop.attributes("-topmost", True)
+        _make_popover(pop)
 
         top_f = tk.Frame(pop, bg=BG_CARD, padx=12, pady=8)
         top_f.pack(fill="x")
@@ -10280,7 +10656,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("380x200")
         dlg.transient(self.root)
-        _safe_grab_set(dlg)
+        _make_popover(dlg)
 
         tk.Label(dlg, text="💾 Sohbet Yedekleme", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
@@ -10343,6 +10719,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("340x400")
         dlg.transient(self.root)
+        _make_popover(dlg)
 
         tk.Label(dlg, text="🔐 OMEMO Parmak İzi", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
@@ -10401,7 +10778,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("340x260")
         dlg.transient(self.root)
-        _safe_grab_set(dlg)
+        _make_popover(dlg)
 
         tk.Label(dlg, text="🖼 Sohbet Arka Planı", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
@@ -10536,6 +10913,10 @@ class MainWindow:
         self.root.bind("<Control-b>", lambda _: self._backup_dialog())
         self.root.bind("<Control-question>", lambda _: self._shortcuts_dialog())
         self.root.bind("<Escape>", self._on_escape)
+        # Ctrl+C odak giriş kutusundayken de mesajda seçilen yazıyı kopyalar
+        # (giriş kutusunun kendi seçimi varsa onunki kopyalanır)
+        self.root.bind("<<Copy>>",
+                       lambda _: _selectable.copy_selection(self.root))
 
     def _on_escape(self, event=None):
         # Yanıt modundaysa iptal et
@@ -10861,7 +11242,7 @@ class MainWindow:
         pop.configure(bg=BG_CARD)
         pop.geometry("340x280")
         pop.transient(self.root)
-        _safe_grab_set(pop)
+        _make_popover(pop, form=True)
 
         tk.Label(pop, text="⏰ Mesaj Zamanla", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
@@ -10981,7 +11362,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("420x400")
         dlg.transient(self.root)
-        _safe_grab_set(dlg)
+        _make_popover(dlg, form=True)
 
         tk.Label(dlg, text="📢 Toplu Mesaj Gönder", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
@@ -11097,7 +11478,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("360x300")
         dlg.transient(self.root)
-        _safe_grab_set(dlg)
+        _make_popover(dlg, form=True)
 
         tk.Label(dlg, text="🌓 Otomatik Tema Geçişi", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
@@ -11159,7 +11540,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("320x240")
         dlg.transient(self.root)
-        _safe_grab_set(dlg)
+        _make_popover(dlg, form=True)
 
         tk.Label(dlg, text="🔑 Uygulama Kilidi", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
@@ -11233,7 +11614,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("380x360")
         dlg.transient(self.root)
-        _safe_grab_set(dlg)
+        _make_popover(dlg, form=True)
 
         tk.Label(dlg, text="🔒 Proxy / SOCKS Ayarları", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
@@ -11578,6 +11959,7 @@ class MainWindow:
         pop.configure(bg=BG_CARD)
         pop.geometry("300x300")
         pop.transient(self.root)
+        _make_popover(pop)
 
         lb = tk.Listbox(pop, bg=BG_PANEL, fg=FG, selectbackground=SEL_BG,
                          font=(FONT, 9), relief="flat", highlightthickness=0)
@@ -11636,7 +12018,7 @@ class MainWindow:
                 self._last_conn_error = ""
                 self._show_toast("✓ Bağlantı Kuruldu", "Sunucuya bağlanıldı")
             try:
-                self._status_label.config(text="● Online", fg=ONLINE)
+                self._status_label.config(text=f"● {STATUS_OPTIONS[0][0]}", fg=ONLINE)
                 self._restore_status_prefs()
             except Exception:
                 _log.warning("Durum mesajı geri yüklenemedi", exc_info=True)
@@ -11734,6 +12116,7 @@ class MainWindow:
                 # Okunmamış sayacı artır
                 self._unread_counts[frm] = self._unread_counts.get(frm, 0) + 1
                 self._refresh_contacts()
+                self._ai_assistant_refresh()    # "Neler kaçırdım? (n)"
                 total = sum(self._unread_counts.values())
                 icon = ("🔒" if enc == "omemo" else
                         "🔑" if enc == "pgp" else "🔔")
@@ -11786,11 +12169,13 @@ class MainWindow:
             # Telefondan yanıt verildiyse sohbet masaüstünde okunmamış kalmaz
             if self._unread_counts.pop(to, None):
                 self._refresh_contacts()
+                self._ai_assistant_refresh()
 
         elif kind == "read_elsewhere":
             # Sohbet aynı hesabın başka cihazında okundu (XEP-0333 carbon)
             if self._unread_counts.pop(data, None):
                 self._refresh_contacts()
+                self._ai_assistant_refresh()
 
         elif kind == "search_results":
             items = data.get("items", [])
@@ -12298,7 +12683,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("400x380")
         dlg.transient(self.root)
-        _safe_grab_set(dlg)
+        _make_popover(dlg, form=True)
 
         tk.Label(dlg, text="📊 Anket Oluştur", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
@@ -12399,7 +12784,9 @@ class MainWindow:
                 pop.destroy()
             except Exception:
                 pass
-            self._contact_card_pop = None
+            # Eski kartın zamanlayıcısı yeni kartın kaydını silmesin
+            if getattr(self, "_contact_card_pop", None) is pop:
+                self._contact_card_pop = None
 
         pop.bind("<Leave>", _hide)
         self.root.after(3000, _hide)
@@ -12784,6 +13171,7 @@ class MainWindow:
         dlg.configure(bg=BG_CARD)
         dlg.geometry("420x340")
         dlg.transient(self.root)
+        _make_popover(dlg, form=True)
 
         tk.Label(dlg, text="🌐 REST API", font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
@@ -12918,7 +13306,7 @@ class MainWindow:
         dlg.configure(bg=BG)
         dlg.resizable(False, False)
         dlg.transient(self.root)
-        _safe_grab_set(dlg)
+        _make_popover(dlg)               # dışarı tıklama = İptal
         dlg.overrideredirect(True)
 
         # Ekran ortasına konumla

@@ -39,13 +39,14 @@ def dialog(request, monkeypatch):
         **vars(ns), Radiobutton=_W))
     monkeypatch.setattr(ui_ai, "ttk", types.SimpleNamespace(
         **vars(ui_ai.ttk), Notebook=_Notebook))
-    monkeypatch.setattr(xmpp, "_safe_grab_set", lambda d: None)
+    monkeypatch.setattr(xmpp, "_make_popover", lambda *a, **k: None)
     saved = []
     dlg = ui_ai.show_settings(
         _W(), ai.load_settings({}), False, ai.WHISPER_MODELS,
         lambda values, key: saved.append((values, key)),
         lambda *a: None, tts_engines=ai.TTS_ENGINES,
         keep_alive_choices=ai.KEEP_ALIVE_CHOICES,
+        gpu_choices=ai.OLLAMA_GPU_CHOICES,
         mcp_command="claude mcp add xmpp -- py /p/xmpp_mcp.py")
     return dlg, saved
 
@@ -75,6 +76,7 @@ def test_defaults_are_safe_and_complete(dialog):
     assert values["inline_complete"] is False and values["away_drafts"] is \
         False
     assert values["tts_engine"] == "auto" and values["tts_lang"] == "tr"
+    assert values["ollama_gpu"] == "auto"
 
 
 def test_toggles_are_saved(dialog):

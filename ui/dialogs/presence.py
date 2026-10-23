@@ -9,6 +9,14 @@ from tkinter import messagebox, ttk
 from ui.dialogs.simple import _app
 
 
+def status_choices():
+    """(yayınlanan show, etiket): Durum Mesajı ve Ayarlar "chat" yayınlar;
+    etiketler durum menüsünün sözlüğüdür (STATUS_OPTIONS, "chat" = Çevrimiçi)."""
+    labels = {show: label for label, show in _app().STATUS_OPTIONS}
+    return [("chat", labels["online"]), ("away", labels["away"]),
+            ("dnd", labels["dnd"]), ("xa", labels["xa"])]
+
+
 def show_status(parent, on_apply):
     """Durum mesajı + görünürlük seçimi (MainWindow._status_dialog)."""
     A = _app()
@@ -17,6 +25,7 @@ def show_status(parent, on_apply):
     pop.configure(bg=A.BG_CARD)
     pop.geometry("340x200")
     pop.transient(parent)
+    A._make_popover(pop, form=True)
 
     tk.Label(pop, text="Durum Mesajı", fg=A.FG, bg=A.BG_CARD,
              font=(A.FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")
@@ -30,12 +39,13 @@ def show_status(parent, on_apply):
     show_var = tk.StringVar(value="chat")
     sf = tk.Frame(pop, bg=A.BG_CARD)
     sf.pack(fill="x", padx=16)
-    for val, txt in [("chat", "Müsait"), ("away", "Uzakta"),
-                     ("dnd", "Rahatsız Etmeyin"), ("xa", "Uzun Süre Uzakta")]:
+    # 2×2: yan yana dört seçenek 340 px'e sığmıyordu ("Uzun süre uzakta"
+    # kesiliyordu). Adlar durum menüsüyle aynı (STATUS_OPTIONS)
+    for i, (val, txt) in enumerate(status_choices()):
         tk.Radiobutton(sf, text=txt, variable=show_var, value=val,
                        bg=A.BG_CARD, fg=A.FG, selectcolor=A.BG_HOVER,
-                       activebackground=A.BG_CARD, font=(A.FONT, 8)).pack(
-                           side="left", padx=(0, 8))
+                       activebackground=A.BG_CARD, font=(A.FONT, 8)).grid(
+                           row=i // 2, column=i % 2, sticky="w", padx=(0, 12))
 
     def _apply():
         # get_value: boş alanda ipucu ("Durum yazın...") değer değildir
@@ -57,6 +67,7 @@ def show_location(parent, on_publish, on_stop):
     pop.configure(bg=A.BG_CARD)
     pop.geometry("320x240")
     pop.transient(parent)
+    A._make_popover(pop, form=True)
 
     tk.Label(pop, text="Konum Paylaş", fg=A.FG, bg=A.BG_CARD,
              font=(A.FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")

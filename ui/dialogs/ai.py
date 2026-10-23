@@ -9,9 +9,11 @@ Kurallar (ui/dialogs/simple.py ile aynı):
   kontrolüyle sessizce yok sayılır; kapanış `on_close` ile bildirilir
   (MainWindow süren akışı iptal eder).
 """
+import time
 import tkinter as tk
 from tkinter import ttk
 
+from ui import selectable as _selectable
 from ui.dialogs.simple import _app
 
 
@@ -945,10 +947,10 @@ class InlineResult:
                                 anchor="w", justify="left",
                                 wraplength=self.WRAP)
         self._status.pack(fill="x", pady=(2, 0))
-        self._body = tk.Label(card, text="", font=(A.FONT, 10), fg=A.FG,
-                              bg=A.BG_CARD, anchor="w", justify="left",
-                              wraplength=self.WRAP)
-        self._body.pack(fill="x", pady=(4, 0))
+        self._body = _selectable.selectable_text(   # sol tıkla seçilir
+            card, "", fg=A.FG, bg=A.BG_CARD, font=(A.FONT, 10),
+            wrap=self.WRAP, sel_bg=A.SEL_BG, sel_fg=A.SEL_FG)
+        self._body.pack(anchor="w", pady=(4, 0))
         self._extra = tk.Frame(card, bg=A.BG_CARD)   # öneriler / sorular
         self._extra.pack(fill="x")
         row = tk.Frame(card, bg=A.BG_CARD)
@@ -986,7 +988,7 @@ class InlineResult:
         A = _app()
         self._status.config(text=f"⏳ {message}", fg=A.ACCENT)
         if self._pending_q is not None and not self._partial:
-            self._a_label.config(text=f"⏳ {message}")
+            self._a_label.set_content(f"⏳ {message}")
 
     def set_status(self, message, error=False):
         if self.alive():
@@ -1012,7 +1014,7 @@ class InlineResult:
         """İlk yanıtın kesin metni (kart gövdesi)."""
         if not self.alive():
             return
-        self._body.config(text=text)
+        self._body.set_content(text)
         self._log = [(None, text)]
         self._turns = 0
         self._finish(text, status)
@@ -1022,7 +1024,7 @@ class InlineResult:
             return
         self._stream += chunk
         target = self._a_label if self._pending_q is not None else self._body
-        target.config(text=self._stream)
+        target.set_content(self._stream)
         if not self._partial:
             self._partial = True
             A = _app()
@@ -1059,10 +1061,10 @@ class InlineResult:
         if not self.alive():
             return
         if self._pending_q is not None:
-            self._a_label.config(text=text)
+            self._a_label.set_content(text)
             self._log.append((self._pending_q, text))
         else:
-            self._body.config(text=text)
+            self._body.set_content(text)
             self._log = [(None, text)]
         self._finish(text, status)
 
@@ -1078,7 +1080,7 @@ class InlineResult:
                     widget.destroy()
             self._owner._restore_entry(question)
         elif self._partial:
-            self._body.config(text="")   # kısmi yanıt geçerli sayılmaz
+            self._body.set_content("")   # kısmi yanıt geçerli sayılmaz
         self._pending_q = None
         self._partial = False
         self._stream = ""
@@ -1213,14 +1215,18 @@ class AssistantWindow:
     `add_reply`, onay isteyen eylemler `add_card`, belirsiz hedefler
     `add_choices` ile gelir. Meşgulken yeni gönderim kabul edilmez.
     `on_speak(metin)` verilirse yanıtların yanında 🔊 çıkar.
-    Hızlı eylemler: `set_quick_actions(bağlam, [(etiket, anahtar)])` üstte
-    düğme sırası kurar; tıklama `on_quick(anahtar, etiket)` çağırır.
+    Hızlı eylemler: `set_quick_actions(bağlam, [(başlık, [(etiket,
+    anahtar)])])` üstte gruplu çipler kurar (pencere genişliğine göre satır
+    kırar); tıklama `on_quick(anahtar, etiket)` çağırır. Meşgulken tıklanan
+    eylem sıraya girer (durum satırında görünür) ve meşguliyet bitince
+    çalışır. Meşgulken durum satırı geçen süreyi sayar.
     Sonuçlar: `add_result` → InlineResult (akışlı yanıt kartı). Takip kipinde
     (`set_followup`) giriş kutusu komut yerine o kartın sorusunu alır; Esc ya
     da ✗ komut kipine döner.
     """
 
-    QUICK_PER_ROW = 3
+    QUICK_GAP = 6            # çipler arası boşluk (px)
+    QUICK_WIDTH = 520        # pencere çizilmeden önceki genişlik tahmini
 
     def __init__(self, parent, subtitle, on_submit, *, on_clear=None,
                  on_close=None, on_speak=None, examples=(), on_quick=None):
@@ -1230,6 +1236,11 @@ class AssistantWindow:
         self._on_speak = on_speak
         self._on_quick = on_quick
         self._busy = False
+        self._busy_msg = None
+        self._busy_since = None
+        self._busy_gen = 0
+        self._queue = []             # meşgulken tıklanan [(anahtar, etiket)]
+        self._quick_boxes = []
         self._results = []
         self._followup = None
         self.top = top = tk.Toplevel(parent)
@@ -1239,6 +1250,8 @@ class AssistantWindow:
         top.transient(parent)
         top.protocol("WM_DELETE_WINDOW", self.close)
         top.bind("<Destroy>", self._on_destroy, add="+")
+        # Ctrl+C giriş kutusundayken de seçilen yanıt yazısını kopyalar
+        top.bind("<<Copy>>", lambda _e: _selectable.copy_selection(top))
 
         head = tk.Frame(top, bg=A.BG_CARD, padx=16, pady=12)
         head.pack(fill="x")
@@ -1256,12 +1269,21 @@ class AssistantWindow:
         # Bağlam satırı + hızlı eylem düğmeleri (set_quick_actions doldurur)
         self._quick = tk.Frame(top, bg=A.BG_CARD, padx=12)
         self._quick.pack(fill="x")
+        self._context_lbl = None
+        # Metin satırları pencere genişliğinde kırılır (dar pencerede kesilmez)
+        head.bind("<Configure>", lambda e: self._rewrap(
+            self._subtitle, getattr(e, "width", 0) - 32))
+        self._quick.bind("<Configure>", lambda e: self._rewrap(
+            self._context_lbl, getattr(e, "width", 0) - 32))
 
         bottom = tk.Frame(top, bg=A.BG_CARD, padx=16, pady=10)
         bottom.pack(side="bottom", fill="x")
         self._status = tk.Label(bottom, text="", font=(A.FONT, 8),
-                                fg=A.ACCENT, bg=A.BG_CARD, anchor="w")
+                                fg=A.ACCENT, bg=A.BG_CARD, anchor="w",
+                                justify="left", wraplength=520)
         self._status.pack(fill="x")
+        bottom.bind("<Configure>", lambda e: self._rewrap(
+            self._status, getattr(e, "width", 0) - 32))
         # Takip kipi çubuğu (set_followup gösterir)
         self._fu_bar = tk.Frame(bottom, bg=A.BG_CARD)
         self._fu_label = tk.Label(self._fu_bar, text="", font=(A.FONT, 8),
@@ -1388,28 +1410,97 @@ class AssistantWindow:
         except Exception:
             pass
 
-    def set_quick_actions(self, context, items):
-        """Bağlam satırı ve hızlı eylemler: items [(etiket, anahtar)]."""
+    def set_quick_actions(self, context, groups):
+        """Bağlam satırı ve gruplu hızlı eylem çipleri: groups [(başlık,
+        [(etiket, anahtar)])]; tek grup varsa başlığı gösterilmez."""
         if not self.alive():
             return
         A = _app()
         for child in self._quick.winfo_children():
             child.destroy()
-        tk.Label(self._quick, text=context, font=(A.FONT, 8, "bold"),
-                 fg=A.FG_DIM, bg=A.BG_CARD, anchor="w").pack(
-            fill="x", padx=4, pady=(0, 2))
-        items = list(items)
-        for i in range(0, len(items), self.QUICK_PER_ROW):
-            row = tk.Frame(self._quick, bg=A.BG_CARD)
-            row.pack(fill="x")
-            for label, key in items[i:i + self.QUICK_PER_ROW]:
-                _link_button(row, label,
-                             lambda k=key, lbl=label: self._quick_click(k, lbl),
-                             bg=A.BG_CARD).pack(side="left")
+        self._quick_boxes = []
+        width = self._quick.winfo_width()
+        self._context_lbl = tk.Label(
+            self._quick, text=context, font=(A.FONT, 8, "bold"),
+            fg=A.FG_DIM, bg=A.BG_CARD, anchor="w", justify="left",
+            wraplength=width - 32 if width > 200 else self.QUICK_WIDTH)
+        self._context_lbl.pack(fill="x", padx=4, pady=(0, 4))
+        groups = [(title, list(items)) for title, items in groups if items]
+        for title, items in groups:
+            if len(groups) > 1:
+                tk.Label(self._quick, text=title, font=(A.FONT, 7, "bold"),
+                         fg=A.FG_DIM, bg=A.BG_CARD, anchor="w").pack(
+                    fill="x", padx=4)
+            box = tk.Frame(self._quick, bg=A.BG_CARD, height=1)
+            box.pack(fill="x", padx=4, pady=(2, 6))
+            for label, key in items:
+                self._chip(box, label, key)
+            box.bind("<Configure>",
+                     lambda e, b=box: self._flow(b, getattr(e, "width", 0)))
+            self._flow(box)
+            self._quick_boxes.append(box)
+
+    @staticmethod
+    def _rewrap(label, width):
+        if label is not None and width > 100 and _alive(label):
+            label.config(wraplength=width)
+
+    def _chip(self, box, label, key):
+        """Kenarlıklı tıklanabilir etiket (çip)."""
+        A = _app()
+        frame = tk.Frame(box, bg=A.BORDER, padx=1, pady=1)
+        lbl = tk.Label(frame, text=label, font=(A.FONT, 9), fg=A.ACCENT,
+                       bg=A.BG_CARD, cursor="hand2", padx=8, pady=3)
+        lbl.pack()
+        lbl.bind("<Button-1>", lambda _e: self._quick_click(key, label))
+        lbl.bind("<Enter>", lambda _e: lbl.config(bg=A.BG_HOVER))
+        lbl.bind("<Leave>", lambda _e: lbl.config(bg=A.BG_CARD))
+        frame._chip_label = lbl
+        return frame
+
+    def _flow(self, box, width=0):
+        """Çipleri `width` genişliğe sığan satırlara diz (place). Genişlik
+        değişmediyse yeniden dizmez (yükseklik ayarı yeni <Configure> doğurur).
+        Ölçü etiketten alınır: çerçevenin istediği boyut paketleyici boşta
+        çalışana dek hazır değildir."""
+        if not width or width <= 1:
+            width = box.winfo_width()
+        if width <= 1:
+            width = self.QUICK_WIDTH
+        if getattr(box, "_flow_width", None) == width:
+            return
+        box._flow_width = width
+        gap = self.QUICK_GAP
+        x = y = row_h = 0
+        for chip in box.winfo_children():
+            lbl = chip._chip_label
+            w, h = lbl.winfo_reqwidth() + 2, lbl.winfo_reqheight() + 2
+            if x and x + w > width:
+                x, y, row_h = 0, y + row_h + gap, 0
+            chip.place(x=x, y=y)
+            x += w + gap
+            row_h = max(row_h, h)
+        box.configure(height=y + row_h)
 
     def _quick_click(self, key, label):
-        if self.alive() and not self._busy and self._on_quick is not None:
-            self._on_quick(key, label)
+        if not self.alive() or self._on_quick is None:
+            return
+        if self._busy:
+            if all(k != key for k, _l in self._queue):
+                self._queue.append((key, label))
+            self._paint_status()
+            return
+        self._on_quick(key, label)
+
+    def _run_queued(self):
+        """Sıradaki eylemi çalıştır; o da meşgul etmediyse devamını da."""
+        if not self.alive() or self._busy or not self._queue:
+            return
+        key, label = self._queue.pop(0)
+        self._paint_status()
+        self._on_quick(key, label)
+        if self._queue and not self._busy:
+            self.top.after_idle(self._run_queued)
 
     def prefill(self, text):
         """Giriş kutusuna metin koy (ör. "Geçmişe sor: "), imleç sonda."""
@@ -1436,16 +1527,46 @@ class AssistantWindow:
     def set_busy(self, message=None):
         if not self.alive():
             return
-        A = _app()
+        was_busy = self._busy
         self._busy = bool(message)
-        self._status.config(text=f"⏳ {message}" if message else "",
-                            fg=A.ACCENT)
+        self._busy_msg = message
+        self._busy_gen += 1
+        if message and not was_busy:
+            self._busy_since = time.monotonic()
+        elif not message:
+            self._busy_since = None
+        self._paint_status()
+        if message:
+            self.top.after(1000, self._tick, self._busy_gen)
         try:
             self._entry.state(["disabled"] if message else ["!disabled"])
             if not message:
                 self._entry.focus_set()
         except Exception:
             pass
+        if not message and self._queue:
+            # bitiş geri çağrısı (ör. planın sonucu) önce tamamlansın
+            self.top.after_idle(self._run_queued)
+
+    def _tick(self, gen):
+        """Meşgulken her saniye geçen süreyi yaz; eski zamanlayıcı susar."""
+        if not self.alive() or gen != self._busy_gen or not self._busy:
+            return
+        self._paint_status()
+        self.top.after(1000, self._tick, gen)
+
+    def _paint_status(self):
+        A = _app()
+        text = ""
+        if self._busy_msg:
+            text = f"⏳ {self._busy_msg}"
+            secs = int(time.monotonic() - (self._busy_since or 0))
+            if self._busy_since is not None and secs >= 1:
+                text += f" {secs} sn"
+        if self._queue:
+            names = ", ".join(label for _k, label in self._queue)
+            text = f"{text}  ·  sırada: {names}" if text else f"sırada: {names}"
+        self._status.config(text=text, fg=A.ACCENT)
 
     # ── mesajlar ────────────────────────────────────────────────────────────
     def _show_examples(self):
@@ -1470,7 +1591,8 @@ class AssistantWindow:
             self._examples_box = None
 
     def _bubble(self, text, *, mine, fg=None):
-        """→ (dış çerçeve, balon, metin etiketi)"""
+        """→ (dış çerçeve, balon, seçilebilir metin; `set_content` ile
+        güncellenir)"""
         A = _app()
         self._drop_examples()
         outer = tk.Frame(self._list.inner, bg=A.BG_PANEL)
@@ -1479,9 +1601,9 @@ class AssistantWindow:
         bubble = tk.Frame(outer, bg=bg, padx=12, pady=8)
         bubble.pack(side="right" if mine else "left",
                     padx=(60, 0) if mine else (0, 60))
-        label = tk.Label(bubble, text=text, font=(A.FONT, 10),
-                         fg=fg or (A.FG_ME if mine else A.FG), bg=bg,
-                         wraplength=380, justify="left", anchor="w")
+        label = _selectable.selectable_text(
+            bubble, text, fg=fg or (A.FG_ME if mine else A.FG), bg=bg,
+            font=(A.FONT, 10), wrap=380, sel_bg=A.SEL_BG, sel_fg=A.SEL_FG)
         label.pack(anchor="w")
         return outer, bubble, label
 
@@ -1561,6 +1683,8 @@ class AssistantWindow:
 
     def clear(self):
         if self.alive():
+            self._queue.clear()
+            self._paint_status()
             self._close_results()
             self.set_followup(None)
             self._list.clear()
@@ -1690,7 +1814,7 @@ _CLAUDE_MODELS = ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5")
 
 def show_settings(parent, settings, has_key, whisper_models, on_save,
                   on_test, *, tts_engines=("auto",), keep_alive_choices,
-                  mcp_command=""):
+                  gpu_choices=("auto", "off"), mcp_command=""):
     """AI ayarları penceresi: sekmeler (Model, Claude, Özellikler, Ses, MCP);
     durum satırı ve düğmeler sabit altta. Pencere içeriğe göre boyutlanır
     (en uzun sekme küçük ekranlara da sığacak kadar kısa tutulur).
@@ -1706,7 +1830,7 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
     dlg.configure(bg=A.BG_CARD)
     dlg.minsize(560, 0)
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg, form=True)
 
     head = tk.Frame(dlg, bg=A.BG_CARD, padx=18, pady=12)
     head.pack(fill="x")
@@ -1784,11 +1908,14 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
     _row(page, "Gömme modeli", v_embed)
     v_keep = tk.StringVar(value=settings["keep_alive"])
     _row(page, "Model sıcak", v_keep, values=keep_alive_choices)
+    v_gpu = tk.StringVar(value=settings["ollama_gpu"])
+    _row(page, "Ekran kartı", v_gpu, values=gpu_choices)
     _hint(page, f"Kurulum: ollama pull {settings['ollama_model']}  ·  "
                 f"ollama pull {settings['embed_model']}\n"
                 "Model, bu süre boyunca bellekte tutulur; boşta geçen "
                 "isteklerde yeniden yükleme beklemesi olmaz (5 dk = Ollama "
-                "varsayılanı).")
+                "varsayılanı). Ekran kartı \"off\": sohbet modeli yalnız "
+                "CPU'da (zayıf ekran kartında daha hızlı).")
 
     # ── 2) Claude ───────────────────────────────────────────────────────────
     page = _page("☁ Claude")
@@ -1870,6 +1997,7 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
             "ollama_vision_model": v_vision.get().strip(),
             "embed_model": v_embed.get().strip(),
             "keep_alive": v_keep.get().strip(),
+            "ollama_gpu": v_gpu.get().strip(),
             "claude_model": v_cmodel.get().strip(),
             "cloud_for_encrypted": bool(v_cloud_enc.get()),
             "target_language": v_lang.get().strip(),

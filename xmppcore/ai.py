@@ -43,8 +43,11 @@ PROVIDERS = (PROVIDER_OFF, PROVIDER_OLLAMA, PROVIDER_CLAUDE)
 DEFAULTS = {
     "provider": PROVIDER_OLLAMA,
     "ollama_url": "http://127.0.0.1:11434",
-    "ollama_model": "gemma3:4b",           # sohbet/metin (çok dilli)
-    "ollama_vision_model": "gemma3:4b",    # görsel açıklama
+    # Gemma 4 E2B (QAT): 15 GB RAM'li dizüstünde ölçülen en hızlı model —
+    # sıcak özet 63 sn / 8,7 tok/s (gemma3:4b 93 sn, e4b 161 sn); 4 GB RAM
+    "ollama_model": "gemma4:e2b-it-qat",         # sohbet/metin (çok dilli)
+    "ollama_vision_model": "gemma4:e2b-it-qat",  # görsel açıklama
+    "ollama_gpu": "auto",                  # "off": sohbet modeli yalnız CPU'da
     "embed_model": "bge-m3",               # anlamsal arama (çok dilli)
     "keep_alive": "30m",                   # modeli bellekte tutma süresi
     "claude_model": "claude-opus-5-5",
@@ -65,6 +68,8 @@ DEFAULTS = {
 
 WHISPER_MODELS = ("tiny", "base", "small", "medium", "large-v3")
 KEEP_ALIVE_CHOICES = ("5m", "10m", "30m", "1h", "4h")  # 5m = Ollama varsayılanı
+# "off": zayıf ekran kartında (ör. GTX 950M/Vulkan) üretim CPU'dan yavaş
+OLLAMA_GPU_CHOICES = ("auto", "off")
 TTS_ENGINES = ("auto", "piper", "espeak-ng", "espeak", "spd-say")
 
 # Bağlam bütçeleri (karakter): yerel modeller küçük bağlamla çalışır.
@@ -123,6 +128,8 @@ def load_settings(cfg: dict | None) -> dict:
         s["whisper_model"] = DEFAULTS["whisper_model"]
     if s["keep_alive"] not in KEEP_ALIVE_CHOICES:
         s["keep_alive"] = DEFAULTS["keep_alive"]
+    if s["ollama_gpu"] not in OLLAMA_GPU_CHOICES:
+        s["ollama_gpu"] = DEFAULTS["ollama_gpu"]
     if s["tts_engine"] not in TTS_ENGINES:
         s["tts_engine"] = DEFAULTS["tts_engine"]
     if not re.fullmatch(r"[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})?",
@@ -304,6 +311,35 @@ def _ollama_messages(system: str, user: str, images, history) -> list:
     return msgs
 
 
+def _ollama_load_options(settings: dict) -> dict:
+    """Modelin yüklenme biçimini belirleyen seçenekler. Ön yükleme ve gerçek
+    istekler aynısını göndermeli: fark Ollama'ya modeli yeniden yükletir."""
+    opts = {"num_ctx": _OLLAMA_NUM_CTX}
+    if settings.get("ollama_gpu") == "off":
+        opts["num_gpu"] = 0
+    return opts
+
+
+def ollama_warm(settings: dict) -> bool:
+    """Yerel sohbet modelini belleğe yükle (boş istek; yanıt üretilmez).
+
+    Asistan açılırken çağrılır: ilk isteğin model yükleme beklemesi (HDD'de
+    dakikayı bulur) arka plana alınır. Yükleme seçenekleri gerçek isteklerle
+    aynıdır (`_ollama_load_options`); fark modeli yeniden yükletirdi. Ollama dışı
+    sağlayıcıda istek atılmaz; hata sessizce False döner.
+    """
+    if settings.get("provider") != PROVIDER_OLLAMA:
+        return False
+    payload = {"model": settings["ollama_model"], "messages": [],
+               "keep_alive": settings["keep_alive"],
+               "options": _ollama_load_options(settings)}
+    try:
+        _ollama_request(settings, "/api/chat", payload, _OLLAMA_CHAT_TIMEOUT)
+    except AIError:
+        return False
+    return True
+
+
 _TRUNCATED_JSON = ("Model yanıtı uzunluk sınırına takıldı; daha kısa bir "
                    "sohbet aralığıyla tekrar deneyin.")
 
@@ -319,7 +355,10 @@ def ollama_chat(settings: dict, system: str, user: str,
         "messages": _ollama_messages(system, user, images, history),
         "stream": on_delta is not None,
         "keep_alive": settings["keep_alive"],
-        "options": {"temperature": 0.3, "num_ctx": _OLLAMA_NUM_CTX},
+        # Düşünen modeller (gemma4) düşünmeden yanıtlasın: bu makinede
+        # düşünme tokenları yanıtı dakikalarca geciktirir
+        "think": False,
+        "options": dict(_ollama_load_options(settings), temperature=0.3),
     }
     if max_tokens is not None:
         payload["options"]["num_predict"] = int(max_tokens)
@@ -1505,7 +1544,8 @@ def transcribe_file(path: str, model_size: str = "small") -> str:
     except ImportError as e:
         raise AISetupError(
             "Ses→metin için faster-whisper gerekli (yerel çalışır):\n"
-            "  .venv-xmpp/bin/python -m pip install faster-whisper") from e
+            '  .venv-xmpp/bin/python -m pip install faster-whisper "av<19"'
+        ) from e
     with _whisper_lock:
         model = _whisper_models.get(model_size)
         if model is None:
@@ -1520,6 +1560,14 @@ def transcribe_file(path: str, model_size: str = "small") -> str:
     try:
         segments, _info = model.transcribe(path, vad_filter=True)
         text = " ".join(seg.text.strip() for seg in segments).strip()
+    except TypeError as e:
+        # faster-whisper 1.2.1 ses çözerken PyAV 19'da kaldırılan
+        # metadata_errors'u geçiriyor: her ses bu hatayla düşer
+        if "metadata_errors" in str(e):
+            raise AISetupError(
+                "Ses çözücü (PyAV) faster-whisper ile uyumsuz. Düzeltmek için:"
+                '\n  .venv-xmpp/bin/python -m pip install "av<19"') from e
+        raise AIError(f"Ses yazıya dökülemedi: {e}") from e
     except Exception as e:
         raise AIError(f"Ses yazıya dökülemedi: {e}") from e
     return text or NO_SPEECH

@@ -1,5 +1,6 @@
 """Saf biçimleme/parse yardımcıları (Faz 1 yaprak modülü)."""
 import re
+import unicodedata
 
 
 def _fill_search_form(fields: dict, query: str) -> str | None:
@@ -47,13 +48,82 @@ def _to_int(value, default: int = 0) -> int:
         return default
 
 
-def _parse_room_search(payload: dict) -> list:
+# Açıklamasında bu kadar çok kısa liste öğesi (≤3 sözcük) olan oda anahtar
+# kelime doldurmuştur ("Indonesia, Jawa, … Linux, Python, …"); yalnız orada
+# geçen eşleşme aramayla ilgili sayılmaz. Gerçek veride doldurulmuş
+# açıklamalar 60+ öğe, düzyazı/konu listeleri en çok ~26 öğe.
+_STUFFED_MIN_PARTS = 40
+_DESCR_URL_RE = re.compile(r"\S+://\S+|\S*\w\.\w+/\S*|#\S+|\bxmpp:\S+")
+_DESCR_SEP_RE = re.compile(r"::|[,;/|•·\n]")
+_WORD_RE = re.compile(r"\w+")
+
+
+def _is_stuffed(descr: str) -> bool:
+    """Açıklama anahtar kelime yığını mı (URL'ler sayılmaz)."""
+    descr = _DESCR_URL_RE.sub(" ", descr)
+    short = sum(1 for p in _DESCR_SEP_RE.split(descr)
+                if p.strip() and len(p.split()) <= 3)
+    return short >= _STUFFED_MIN_PARTS
+
+
+def _search_fold(value) -> str:
+    """Büyük/küçük harf ve Türkçe aksan farkını yok say (İ/ı/ş… → i/i/s…)."""
+    text = unicodedata.normalize("NFKD", str(value or "").casefold())
+    text = text.replace("ı", "i")
+    return "".join(c for c in text if not unicodedata.combining(c))
+
+
+def _room_relevance(item: dict, keywords) -> tuple:
+    """Oda arama sonucunun alakası: (en zayıf kelimenin puanı, toplam).
+
+    Her kelime nerede geçtiğine göre puanlanır: adres/ad tam eşleşme 100,
+    adda/adreste tam kelime 60, kelime başı 40, kelime içi 25, açıklamada
+    kelime 15, açıklamada parça ya da sunucu adında 8, yerelde hiç bulunamazsa
+    5 (sunucu başka biçimde eşlemiştir). Yalnız şişirilmiş açıklamada geçerse
+    1: en sona düşer ama atılmaz (o konuyu arayan yine bulsun).
+    """
+    local, _, domain = str(item.get("address") or "").partition("@")
+    local, domain = _search_fold(local), _search_fold(domain)
+    name = _search_fold(item.get("name"))
+    descr_raw = str(item.get("description") or "")
+    descr = _search_fold(descr_raw)
+    stuffed = _is_stuffed(descr_raw)
+    title_words = _WORD_RE.findall(local) + _WORD_RE.findall(name)
+    descr_words = _WORD_RE.findall(descr)
+    scores = []
+    for kw in keywords:
+        kw = _search_fold(kw).strip()
+        if not kw:
+            continue
+        if kw == local or kw == name.strip():
+            score = 100
+        elif kw in title_words:
+            score = 60
+        elif any(w.startswith(kw) for w in title_words):
+            score = 40
+        elif kw in local or kw in name:
+            score = 25
+        elif not stuffed and kw in descr_words:
+            score = 15
+        elif (not stuffed and kw in descr) or kw in domain:
+            score = 8
+        elif kw in descr:
+            score = 1
+        else:
+            score = 5
+        scores.append(score)
+    return (min(scores), sum(scores)) if scores else (5, 5)
+
+
+def _parse_room_search(payload: dict, keywords=None) -> list:
     """search.jabber.network yanıtını oda listesine çevir.
 
     `POST /search` yanıtı `{"result": {"items": [...]}}`; eski `GET /rooms`
     biçimi `{"items": [...]}` de kabul edilir. Adresi olmayan kayıtlar
-    atılır; sonuçlar kullanıcı sayısına göre azalan, eşitlikte ada göre
-    artan sıralanır.
+    atılır. `keywords` verilirse sonuçlar alaka düzeyine göre sıralanır
+    (`_room_relevance`; yalnız şişirilmiş açıklamada eşleşenler en sonda);
+    eşit alakada (ya da kelime yoksa) kullanıcı sayısına göre azalan,
+    eşitlikte ada göre artan sıralanır.
     """
     payload = payload if isinstance(payload, dict) else {}
     result = payload.get("result")
@@ -62,7 +132,11 @@ def _parse_room_search(payload: dict) -> list:
     if not isinstance(raw, list):
         raw = []
     items = [i for i in raw if isinstance(i, dict) and i.get("address")]
-    items.sort(key=lambda i: (-_to_int(i.get("nusers")),
+    rel = {}
+    if keywords:
+        rel = {id(i): _room_relevance(i, keywords) for i in items}
+    items.sort(key=lambda i: (tuple(-x for x in rel.get(id(i), ())),
+                              -_to_int(i.get("nusers")),
                               str(i.get("name") or i.get("address")).lower()))
     return items
 

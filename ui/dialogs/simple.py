@@ -26,6 +26,7 @@ def show_shortcuts(parent):
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("400x560")
     dlg.transient(parent)
+    A._make_popover(dlg)
 
     tk.Label(dlg, text="⌨ Klavye Kısayolları", font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 12))
@@ -79,7 +80,7 @@ def show_reaction_details(parent, reactions, emoji=None):
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("300x340")
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg)
     tk.Label(dlg, text="😊 Tepkiler", font=(A.FONT, 11, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=14, pady=(14, 6), anchor="w")
     pairs = list(reactions.items()) if emoji is None else [

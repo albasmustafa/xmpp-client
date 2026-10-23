@@ -59,27 +59,31 @@ def finish_voice_bubble(bubble, theme, ts):
 TRANSCRIPT_MAX_CHARS = 600
 
 
-def transcript_note(bubble, theme, bg, text, *, is_me, before=None):
-    """Ses kaydının yazıya dökümü — balonda, meta satırından (saat) önce.
+def transcript_note(bubble, theme, bg, text, *, is_me, text_factory,
+                    before=None):
+    """Ses kaydının yazıya dökümü — balonda, meta satırından (saat) önce;
+    mesaj metni gibi sol tıkla seçilir (`text_factory`: MainWindow'un
+    seçilebilir metin kurucusu; bu modül yalnız tkinter kullanır).
 
     Uzun metin kırpılır; tamamı ✨ → "Metne dök" penceresindedir.
     """
-    lbl = tk.Label(bubble, fg=("#c8c0ff" if is_me else theme["FG_DIM"]),
-                   bg=bg, font=(theme["FONT"], 9, "italic"), wraplength=420,
-                   justify="left", anchor="w")
-    set_transcript(lbl, text)
-    pack_kw = {"anchor": "w", "fill": "x", "pady": (4, 0)}
+    box = text_factory(
+        bubble, "", fg=("#c8c0ff" if is_me else theme["FG_DIM"]), bg=bg,
+        font=(theme["FONT"], 9, "italic"), wrap=420, sel_bg=theme["SEL_BG"],
+        sel_fg=theme["SEL_FG"])
+    set_transcript(box, text)
+    pack_kw = {"anchor": "w", "pady": (4, 0)}
     if before is not None:
         pack_kw["before"] = before
-    lbl.pack(**pack_kw)
-    return lbl
+    box.pack(**pack_kw)
+    return box
 
 
-def set_transcript(lbl, text):
+def set_transcript(box, text):
     text = " ".join((text or "").split())
     if len(text) > TRANSCRIPT_MAX_CHARS:
         text = text[:TRANSCRIPT_MAX_CHARS - 1].rstrip() + "…"
-    lbl.config(text=f"📝 {text}")
+    box.set_content(f"📝 {text}")
 
 
 def set_play_icon(play_btn, playing):

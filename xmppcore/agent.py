@@ -34,8 +34,9 @@ ACTIONS = {
     "remind": "Set a reminder. text = what to remind, date = YYYY-MM-DD, "
               "time = HH:MM; target = related contact (optional).",
     "join_room": "Join a group chat room. target = room name or address.",
-    "set_status": "Change the user's presence. status = online | away | "
-                  "dnd | xa.",
+    "set_status": "Change the user's presence. status = online (çevrimiçi, "
+                  "müsait) | away (uzakta) | dnd (meşgul, rahatsız "
+                  "etmeyin) | xa (uzun süre uzakta).",
     "summarize_chat": "Summarize a chat. Needs target.",
     "summarize_unread": "Summarize only the unread messages of a chat. "
                         "Needs target.",
@@ -119,7 +120,9 @@ def _clip(value, limit: int) -> str:
     return str(value or "").strip()[:limit]
 
 
-def normalize_plan(data) -> dict:
+def normalize_plan(data, request: str = "") -> dict:
+    """Model çıktısını plana çevir. `request`: kullanıcının yazdığı metin;
+    durum değişikliğinde oradaki durum sözü modelin seçiminden önce gelir."""
     if not isinstance(data, dict):
         raise AIError("Model beklenen biçimde yanıt vermedi; tekrar deneyin.")
     plan = {key: _clip(data.get(key), _LIMITS.get(key, 40))
@@ -128,12 +131,50 @@ def normalize_plan(data) -> dict:
         plan["action"] = "answer"
     if plan["status"] not in STATUS_LABELS:
         plan["status"] = ""
+    if plan["action"] == "set_status":
+        plan["status"] = status_hint(request) or plan["status"]
     plan["target"] = strip_suffix(plan["target"])
     return plan
 
 
-def parse_plan(text: str) -> dict:
-    return normalize_plan(_loads_json(text))
+def parse_plan(text: str, request: str = "") -> dict:
+    return normalize_plan(_loads_json(text), request)
+
+
+# ── Durum sözleri (yerel) ───────────────────────────────────────────────────
+# Küçük yerel model "meşgul"ü away/xa planlayabiliyor: kullanıcının yazdığı
+# durum sözü kesin eşlenir. (fold'lanmış söz, durum, ek alabilir mi); uzun
+# ifade önce ("uzun süre uzakta" "uzakta"dan önce)
+_STATUS_WORDS = (
+    ("uzun sureli uzakta", "xa", True), ("uzun sure uzakta", "xa", True),
+    ("extended away", "xa", False),
+    ("rahatsiz etme", "dnd", True), ("do not disturb", "dnd", False),
+    ("mesgul", "dnd", True), ("busy", "dnd", False), ("dnd", "dnd", False),
+    ("uzakta", "away", True), ("away", "away", False), ("afk", "away", False),
+    ("cevrimici", "online", True), ("musait", "online", True),
+    ("online", "online", False), ("available", "online", False),
+)
+_STATUS_RES = tuple(
+    (re.compile(r"(?<![a-z0-9])" + re.escape(word)
+                + ("" if suffix else r"(?![a-z0-9])")), show)
+    for word, show, suffix in _STATUS_WORDS)
+_NEGATION_RE = re.compile(r"(?<![a-z0-9])(?:degil|not(?![a-z0-9]))|n't")
+
+
+def status_hint(text: str) -> str | None:
+    """Metindeki durum sözü → durum ("meşgulüm" → dnd) ya da None.
+
+    Olumsuzsa ("meşgul değilim") ya da birden çok farklı durum geçiyorsa
+    None: karar modele kalır.
+    """
+    rest, found = fold(text), set()
+    for rx, show in _STATUS_RES:
+        rest, hits = rx.subn(" ", rest)
+        if hits:
+            found.add(show)
+    if len(found) != 1 or _NEGATION_RE.search(rest):
+        return None
+    return found.pop()
 
 
 def check_plan(plan: dict, now: datetime,
@@ -282,6 +323,16 @@ HISTORY_PREFIX = "Geçmişe sor: "
 _HISTORY_RE = re.compile(r"^\s*(?:geçmişe|gecmise|geçmiş|gecmis)\s*"
                          r"(?:sor)?\s*[:：]\s*(.*)$",
                          re.IGNORECASE | re.DOTALL)
+# "Durumumu meşgul yap", "meşgule geç", "durum: uzakta" (fold'lanmış,
+# noktalamasız). Fiilsiz yalnız "durum…" ile başlayınca; soru ("durumu
+# meşgul mü"), olumsuz ve ad içeren istekler modele gider.
+_STATUS_KW = "|".join(re.escape(word) for word, _s, _x in _STATUS_WORDS)
+_STATUS_VERB = (r"(?:olarak\s+)?(?:yap|ol|ayarla|isaretle|gec"
+                r"|moduna\s+(?:al|gec|gecir))")
+_STATUS_CMD_RE = re.compile(
+    rf"^(?:(?:benim\s+)?durum(?:um|umu|u)?\s+(?:{_STATUS_KW})[a-z]*"
+    rf"(?:\s+{_STATUS_VERB})?"
+    rf"|(?:beni\s+|kendimi\s+)?(?:{_STATUS_KW})[a-z]*\s+{_STATUS_VERB})$")
 
 
 def quick_intent(text: str) -> dict | None:
@@ -292,42 +343,60 @@ def quick_intent(text: str) -> dict | None:
                                "text": m.group(1).strip()})
     key = " ".join(fold(text).strip(" ?!.…").split())
     action = _QUICK_INDEX.get(key)
-    return normalize_plan({"action": action}) if action else None
+    if action:
+        return normalize_plan({"action": action})
+    words = " ".join(re.sub(r"[^\w\s]", " ", key).split())
+    status = status_hint(words) if _STATUS_CMD_RE.match(words) else None
+    if status:
+        return normalize_plan({"action": "set_status", "status": status})
+    return None
 
 
-# Hızlı eylem / menü / kısayol etiketleri (asistanda komut balonu olur)
+# Hızlı eylem / menü / kısayol etiketleri (asistanda komut balonu olur);
+# simgeler birbirinden farklıdır (⋮ menüsü de aynılarını kullanır)
 ACTION_LABELS = {
-    "summarize_unread": "📝 Okunmamışları özetle",
+    "summarize_unread": "📬 Okunmamışları özetle",
     "summarize_chat": "📝 Sohbeti özetle",
     "suggest_replies": "💡 Yanıt öner",
     "extract_tasks": "📅 Görevleri çıkar",
     "missed": "📥 Neler kaçırdım?",
     "pending_questions": "❓ Bekleyen sorular",
-    "drafts": "📝 Taslaklar",
-    "ask_history": "💬 Geçmişe sor…",
+    "drafts": "✍ Taslaklar",
+    "ask_history": "🔎 Geçmişe sor…",
 }
+# Grup başlıkları ⋮ menüsündeki alt menülerle aynı
+QUICK_GROUP_CHAT = "💬 Bu sohbet"
+QUICK_GROUP_ALL = "🗂 Tüm sohbetler"
 
 
-def quick_actions(chat: str = "", unread: int = 0, missed: int = 0,
-                  drafts: int = 0) -> list[tuple[str, str]]:
-    """Asistanın hızlı eylem düğmeleri: [(etiket, eylem)].
+def quick_action_groups(chat: str = "", unread: int = 0, missed: int = 0,
+                        drafts: int = 0) -> list[tuple[str, list]]:
+    """Asistanın hızlı eylem düğmeleri, gruplu: [(başlık, [(etiket, eylem)])].
 
-    `chat`: açık sohbetin etiketi ("" = yok) · `unread`: o sohbette açılışta
-    okunmamış sayısı · `missed`: tüm okunmamışlar · `drafts`: hazır taslak.
-    "ask_history" düğmesi soru kartını açar (soruyu kullanıcı yazar).
+    `chat`: açık sohbetin etiketi ("" = yok; o zaman yalnız genel grup) ·
+    `unread`: o sohbette açılışta okunmamış sayısı · `missed`: tüm
+    okunmamışlar · `drafts`: hazır taslak. "ask_history" düğmesi soru
+    kartını açar (soruyu kullanıcı yazar).
     """
     def item(key, count=0):
         label = ACTION_LABELS[key]
         return (f"{label} ({count})" if count else label, key)
-    items = []
+    groups = []
     if chat:
-        if unread:
-            items.append(item("summarize_unread", unread))
-        items += [item("summarize_chat"), item("suggest_replies"),
-                  item("extract_tasks")]
-    items.append(item("missed", missed))
-    items.append(item("pending_questions"))
+        this = [item("summarize_unread", unread)] if unread else []
+        this += [item("summarize_chat"), item("suggest_replies"),
+                 item("extract_tasks")]
+        groups.append((QUICK_GROUP_CHAT, this))
+    every = [item("missed", missed), item("pending_questions")]
     if drafts:
-        items.append(item("drafts", drafts))
-    items.append(item("ask_history"))
-    return items
+        every.append(item("drafts", drafts))
+    every.append(item("ask_history"))
+    groups.append((QUICK_GROUP_ALL, every))
+    return groups
+
+
+def quick_actions(chat: str = "", unread: int = 0, missed: int = 0,
+                  drafts: int = 0) -> list[tuple[str, str]]:
+    """`quick_action_groups`'un düz listesi: [(etiket, eylem)]."""
+    return [i for _title, items in quick_action_groups(
+        chat, unread, missed, drafts) for i in items]

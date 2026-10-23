@@ -98,6 +98,8 @@ def _patch_tk(monkeypatch):
     monkeypatch.setattr(xmpp.tk, "Listbox", _FakeListbox)
     monkeypatch.setattr(xmpp.tk, "Button", _FakeBtn)
     monkeypatch.setattr(xmpp.tk, "Label", _FakeLbl)
+    # Açılır kart davranışı test_popovers.py'de; burada sayfalama sınanır
+    monkeypatch.setattr(xmpp, "_make_popover", lambda *a, **k: None)
 
 
 def _viewer_widgets():

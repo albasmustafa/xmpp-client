@@ -10,3 +10,4 @@ qrcode>=7.4
 anthropic>=1.12     # AI asistanı: isteğe bağlı bulut sağlayıcı (Claude)
 # İsteğe bağlı — AI asistanı yerel ses→metin (büyük indirme, ~300 MB):
 # faster-whisper>=1.1
+# av<19    # faster-whisper 1.2.1, PyAV 19'da kaldırılan metadata_errors'u kullanıyor

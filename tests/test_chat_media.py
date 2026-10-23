@@ -5,6 +5,8 @@ import types
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import fake_selectable  # noqa: E402
+
 import xmpp  # noqa: E402
 
 
@@ -167,6 +169,7 @@ def test_fullscreen_error_late_callback_skips_destroyed_label(monkeypatch):
     monkeypatch.setattr(xmpp.tk, "Toplevel", lambda *a, **k: _Top())
     monkeypatch.setattr(xmpp.tk, "Label", fake_label)
     monkeypatch.setattr(xmpp.tk, "Frame", lambda *a, **k: _Top())
+    monkeypatch.setattr(xmpp, "_make_popover", lambda *a, **k: None)
 
     scheduled = []
 
@@ -359,6 +362,7 @@ def _append_window(monkeypatch):
     _patch_media_tk(monkeypatch)
     monkeypatch.setattr(xmpp._render, "tk", types.SimpleNamespace(
         Frame=_MW, Label=_MW, Canvas=_MW, StringVar=_MW, Toplevel=_MW))
+    fake_selectable.install(monkeypatch, _MW)   # seçilebilir gövde
     w = object.__new__(xmpp.MainWindow)
     w.active = "a@b"
     w.msg_frame = _MW()

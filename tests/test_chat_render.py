@@ -6,6 +6,8 @@ import types
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import fake_selectable  # noqa: E402
+
 import ui.chat.render as render_mod  # noqa: E402
 import xmpp  # noqa: E402
 
@@ -100,6 +102,7 @@ class _W:
 def _window(monkeypatch, active="a@b"):
     monkeypatch.setattr(render_mod, "tk", types.SimpleNamespace(
         Frame=_W, Label=_W, Canvas=_W, StringVar=_W, Toplevel=_W))
+    fake_selectable.install(monkeypatch, _W)
     w = object.__new__(xmpp.MainWindow)
     w.active = active
     w.msg_frame = _W()
@@ -144,7 +147,7 @@ def test_outgoing_text_row_contract(monkeypatch):
     assert row._reply_to is None
     assert row._retracted is False and row._edited is False
     assert row._bubble.winfo_exists()
-    assert row._body_label.kw["text"] == "benden"
+    assert row._body_text.kw["text"] == "benden"     # seçilebilir gövde
     assert _labels("10:30") and _labels(" ✓")
     # bookkeeping sırası: tarih ayırıcı önce, sonra row
     assert w._bubble_widgets[-1] is row
@@ -261,7 +264,8 @@ def _base(parent, **over):
     args = dict(is_me=False, sender="", same_sender=False, compact=False,
                 reply_to=None, display_body="", formatter=xmpp.MainWindow._format_markdown,
                 avatar_factory=lambda *a, **k: _W(), avatar_photo=None,
-                photo_refs=[], on_jump=lambda m: None)
+                photo_refs=[], on_jump=lambda m: None,
+                text_factory=fake_selectable.make(_W).selectable_text)
     args.update(over)
     return render_mod.render_base_message(parent, xmpp._chat_theme(), **args)
 
@@ -274,7 +278,7 @@ def test_base_assembly_outgoing_return_contract(monkeypatch):
                                   "body_widget")
     assert view.colors["bubble_bg"] == xmpp.BG_ME
     assert view.colors["bubble_fg"] == xmpp.FG_ME
-    assert view.body_kind == "label"
+    assert view.body_kind == "text"
     assert view.body_widget.kw["text"] == "benden"
     assert view.row.kw["bg"] == xmpp.BG_CHAT
     # Meta satırı assembly dışında (medya sırası için)
@@ -291,7 +295,7 @@ def test_base_assembly_incoming_and_room_sender(monkeypatch):
     assert view.colors["bubble_bg"] == xmpp.BG_THEM
     assert len(avatars) == 1
     assert _labels("Ali")
-    assert view.body_kind == "label"
+    assert view.body_kind == "text"
 
 
 def test_base_assembly_reply_and_jump(monkeypatch):
@@ -321,7 +325,8 @@ def test_base_assembly_theme_values(monkeypatch):
         reply_to=None, display_body="x",
         formatter=xmpp.MainWindow._format_markdown,
         avatar_factory=lambda *a, **k: _W(), avatar_photo=None,
-        photo_refs=[], on_jump=lambda m: None)
+        photo_refs=[], on_jump=lambda m: None,
+        text_factory=fake_selectable.make(_W).selectable_text)
     assert out.colors["bubble_bg"] == "#111111"
     assert any(x.kw.get("bg") == "#111111" for x in _W.instances)
 
@@ -345,6 +350,7 @@ def test_append_integration_uses_base_assembly_and_identity(monkeypatch):
     assert (k["is_me"], k["sender"], k["display_body"]) == \
         (False, "Ali", "gövde")
     assert k["on_jump"] and k["formatter"]
+    assert k["text_factory"] is xmpp._selectable.selectable_text  # seçilebilir
     row = w._bubble_widgets[-1]
     # identity MainWindow'da
     assert (row._mid, row._is_me, row._body, row._tag, row._sender) == \

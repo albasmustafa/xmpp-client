@@ -20,6 +20,8 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import fake_selectable  # noqa: E402
+
 import ui.dialogs.ai as ui_ai  # noqa: E402
 import xmpp  # noqa: E402
 
@@ -65,6 +67,19 @@ class _W:
         for fn in self.binds.get("<Button-1>", []):
             fn(types.SimpleNamespace(widget=self))
 
+    # Akış yerleşimi (hızlı eylem çipleri): metin başına 8 px + kenar
+    def place(self, **kw):
+        self.placed = kw
+
+    def winfo_reqwidth(self):
+        return 8 * len(str(self.kw.get("text", ""))) + 18
+
+    def winfo_reqheight(self):
+        return 24
+
+    def winfo_width(self):
+        return getattr(self, "width", 1)
+
 
 class _Top(_W):
     def __init__(self, master=None, **kw):
@@ -88,7 +103,21 @@ class _Top(_W):
         self.protocols[name] = fn
 
     def after(self, ms, fn, *a):
+        self.timers = getattr(self, "timers", [])
+        self.timers.append((fn, a))
+        return f"after#{len(self.timers)}"
+
+    def after_cancel(self, ident):
         pass
+
+    def after_idle(self, fn, *a):
+        self.idle = getattr(self, "idle", [])
+        self.idle.append((fn, a))
+
+    def run_idle(self):
+        while getattr(self, "idle", None):
+            fn, a = self.idle.pop(0)
+            fn(*a)
 
     def clipboard_clear(self):
         self.clip = ""
@@ -223,6 +252,8 @@ def fake_tk(monkeypatch):
     monkeypatch.setattr(ui_ai, "ttk", types.SimpleNamespace(
         Scrollbar=_W, Entry=_Entry, Combobox=_W, Button=_W))
     monkeypatch.setattr(xmpp, "PlaceholderEntry", _Entry)
+    # Yanıt yazıları seçilebilir metin (ui.selectable): sahtesi _W üretir
+    monkeypatch.setattr(ui_ai, "_selectable", fake_selectable.make(_W))
 
 
 def _find(widget, text):

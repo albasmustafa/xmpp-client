@@ -3,12 +3,37 @@ import logging
 import logging.handlers
 import os
 
+# Ev dizinindeki tek satırlık dosya: başka diske taşınmış profilin klasörü
+_HOME_POINTER = ".xmpp_client_home"
+
 
 def _user_home() -> str:
-    """Kullanıcı dosyalarının kökü: XMPP_CLIENT_HOME (testler, taşınabilir
-    profil) ya da ev dizini. Testler bunu tests/conftest.py ile geçici
-    dizine yönlendirir; gerçek ayar/DB/log dosyalarına dokunulmaz."""
-    return os.environ.get("XMPP_CLIENT_HOME") or os.path.expanduser("~")
+    """Kullanıcı dosyalarının (ayar, DB, log, anahtar, OMEMO, avatar) kökü.
+
+    Sıra: XMPP_CLIENT_HOME (testler bunu tests/conftest.py ile geçici dizine
+    ayarlar; gerçek dosyalara dokunulmaz) → ev dizinindeki
+    `.xmpp_client_home` dosyasının gösterdiği klasör (taşınmış profil; betik,
+    masaüstü kısayolu, doğrudan python — her başlatma aynı yeri bulur) → ev
+    dizini. Gösterilen klasör yoksa (ör. disk takılı değil) boş profille
+    açılmaz — yeni OMEMO kimliği ve boş ayar demekti —, açıklamayla durur.
+    """
+    env = os.environ.get("XMPP_CLIENT_HOME")
+    if env:
+        return env
+    home = os.path.expanduser("~")
+    pointer = os.path.join(home, _HOME_POINTER)
+    try:
+        with open(pointer, encoding="utf-8") as f:
+            target = os.path.expanduser(f.read().strip())
+    except FileNotFoundError:
+        return home
+    if not os.path.isabs(target) or not os.path.isdir(target):
+        raise SystemExit(
+            f"XMPP istemcisi: veri klasörü bulunamadı: {target or '(boş)'}\n"
+            f"{pointer} bu klasörü gösteriyor. Disk takılı değilse takıp "
+            "yeniden açın; profili ev dizinine geri taşıdıysanız bu dosyayı "
+            "silin.")
+    return target
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -36,4 +61,11 @@ _CONFIG_PATH = os.path.join(_user_home(), ".xmpp_client.json")
 _DB_PATH = os.path.join(_user_home(), ".xmpp_client_messages.db")
 _AVATAR_DIR = os.path.join(_user_home(), ".xmpp_avatars")
 os.makedirs(_AVATAR_DIR, exist_ok=True)
+
+# Taşınmış profilde ses→metin modeli (faster-whisper, Hugging Face önbelleği)
+# de profille durur; evdeki profilde HF'nin kendi yeri, kullanıcının
+# HF_HOME'u her durumda korunur. faster_whisper geç (ilk kullanımda) yüklenir.
+if os.path.abspath(_user_home()) != os.path.abspath(os.path.expanduser("~")):
+    os.environ.setdefault("HF_HOME",
+                          os.path.join(_user_home(), ".cache", "huggingface"))
 

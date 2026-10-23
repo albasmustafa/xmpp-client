@@ -274,6 +274,17 @@ def test_ollama_chat_payload_and_vision_model(monkeypatch):
     assert p2["messages"][1]["images"] == ["aW1n"]
 
 
+def test_ollama_chat_disables_thinking(monkeypatch):
+    """Gemma 4 düşünme modeli: düşünme tokenları yanıtı dakikalarca
+    geciktirir; istek düşünmeyi açıkça kapatır (düşünmeyen modeller
+    `think: false`'u yok sayar)."""
+    seen = _fake_urlopen(monkeypatch, lambda r, p: _HTTPResp(
+        json.dumps({"message": {"content": "ok"}}).encode()))
+    ai.ollama_chat(_settings(), "S", "U")
+    ai.ollama_chat(_settings(), "S", "U", schema={"type": "object"})
+    assert [p["think"] for _u, p, _t in seen] == [False, False]
+
+
 def test_ollama_keep_alive_sent_for_chat_and_embed(monkeypatch):
     """keep_alive ayarı sohbet ve gömme isteklerine taşınır (model sıcak kalır)."""
     def _h(req, payload):
@@ -289,12 +300,85 @@ def test_ollama_keep_alive_sent_for_chat_and_embed(monkeypatch):
     assert p2["keep_alive"] == "1h"
 
 
+def test_default_local_model_is_gemma4_e2b():
+    """15 GB RAM'li, ekran kartı zayıf makinede ölçülen en hızlı model
+    (2026-10-20: sıcak özet 63 sn, 8,7 tok/s; gemma3:4b 93 sn)."""
+    s = ai.load_settings({})
+    assert s["ollama_model"] == "gemma4:e2b-it-qat"
+    assert s["ollama_vision_model"] == "gemma4:e2b-it-qat"   # görsel destekli
+    assert s["ollama_gpu"] == "auto"
+
+
+def test_ollama_gpu_setting_validated():
+    assert ai.load_settings({"ai": {"ollama_gpu": "off"}})["ollama_gpu"] == "off"
+    assert ai.load_settings({"ai": {"ollama_gpu": "bozuk"}})[
+        "ollama_gpu"] == "auto"
+
+
+def test_ollama_gpu_off_runs_chat_on_cpu(monkeypatch):
+    """GTX 950M'de (Vulkan) üretim CPU'nun yarı hızında ölçüldü: "off"
+    sohbet modelini CPU'da çalıştırır (num_gpu 0); "auto" Ollama'ya bırakır."""
+    seen = _fake_urlopen(monkeypatch, lambda r, p: _HTTPResp(
+        json.dumps({"message": {"content": "ok"}}).encode()))
+    ai.ollama_chat(_settings(ollama_gpu="off"), "S", "U")
+    ai.ollama_chat(_settings(), "S", "U")
+    (_u1, off, _t1), (_u2, auto, _t2) = seen
+    assert off["options"]["num_gpu"] == 0
+    assert "num_gpu" not in auto["options"]
+
+
+@pytest.mark.parametrize("gpu", ["auto", "off"])
+def test_ollama_warm_uses_same_load_options_as_chat(monkeypatch, gpu):
+    """Yükleme seçenekleri (num_ctx, num_gpu) farklıysa Ollama modeli ilk
+    gerçek istekte yeniden yükler: ön yükleme boşa gider."""
+    seen = _fake_urlopen(monkeypatch, lambda r, p: _HTTPResp(
+        json.dumps({"message": {"content": "ok"}, "done": True}).encode()))
+    s = _settings(ollama_gpu=gpu)
+    ai.ollama_warm(s)
+    ai.ollama_chat(s, "S", "U")
+    (_u1, warm, _t1), (_u2, chat, _t2) = seen
+    load_keys = ("num_ctx", "num_gpu")
+    assert ({k: warm["options"].get(k) for k in load_keys}
+            == {k: chat["options"].get(k) for k in load_keys})
+
+
+def test_ollama_warm_loads_model_with_same_context(monkeypatch):
+    """Ön yükleme: boş istek; num_ctx gerçek istekle aynı (yoksa Ollama
+    ilk gerçek istekte modeli yeniden yükler)."""
+    seen = _fake_urlopen(monkeypatch, lambda r, p: _HTTPResp(
+        json.dumps({"done": True, "done_reason": "load"}).encode()))
+    s = _settings(ollama_model="m-text", keep_alive="1h")
+    assert ai.ollama_warm(s) is True
+    (url, payload, _t), = seen
+    assert url == "http://127.0.0.1:11434/api/chat"
+    assert payload["model"] == "m-text" and payload["messages"] == []
+    assert payload["keep_alive"] == "1h"
+    _fake_urlopen(monkeypatch, lambda r, p: _HTTPResp(
+        json.dumps({"message": {"content": "ok"}}).encode()))
+    ai.ollama_chat(s, "S", "U")
+    real = seen[-1][1] if len(seen) > 1 else None
+    assert real is None or real["options"]["num_ctx"] == payload[
+        "options"]["num_ctx"]
+    assert payload["options"]["num_ctx"] == ai._OLLAMA_NUM_CTX
+
+
+def test_ollama_warm_skips_other_providers_and_swallows_errors(monkeypatch):
+    def _down(req, payload):
+        raise urllib.error.URLError("bağlantı reddedildi")
+    seen = _fake_urlopen(monkeypatch, _down)
+    assert ai.ollama_warm(_settings(provider="claude")) is False
+    assert ai.ollama_warm(_settings(provider="off")) is False
+    assert seen == []
+    assert ai.ollama_warm(_settings()) is False         # Ollama kapalı: sessiz
+    assert len(seen) == 1
+
+
 def test_ollama_missing_model_hint(monkeypatch):
     def _h(req, payload):
         raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {},
                                      io.BytesIO(b'{"error":"model not found"}'))
     _fake_urlopen(monkeypatch, _h)
-    with pytest.raises(ai.AIError, match="ollama pull gemma3:4b"):
+    with pytest.raises(ai.AIError, match="ollama pull gemma4:e2b-it-qat"):
         ai.ollama_chat(_settings(), "S", "U")
 
 
@@ -358,3 +442,32 @@ def test_transcribe_without_faster_whisper_explains_install(monkeypatch):
     monkeypatch.setitem(sys.modules, "faster_whisper", None)
     with pytest.raises(ai.AIError, match="pip install faster-whisper"):
         ai.transcribe_file("/yok.ogg")
+
+
+# 2026-10-21: faster-whisper 1.2.1 (en yenisi) ses çözerken PyAV 19'da
+# kaldırılan `metadata_errors`'u geçiriyor; her sesli mesaj "Ses yazıya
+# dökülemedi: open() got an unexpected keyword argument 'metadata_errors'"
+# ile düşüyordu (otomatik yazıya dökme açıkken her gelen seste).
+def test_installed_speech_stack_decodes_audio(tmp_path):
+    """Kurulu faster-whisper + PyAV birlikte ses çözebilmeli (model yok)."""
+    import wave
+    audio = pytest.importorskip("faster_whisper.audio")
+    path = tmp_path / "sessiz.wav"
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"\0\0" * 1600)
+    assert len(audio.decode_audio(str(path))) == 1600
+
+
+def test_transcribe_names_the_fix_for_incompatible_pyav(monkeypatch):
+    class _Model:
+        def transcribe(self, path, **kw):
+            raise TypeError("open() got an unexpected keyword argument "
+                            "'metadata_errors'")
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(
+        WhisperModel=lambda *a, **k: _Model()))
+    monkeypatch.setattr(ai, "_whisper_models", {})
+    with pytest.raises(ai.AISetupError, match=r'pip install "av<19"'):
+        ai.transcribe_file("/ses.ogg")

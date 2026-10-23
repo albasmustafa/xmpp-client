@@ -6,7 +6,12 @@ Kullanım:
     XMPP_B_JID=b@sunucu XMPP_B_PW=... \
     .venv-xmpp/bin/python tools/omemo_e2e.py [sunucu] [port]
 
-Her iki hesap da aynı sunucuda olmalı. Test:
+Her iki hesap da aynı sunucuda olmalı. Sertifika doğrulaması açıktır;
+kendinden imzalı yerel test sunucusunda XMPP_E2E_INSECURE=1 ile kapatılır
+(gerçek hesaplarla herkese açık sunucuda KAPATMAYIN: şifreler araya girene
+açık kalır). Gerçek hesabın OMEMO kimliğine dokunmamak için
+XMPP_CLIENT_HOME=<boş geçici dizin> önerilir (betik yeni cihaz yayımlar).
+Test:
 1. İki istemci bağlanır, OMEMO'nun hazır olması beklenir.
 2. Karşılıklı abonelik kurulur.
 3. A, B'ye OMEMO şifreli mesaj gönderir (uygulamanın kendi kod yoluyla).
@@ -51,6 +56,21 @@ def _drain(q):
             return items
 
 
+def _insecure_requested(env=None) -> bool:
+    return (os.environ if env is None else env).get(
+        "XMPP_E2E_INSECURE") == "1"
+
+
+def _apply_tls(bots, insecure):
+    """Sertifika doğrulamasını yalnız açıkça istenirse kapat."""
+    if not insecure:
+        return
+    print("UYARI: TLS sertifika doğrulaması kapalı (XMPP_E2E_INSECURE=1)")
+    for bot in bots:
+        bot.ssl_context.check_hostname = False
+        bot.ssl_context.verify_mode = ssl.CERT_NONE
+
+
 async def run(server, port):
     jid_a = os.environ["XMPP_A_JID"]
     pw_a = os.environ["XMPP_A_PW"]
@@ -63,10 +83,8 @@ async def run(server, port):
     bot_a.loop = asyncio.get_running_loop()
     bot_b.loop = asyncio.get_running_loop()
 
-    # Test sunucusu kendinden imzalı sertifika kullanıyor olabilir
-    for bot in (bot_a, bot_b):
-        bot.ssl_context.check_hostname = False
-        bot.ssl_context.verify_mode = ssl.CERT_NONE
+    # Kendinden imzalı yerel test sunucusu: XMPP_E2E_INSECURE=1
+    _apply_tls((bot_a, bot_b), _insecure_requested())
 
     ok = False
     try:

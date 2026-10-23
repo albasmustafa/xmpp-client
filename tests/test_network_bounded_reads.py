@@ -209,6 +209,7 @@ def test_fullscreen_oversized_no_photo_placement(monkeypatch):
                         lambda req, timeout=None: FakeResponse(b"\xff" * (xmpp._NET_IMG_FULL_MAX + 1)))
     monkeypatch.setattr(xmpp._media_ui, "fullscreen_window",
                         lambda root, theme, on_open: (object(), _Holder()))
+    monkeypatch.setattr(xmpp, "_make_popover", lambda *a, **k: None)
     monkeypatch.setattr(xmpp._media_ui, "image_error",
                         lambda holder, theme: errors.append(holder))
     monkeypatch.setattr(xmpp._media_ui, "place_photo",
@@ -227,6 +228,7 @@ def test_fullscreen_normal_places_photo(monkeypatch):
                         lambda req, timeout=None: FakeResponse(_tiny_png()))
     monkeypatch.setattr(xmpp._media_ui, "fullscreen_window",
                         lambda root, theme, on_open: (object(), _Holder()))
+    monkeypatch.setattr(xmpp, "_make_popover", lambda *a, **k: None)
     monkeypatch.setattr(xmpp._media_ui, "place_photo",
                         lambda w, photo: photos.append(photo))
     monkeypatch.setattr(xmpp.ImageTk, "PhotoImage", lambda img: ("photo", img))

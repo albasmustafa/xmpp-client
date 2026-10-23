@@ -140,8 +140,7 @@ def show_quick_switch(parent, targets, on_go):
     pop.configure(bg=A.BG_CARD)
     pop.geometry("380x320")
     pop.transient(parent)
-    A._safe_grab_set(pop)
-    pop.attributes("-topmost", True)
+    A._make_popover(pop)
 
     tk.Label(pop, text=f"⚡ {A._t('quick_switch')} (Ctrl+K)", font=(A.FONT, 10, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=12, pady=(12, 6))

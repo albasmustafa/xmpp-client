@@ -21,6 +21,7 @@ import types
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import fake_selectable  # noqa: E402
 from test_chat_media import _MW, _append_window  # noqa: E402
 from test_history_window_bounds import _Cap  # noqa: E402
 
@@ -117,7 +118,8 @@ def test_show_transcript_packs_before_meta_then_updates(monkeypatch):
     w._bind_scroll_widget = _Cap()
     notes, updates = [], []
 
-    def _note(bubble, theme, bg, text, *, is_me, before=None):
+    def _note(bubble, theme, bg, text, *, is_me, text_factory, before=None):
+        assert text_factory is xmpp._selectable.selectable_text  # seçilebilir
         notes.append((bg, text, is_me, before))
         return "LBL"
     monkeypatch.setattr(xmpp._audio_ui, "transcript_note", _note)
@@ -152,7 +154,8 @@ def test_transcript_view_truncates_and_packs_before(monkeypatch):
     meta = _MW()
     lbl = xmpp._audio_ui.transcript_note(
         _MW(), xmpp._chat_theme(), "#000", "a  b\n" + "x" * 900,
-        is_me=False, before=meta)
+        is_me=False, before=meta,
+        text_factory=fake_selectable.make(_MW).selectable_text)
     assert lbl.kw["_pack"][1]["before"] is meta
     text = lbl.kw["text"]
     assert text.startswith("📝 a b x") and text.endswith("…")

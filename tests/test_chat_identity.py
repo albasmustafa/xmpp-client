@@ -20,6 +20,8 @@ class _Capture:
 
 
 class _Lbl:
+    """Seçilebilir mesaj gövdesinin sahtesi (ui.selectable kutusu)."""
+
     def __init__(self, text=""):
         self._text = text
         self.configs = []
@@ -28,10 +30,10 @@ class _Lbl:
     def winfo_exists(self):
         return self._exists
 
-    def config(self, **k):
-        self.configs.append(k)
-        if "text" in k:
-            self._text = k["text"]
+    def set_content(self, content, fg=None, font=None):
+        self._text = (content if isinstance(content, str)
+                      else "".join(c for c, _s in content))
+        self.configs.append({"text": self._text, "fg": fg, "font": font})
 
     def cget(self, key):
         return self._text if key == "text" else ""
@@ -45,7 +47,7 @@ def _row(mid="", body="x", is_me=False, retracted=False, label=None):
     r = types.SimpleNamespace(_mid=mid, _body=body, _is_me=is_me,
                               _retracted=retracted, _edited=False)
     if label is not None:
-        r._body_label = label
+        r._body_text = label
     return r
 
 

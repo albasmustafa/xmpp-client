@@ -38,6 +38,14 @@ class _W:
     def bind(self, seq, fn=None, add=None):
         self.binds.setdefault(seq, []).append(fn)
 
+    def bindtags(self, tags=None):              # _add_tooltip: "Tooltip" etiketi
+        if tags is None:
+            return getattr(self, "_tags", ("_W",))
+        self._tags = tuple(tags)
+
+    def bind_class(self, tag, seq=None, fn=None, add=None):
+        return ""
+
     def winfo_children(self):
         return list(self.children)
 

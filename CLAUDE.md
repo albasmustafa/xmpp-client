@@ -21,7 +21,7 @@ XMPPBot mixin'leri, `ai.py`) · `ui/` (durumsuz Tk görünüm katmanı: `chat/`,
 ```bash
 ./xmpp-client.sh                                   # uygulama (.venv-xmpp içindeki Python)
 cd /run/media/albas/albas/xmpp-istemcisi && \
-  .venv-xmpp/bin/python -m pytest tests/ -q        # ~1550 test, ~35 sn, ağ kullanmaz
+  .venv-xmpp/bin/python -m pytest tests/ -q        # ~1920 test, ~60 sn, ağ kullanmaz
 ```
 Paket kurulumu: `.venv-xmpp/bin/python -m pip install <paket>`. "Test geçti" demek için testi
 gerçekten çalıştır.
@@ -41,8 +41,13 @@ gerçekten çalıştır.
   sahipliği), SQLite'a yazılmaz.
 - **Kalıcılık:** `xmppcore/storage.py` (tek bağlantı `_db_conn`, işlemler `_db_lock` altında).
   Mesaj gövdesi değişiklikleri ve silmeler yalnız buradan yapılır.
-- Ayar: `~/.xmpp_client.json` · DB: `~/.xmpp_client_messages.db` · Log: `~/.xmpp_client.log`
-  (kök `XMPP_CLIENT_HOME` ile değiştirilebilir). Giriş: `remember` (şifreyi hatırla, form dolu
+- Ayar: `.xmpp_client.json` · DB: `.xmpp_client_messages.db` · Log: `.xmpp_client.log` ·
+  anahtar, `.xmpp_omemo/`, `.xmpp_avatars/` — hepsi veri kökünde (`constants._user_home`):
+  `XMPP_CLIENT_HOME` → ev dizinindeki `.xmpp_client_home` dosyasının gösterdiği klasör
+  (taşınmış profil; her başlatma yolu aynı yeri bulur, klasör yoksa boş profille açılmaz,
+  durur) → `~`. Taşınmış profilde Hugging Face önbelleği (faster-whisper modeli) de oraya
+  gider (`HF_HOME`). Bu makinede profil `/run/media/albas/albas/xmpp-veri` (disk deposunun
+  `.git/info/exclude`'unda; şifre/anahtar içerir). Giriş: `remember` (şifreyi hatırla, form dolu
   gelir) + `auto_login` (formu atla; anahtar yoksa eski davranış: açık) → `_auto_login_enabled`.
 - **Çoklu cihaz** (aynı hesap telefonda Monocles/Conversations/Monal ile de açık): carbons
   (`_on_carbon_sent/_received`, messages.py) ve odada aynı takma adlı oturum
@@ -65,12 +70,20 @@ gerçekten çalıştır.
   yüklenmez (düz yüklemeye düşmez); `_send_omemo` şifreleyemezse metni düz gönderir ama
   gövde aesgcm:// anahtarı taşıyorsa göndermez. PGP dosya şifreleyemez: PGP sohbetinde
   dosya şifresiz yüklenmeden önce onay sorulur (`_confirm_plain_file`)
-  (`test_omemo_file_send.py`; gerçek sunucuda `tools/omemo_e2e.py` 5. adım).
+  (`test_omemo_file_send.py`; gerçek sunucuda `tools/omemo_e2e.py` 5. adım —
+  TLS doğrulaması açık, yalnız kendinden imzalı yerel sunucuda
+  `XMPP_E2E_INSECURE=1`; `test_tools_e2e_tls.py`).
 - **İletme ve P2P:** iletilen mesaj (`_forward_to` → `forward_message`) hedef sohbetin
   şifrelemesiyle gider, hedef sohbete kendi mesajımız olarak yazılır (mid = origin-id).
   Şifreli içerik ya da aesgcm:// anahtarı şifresiz sohbete onaysız gitmez; hassas veri
   uyarısı geçerlidir. P2P (Jingle/IBB) uçtan uca şifreli değildir: şifreli sohbette dosya
   seçilmeden önce uyarılır (`test_forward_encryption.py`).
+- **Oda arama** (Oda Keşfet → Genel Ara; `_search_rooms_requested`): search.jabber.network
+  `POST /search` kelimeyi açıklamada da eşler. `_parse_room_search(veri, kelimeler)` sonucu
+  alakaya göre dizer (`format._room_relevance`: adres/ad tam > adda kelime > kelime başı >
+  kelime içi > açıklama); açıklaması anahtar kelime yığını olan (`_is_stuffed`: URL'ler hariç
+  ≥40 kısa liste öğesi) odanın yalnız oradaki eşleşmesi en sona düşer, atılmaz
+  (`test_room_join_search.py` B5).
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.
@@ -92,13 +105,42 @@ gerçekten çalıştır.
    hepsinin erişilebilir kaldığını denetler — yeni komut eklerken bu listeyi de güncelle).
 6. Arayüz sade kalır: yeni komutlar düz listeye değil ilgili alt menüye girer; ekran
    ölçeği 1,5 (≈1280×720 mantıksal) — pencereler ~690 px yüksekliği aşmamalı.
+7. **Açılır kartlar:** kullanıcının açtığı her pencere `_make_popover(win)` ile açılır:
+   uygulamada dışarı tıklama ya da Esc kapatır (Tk yerel grab'i; kapanınca grab önceki
+   tutana döner), gizli başlayıp açanın ortasına yerleşir (konumsuz Toplevel Hyprland'de
+   ekranın sol üst köşesinde açılıyordu), transient yapılır (değilse Hyprland döşer).
+   İçerik kesilmez: gösterilmeden önce `_fit_content` en küçük boyutu içeriğin istediği
+   boyuta çeker (ekranı aşmadan) — koddaki `geometry("WxH")` piksel boyutları büyük yazılı
+   ekranda 21 pencerede seçenekleri/alt düğmeleri kesiyordu; artık yalnız en küçük boyut.
+   `-topmost` ve `_safe_grab_set` kullanılmaz. Yazı/seçim içeren formlar (Durum Mesajı,
+   Ayarlar, oda/kişi pencereleri…) `form=True` ile: değişiklik yoksa dışarı tıklama
+   kapatır; varsa ilk tıklama "Değişiklikler kaybolacak…" şeridini gösterir, şerit
+   görünürken (4 sn) ikinci tıklama kapatır — tek yanlış tıklama yazılanı silmez.
+   Kapanışta iş yapan pencere `close=` verir (ör. Kişi Grupları kaydeder). Kart OLMAYANLAR
+   (asistan pencereleri, log, sohbet sekmesi, gelen dosya teklifi, bildirim) gerekçesiyle
+   `tests/test_popovers.py` WINDOWS'tadır; `Toplevel(` açan her işlev PLAIN / FORMS /
+   WINDOWS'tan birinde olmalı (tarama testi). İpucu balonu (`_add_tooltip`) önde duran
+   `Tooltip` bağlama etiketiyle tıklamada kapanır; kişi hover kartı tıklamada kapanır ve
+   tıklanan satırda fare kıpırdadıkça yeniden açılmaz.
+8. **Seçilebilir yazılar:** mesaj gövdesi, sesli mesaj dökümü ve asistan yanıtları/sonuç
+   kartı `ui/selectable.py` ile kurulur (Label metni seçilemez): kapalı Text, yalnız
+   fareyle seçim bağlamaları (`SelectableText` etiketi; tekerlek sohbeti kaydırır, metin
+   kendi içinde kaymaz). Tk 8.6.16'nın `tk::TextButton1`'i kapalı Text'e de odak verip
+   giriş kutusunu boşa düşürüyordu: odak satırı çıkarılmış kopyası kullanılır. Boyut
+   içeriğe göre piksel (`count -ypixels`; emoji/kod kesilmez). Ctrl+C: ana pencere ve
+   asistan `<<Copy>>` → `copy_selection`; sağ tık "Kopyala" seçim varsa yalnız seçimi
+   alır. ui/chat modülleri onu içe aktarmaz (yalnız tkinter/collections sözleşmesi):
+   `text_factory` MainWindow'dan gelir, kutu `set_content`/`set_bg` taşır. Yazı tipi
+   ayarı (`set_family`) ve tema yenilemesi (etiket/seçim renkleri) kutuları korur. Sahte
+   Tk testleri `tests/fake_selectable.py` kullanır.
 
 ### Test desenleri
 - DB: `monkeypatch.setattr(xmpp, "_DB_PATH", tmp)` + `xmpp._db_conn = None` (teardown'da
   `close()`). Örnek: `tests/test_contract_config_storage.py`.
 - Yalıtım: `tests/conftest.py` `XMPP_CLIENT_HOME`'u geçici dizine ayarlar; ayar/DB/log/
-  anahtar yolları buradan türetilir (`xmppcore.constants._user_home`), test oturumu gerçek
-  `~/.xmpp_client.*` dosyalarına dokunmaz (`tests/test_user_data_isolation.py`).
+  anahtar/OMEMO yolları buradan türetilir (`xmppcore.constants._user_home`), test oturumu
+  gerçek profile dokunmaz (`tests/test_user_data_isolation.py`). Duman/e2e betiklerine de
+  `XMPP_CLIENT_HOME=<boş dizin>` verin (OMEMO eskiden hep `~/.xmpp_omemo`'ya yazıyordu).
 - Tk'sız pencere çifti: `object.__new__(xmpp.MainWindow)` + gereken öznitelikler;
   `_load_chat` için hazır `_win()` → `tests/test_history_window_bounds.py`.
 - Testler arası import serbest (`from test_history_window_bounds import _win`).
@@ -131,10 +173,26 @@ gerçekten çalıştır.
   kişisi DEĞİLDİR: `self.active`/roster/stanza yollarına girmez — böyle kalmalı.
   **Bağlam:** ana penceredeki açık sohbet (`_ai_agent_context`); hedef boşsa ya da
   "bu sohbet" denirse (`is_context_ref`) o kullanılır, adı modele gitmez. **Modelsiz kısa
-  yollar:** tam eşleşen sık komutlar (`quick_intent`, "Geçmişe sor: …" öneki dahil) ve
-  üstteki hızlı eylem düğmeleri (`quick_actions` → `_ai_agent_quick`) plan için modele
-  gitmez; `_ai_assistant_refresh` düğmeleri bağlam/okunmamış/taslak sayısıyla tazeler
-  (`_load_chat` çağırır). **Sonuçlar asistanın içinde:** asistandan istenen özet,
+  yollar:** tam eşleşen sık komutlar (`quick_intent`, "Geçmişe sor: …" öneki ve "Durumumu
+  meşgul yap" gibi durum komutları dahil) ve üstteki hızlı eylem çipleri
+  (`quick_action_groups` → `_ai_agent_quick`) plan için modele gitmez. **Durum sözü
+  yereldir:** küçük model "meşgul"ü away/xa, "uzaktayım"ı xa planlıyordu; `status_hint`
+  kullanıcının yazdığı sözü (meşgul/rahatsız etme → dnd, uzakta → away, uzun süre uzakta
+  → xa, çevrimiçi/müsait → online; olumsuz ya da çok anlamlıysa model) modelin seçiminden
+  önce koyar (`parse_plan(…, request=metin)`). Durum menüsü (`STATUS_OPTIONS`) aynı
+  sözlüğü `STATUS_LABELS`'tan alır ("Uzakta" = away); Durum Mesajı penceresi
+  (`presence.status_choices`, 2×2), Ayarlar ve web arayüzü de aynı adları kullanır ("chat" =
+  Çevrimiçi; `test_status_vocabulary.py`). `_ai_assistant_refresh` çipleri bağlam/okunmamış/
+  taslak sayısıyla tazeler: `_load_chat` (sayaç sıfırlandıktan SONRA), gelen mesaj,
+  `own_msg`/`read_elsewhere` ve `_ai_drafts_refresh` çağırır; çipler değişmediyse yeniden
+  kurulmaz (`test_ai_assistant_counts.py`). Çipler ⋮ menüsü gibi "💬 Bu sohbet" / "🗂 Tüm sohbetler"
+  gruplu, simgeleri ayrı (`ACTION_LABELS`) ve pencere genişliğine göre satır kırar
+  (`_flow`, place); bağlam/alt başlık/durum satırları da genişlikte kırılır. Meşgulken
+  tıklanan eylem sıraya girer (durum satırında "sırada: …"), meşguliyet bitince
+  `after_idle` ile çalışır; "Temizle" sırayı boşaltır; meşgulken durum satırı geçen
+  saniyeyi sayar. **Ön yükleme:** asistan açılınca Ollama modeli arka planda belleğe
+  alınır (`_ai_warm_model` → `ai.ollama_warm`, boş /api/chat; `num_ctx` gerçek istekle
+  aynı olmalı, yoksa model yeniden yüklenir). **Sonuçlar asistanın içinde:** asistandan istenen özet,
   neler kaçırdım, yanıt önerisi, bekleyen sorular ve geçmişe sor `inline=True` ile
   `InlineResult` kartına akar (`_ai_open_window`/`_ai_result_window`/`_ai_notice`;
   asistan kapalıysa eski pencereler). Kart ResultWindow arayüzünü taşır; takip sorusu
@@ -168,7 +226,11 @@ gerçekten çalıştır.
   çıkarma, taslaklar (Ctrl+Shift+R) ve anlamsal arama kendi penceresindedir; mesaj
   başına araçlar (çeviri, ses→metin, görsel, sesli okuma) sağ tık / hover ✨ menüsünde
   ve ayrı pencerededir.
-- **Sağlayıcı:** varsayılan yerel Ollama (`gemma3:4b`, gömme `bge-m3`). İsteğe bağlı Claude
+- **Sağlayıcı:** varsayılan yerel Ollama (`gemma4:e2b-it-qat` metin+görsel, gömme `bge-m3`;
+  2026-10-20 ölçümü, i7-7500U/15 GB: sıcak özet 63 sn — gemma3:4b 93 sn, gemma4:e4b 161 sn).
+  İstekler `think: false` gönderir (Gemma 4 düşünme tokenları dakikalar sürer). Yükleme
+  seçenekleri `_ollama_load_options` (num_ctx; `"ollama_gpu": "off"` → `num_gpu: 0`, zayıf
+  ekran kartında CPU daha hızlı) ön yükleme ve gerçek istekte aynıdır. İsteğe bağlı Claude
   (`anthropic` SDK, varsayılan `claude-opus-5-5`, sunucu tarafı `fallbacks: "default"`).
   Ayarlar config'te `"ai"` anahtarında; API anahtarı `_encode_pw` ile şifreli saklanır.
 - **Gizlilik sözleşmesi:** şifreli sohbet içeriği buluta, `cloud_for_encrypted` kapalıyken
@@ -181,8 +243,11 @@ gerçekten çalıştır.
   `messages.timestamp` yalnız "SS:DD" tutar; tam kayıt tarihi `messages.stored_at`'tadır
   (eski satırlarda boş).
   Düzeltme/geri çekme gömmeyi düşürür; geçmiş silme türetilmiş veriyi de siler.
-- **Model kurulumu:** `ollama pull gemma3:4b && ollama pull bge-m3`; ses→metin için
-  `.venv-xmpp/bin/python -m pip install faster-whisper`.
+- **Model kurulumu:** `ollama pull gemma4:e2b-it-qat && ollama pull bge-m3`; ses→metin için
+  `.venv-xmpp/bin/python -m pip install faster-whisper "av<19"` — faster-whisper 1.2.1 (en
+  yenisi) PyAV 19'da kaldırılan `metadata_errors`'u geçiriyor; PyAV 19 ile her ses
+  çözümü düşer (uygulama bunu düzeltme komutuyla `AISetupError` olarak bildirir).
+  `tests/test_ai_core.py::test_installed_speech_stack_decodes_audio` kurulu ikiliyi denetler.
 - Testler: `tests/test_ai_core.py`, `tests/test_ai_storage.py`, `tests/test_ai_mainwindow.py`,
   `tests/test_ai_stream_core.py` (Tk'sız çekirdek), `tests/test_ai_assistant_flows.py`
   (MainWindow akışları), `tests/test_ai_dialog_view.py` (sahte tk ile görünüm),

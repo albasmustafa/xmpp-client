@@ -591,8 +591,9 @@ function renderChatHeader() {
   }
   $("chat-name").textContent = c.room ? `# ${c.name}` : c.name;
   const p = c.presence || {};
-  const awayTxt = {away: "uzakta", xa: "çok uzakta", dnd: "rahatsız etmeyin",
-                   chat: "sohbet için müsait"};
+  // Durum adları masaüstü menüsüyle aynı (agent.STATUS_LABELS)
+  const awayTxt = {away: "uzakta", xa: "uzun süre uzakta", dnd: "meşgul",
+                   chat: "çevrimiçi"};
   const sub = c.room
     ? (c.subject || `${Object.keys(c.members).length} üye`)
     : (p.ptype === "unavailable" ? "çevrimdışı"

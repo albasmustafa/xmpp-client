@@ -21,10 +21,11 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from test_history_window_bounds import _win  # noqa: E402
+
 import ui.chat.actions as actions_mod  # noqa: E402
 import ui.chat.shell as shell_mod  # noqa: E402
 import xmpp  # noqa: E402
-from test_history_window_bounds import _win  # noqa: E402
 
 
 class _Cap:

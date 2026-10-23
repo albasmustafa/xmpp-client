@@ -125,37 +125,35 @@ def render_reply_quote(bubble, theme, reply_to, on_jump):
     return rq_f
 
 
-def render_message_body(bubble, theme, display_body, colors, formatter):
-    """Markdown destekli metin gövdesi.
+MESSAGE_WRAP = 420        # balon metninin en geniş satırı (px)
 
-    Döndürür: ("label", widget) | ("frame", widget) | (None, None).
+
+def message_styles(theme):
+    """Markdown parçalarının Text etiketleri (formatter stilleri)."""
+    return {"bold": {"font": (theme["FONT"], 11, "bold")},
+            "italic": {"font": (theme["FONT"], 11, "italic")},
+            "code": {"font": ("Courier", 10), "background": theme["BORDER"]}}
+
+
+def render_message_body(bubble, theme, display_body, colors, formatter,
+                        text_factory):
+    """Markdown destekli, sol tıkla seçilebilen metin gövdesi (Label metni
+    seçilemiyordu). `text_factory`: seçilebilir metin kurucu (MainWindow
+    ui.selectable.selectable_text verir; bu modül yalnız tkinter/collections
+    kullanır). Kalın/italik/kod tek metinde etiketlerle akar; satır kaydırma
+    Label'ın wraplength'i gibi.
+
+    Döndürür: ("text", çerçeve; metin `.text`'te) | (None, None).
     """
     if not display_body:
         return None, None
-    parts = formatter(display_body)
-    has_format = any(s is not None for _, s in parts)
-    if not has_format:
-        lbl = tk.Label(bubble, text=display_body, fg=colors["bubble_fg"],
-                       bg=colors["bubble_bg"], font=(theme["FONT"], 11),
-                       wraplength=420, justify="left")
-        lbl.pack(anchor="w")
-        return "label", lbl
-    txt_f = tk.Frame(bubble, bg=colors["bubble_bg"])
-    txt_f.pack(anchor="w")
-    for text, style in parts:
-        if style == "bold":
-            f = (theme["FONT"], 11, "bold")
-        elif style == "italic":
-            f = (theme["FONT"], 11, "italic")
-        elif style == "code":
-            f = ("Courier", 10)
-        else:
-            f = (theme["FONT"], 11)
-        code_bg = theme["BORDER"] if style == "code" else colors["bubble_bg"]
-        tk.Label(txt_f, text=text, fg=colors["bubble_fg"], bg=code_bg,
-                 font=f, wraplength=420, justify="left").pack(
-            side="left", anchor="w")
-    return "frame", txt_f
+    box = text_factory(
+        bubble, formatter(display_body), fg=colors["bubble_fg"],
+        bg=colors["bubble_bg"], font=(theme["FONT"], 11), wrap=MESSAGE_WRAP,
+        sel_bg=theme["SEL_BG"], sel_fg=theme["SEL_FG"],
+        styles=message_styles(theme))
+    box.pack(anchor="w")
+    return "text", box
 
 
 def render_meta_row(bubble, theme, time_str, is_me, encrypted, bubble_bg):
@@ -177,7 +175,7 @@ def render_meta_row(bubble, theme, time_str, is_me, encrypted, bubble_bg):
 
 def render_base_message(parent, theme, *, is_me, sender, same_sender, compact,
                         reply_to, display_body, formatter, avatar_factory,
-                        avatar_photo, photo_refs, on_jump):
+                        avatar_photo, photo_refs, on_jump, text_factory):
     """Temel mesaj gövdesi assembly: row + reply quote + body.
 
     Meta row (timestamp/kilit/✓) bilinçli olarak kapsam dışı: medya
@@ -192,5 +190,5 @@ def render_base_message(parent, theme, *, is_me, sender, same_sender, compact,
     if reply_to:
         render_reply_quote(bubble, theme, reply_to, on_jump)
     body_kind, body_widget = render_message_body(
-        bubble, theme, display_body, colors, formatter)
+        bubble, theme, display_body, colors, formatter, text_factory)
     return BaseMessageView(row, bubble, colors, body_kind, body_widget)

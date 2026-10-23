@@ -26,8 +26,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import xmpp  # noqa: E402
 from test_ai_mainwindow import _Cap, _composer, _FakeWin, _mw, _row  # noqa: E402
+
+import xmpp  # noqa: E402
 
 AI = xmpp._ai
 
@@ -237,8 +238,9 @@ def test_real_submit_routes_results_errors_and_cancel():
 
 def test_image_followup_sees_image_even_after_cached_answer(tmp_db,
                                                            monkeypatch):
-    from PIL import Image
     import io
+
+    from PIL import Image
     buf = io.BytesIO()
     Image.new("RGB", (8, 8), "blue").save(buf, "PNG")
     w = _w(monkeypatch)
@@ -823,15 +825,15 @@ def test_chat_menu_items_and_order(monkeypatch):
     xmpp.MainWindow._ai_fill_chat_items(w, menu, "a@b")
     assert _tree(menu) == [
         ("✨ Asistan…", "Ctrl+Shift+K", None),
-        ("📝 Okunmamışları özetle (2)", None, None),
+        ("📬 Okunmamışları özetle (2)", None, None),
         ("💬 Bu sohbet", "▸", [
             ("📝 Sohbeti özetle", None, None),
             ("📅 Görev ve etkinlikleri çıkar", None, None)]),
         ("🗂 Tüm sohbetler", "▸", [
             ("📥 Neler kaçırdım?", "Ctrl+Shift+M", None),
             ("❓ Yanıt bekleyen sorular", "Ctrl+Shift+Q", None),
-            ("📝 Yanıt taslakları", "Ctrl+Shift+R", None),
-            ("💬 Geçmişe sor…", "Ctrl+Shift+H", None),
+            ("✍ Yanıt taslakları", "Ctrl+Shift+R", None),
+            ("🔎 Geçmişe sor…", "Ctrl+Shift+H", None),
             ("🧠 Anlamsal arama…", None, None)]),
         ("—", None, None),
         ("⚙ AI Ayarları…", None, None)]

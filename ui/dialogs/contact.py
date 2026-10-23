@@ -27,7 +27,6 @@ def show_contact_groups(parent, contacts, groups, on_save):
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("420x400")
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
 
     tk.Label(dlg, text="🏷 Kişi Grupları", font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 8))
@@ -75,6 +74,7 @@ def show_contact_groups(parent, contacts, groups, on_save):
         pop2.configure(bg=A.BG_CARD)
         pop2.geometry("300x300")
         pop2.transient(dlg)
+        A._make_popover(pop2, form=True)
 
         tk.Label(pop2, text="Grup:", font=(A.FONT, 9),
                  fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", padx=12, pady=(12, 0))
@@ -116,9 +116,13 @@ def show_contact_groups(parent, contacts, groups, on_save):
         dlg.destroy()
 
     ttk.Button(btn_f, text="Kaydet", command=_save_groups).pack(side="right")
-    # Pencere X ile kapatılsa bile değişiklikler kaybolmasın
-    dlg.protocol("WM_DELETE_WINDOW",
-                 lambda: (on_save(groups), dlg.destroy()))
+    # Pencere X ile ya da dışarı tıklanarak kapatılsa bile değişiklikler
+    # kaybolmasın
+    def _close():
+        on_save(groups)
+        dlg.destroy()
+    dlg.protocol("WM_DELETE_WINDOW", _close)
+    A._make_popover(dlg, close=_close)
 
 
 def validate_jid(raw):
@@ -150,7 +154,7 @@ def show_add_contact(parent, contacts, presence, default_server,
     dlg.geometry("420x460")
     dlg.resizable(False, True)
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg, form=True)
 
     tk.Label(dlg, text="Yeni Sohbet", font=(A.FONT, 14, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(anchor="w", padx=20, pady=(16, 0))
@@ -360,7 +364,7 @@ def show_search_users(parent, default_server, on_search, on_start_chat):
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("460x420")
     dlg.transient(parent)
-    A._safe_grab_set(dlg)
+    A._make_popover(dlg)
 
     tk.Label(dlg, text="🔍  Kullanıcı Ara", font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 4), anchor="w")

@@ -20,7 +20,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from test_ai_dialog_view import _W, _find, fake_tk  # noqa: E402,F401
-from test_ai_mainwindow import _Cap, _FakeWin, _chat_spy, _mw  # noqa: E402
+from test_ai_mainwindow import _Cap, _chat_spy, _FakeWin, _mw  # noqa: E402
 
 import ui.dialogs.ai as ui_ai  # noqa: E402
 import xmpp  # noqa: E402

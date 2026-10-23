@@ -51,3 +51,86 @@ def test_without_env_uses_home(tmp_path):
     env["HOME"] = str(tmp_path)
     for p in _paths_in_subprocess(env):
         assert p.startswith(str(tmp_path) + os.sep + ".xmpp_client")
+
+
+# ── Başka diske taşınmış profil (2026-10-21, "her şeyi albas diskine taşı") ──
+def test_omemo_keys_follow_data_home():
+    """OMEMO deposu XMPP_CLIENT_HOME'u yok sayıp hep ~/.xmpp_omemo'yu
+    kullanıyordu: profil taşınınca anahtar bulunamaz, yeni OMEMO kimliği
+    yayımlanırdı; testler/duman betikleri de gerçek dizine yazıyordu."""
+    omemo_dir = getattr(xmpp, "_OMEMO_DIR", None)
+    if omemo_dir is None:
+        pytest.skip("OMEMO kütüphaneleri kurulu değil")
+    assert str(omemo_dir) == os.path.join(constants._user_home(),
+                                          ".xmpp_omemo")
+    assert not str(omemo_dir).startswith(os.path.join(REAL_HOME, ".xmpp"))
+
+
+def _without_data_env(home):
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("XMPP_CLIENT_HOME", "HF_HOME")}
+    env["HOME"] = str(home)
+    return env
+
+
+def test_pointer_file_redirects_every_launch(tmp_path):
+    """Ev dizinindeki `.xmpp_client_home` taşınmış profili gösterir: betik,
+    masaüstü kısayolu ya da doğrudan `python xmpp.py` aynı yeri bulur."""
+    home, data = tmp_path / "ev", tmp_path / "veri"
+    home.mkdir()
+    data.mkdir()
+    (home / ".xmpp_client_home").write_text(f"{data}\n", encoding="utf-8")
+    for p in _paths_in_subprocess(_without_data_env(home)):
+        assert p.startswith(str(data) + os.sep + ".xmpp_client")
+    assert sorted(os.listdir(home)) == [".xmpp_client_home"]
+
+
+def test_env_wins_over_pointer_file(tmp_path):
+    home, data, other = tmp_path / "ev", tmp_path / "veri", tmp_path / "test"
+    for d in (home, data, other):
+        d.mkdir()
+    (home / ".xmpp_client_home").write_text(str(data), encoding="utf-8")
+    env = dict(_without_data_env(home), XMPP_CLIENT_HOME=str(other))
+    for p in _paths_in_subprocess(env):
+        assert p.startswith(str(other) + os.sep)
+
+
+@pytest.mark.parametrize("content", ["{missing}", "", "goreli/yol"])
+def test_unusable_pointer_stops_instead_of_fresh_profile(tmp_path, content):
+    """Gösterilen klasör yoksa (disk takılı değil) boş profille açılmak yeni
+    OMEMO kimliği ve boş ayar demekti: açıklamayla durur, dosya yaratmaz."""
+    home = tmp_path / "ev"
+    home.mkdir()
+    (home / ".xmpp_client_home").write_text(
+        content.format(missing=tmp_path / "yok"), encoding="utf-8")
+    code = ("import sys; sys.path.insert(0, %r); import xmppcore.constants"
+            % ROOT)
+    res = subprocess.run([sys.executable, "-c", code],
+                         env=_without_data_env(home), capture_output=True,
+                         text=True)
+    assert res.returncode != 0
+    assert "veri klasörü" in res.stderr and ".xmpp_client_home" in res.stderr
+    assert sorted(os.listdir(home)) == [".xmpp_client_home"]
+    assert not (tmp_path / "yok").exists()
+
+
+def _hf_home(env):
+    code = ("import os, sys; sys.path.insert(0, %r); import xmppcore.constants;"
+            "print(os.environ.get('HF_HOME', '-'))" % ROOT)
+    return subprocess.run([sys.executable, "-c", code], env=env, check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def test_speech_model_cache_moves_with_profile(tmp_path):
+    """Ses→metin modeli (faster-whisper, ~460 MB) Hugging Face önbelleğine
+    iner: taşınmış profilde profille durur; evdeki profilde HF'nin kendi
+    yeri ve kullanıcının HF_HOME'u korunur."""
+    home, data = tmp_path / "ev", tmp_path / "veri"
+    home.mkdir()
+    data.mkdir()
+    assert _hf_home(_without_data_env(home)) == "-"
+    (home / ".xmpp_client_home").write_text(str(data), encoding="utf-8")
+    assert _hf_home(_without_data_env(home)) == str(
+        data / ".cache" / "huggingface")
+    env = dict(_without_data_env(home), HF_HOME=str(tmp_path / "hf"))
+    assert _hf_home(env) == str(tmp_path / "hf")

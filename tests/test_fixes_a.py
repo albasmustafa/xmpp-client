@@ -446,49 +446,44 @@ def test_prune_photo_refs():
     assert win._photo_refs[-1] == 999
 
 
-# ── A16: balon metni güncellemesi doğru Label'ı hedeflemeli ─────────────────
+# ── A16: balon metni güncellemesi doğru gövdeyi hedeflemeli ─────────────────
+# (gövde 2026-10-21'den beri seçilebilir metin kutusu: ui.selectable)
+class _Body:
+    def __init__(self):
+        self.kw = {}
 
-def test_update_bubble_text_uses_body_label():
-    class _Lbl:
-        def __init__(self):
-            self.kw = {}
+    def winfo_exists(self):
+        return True
 
-        def winfo_exists(self):
-            return True
+    def set_content(self, content, fg=None, font=None):
+        self.kw["text"] = (content if isinstance(content, str)
+                           else "".join(c for c, _s in content))
+        self.kw["parts"] = content
+        self.kw.update({k: v for k, v in (("fg", fg), ("font", font)) if v})
 
-        def config(self, **kw):
-            self.kw.update(kw)
 
+def test_update_bubble_text_uses_body_text():
     win = object.__new__(xmpp.MainWindow)
     row = type("Row", (), {})()
-    lbl = _Lbl()
-    row._body_label = lbl
-    xmpp._identity.update_bubble_text(row, "yeni metin", edited=True,
+    body = _Body()
+    row._body_text = body
+    xmpp._identity.update_bubble_text(row, "yeni *metin*", edited=True,
                                    formatter=win._format_markdown,
                                    theme=xmpp._chat_theme())
-    assert lbl.kw.get("text") == "yeni metin  ✏"
+    assert body.kw.get("text") == "yeni metin  ✏"
+    assert ("metin", "bold") in body.kw["parts"]     # düzeltme biçimi korur
 
 
 def test_update_bubble_text_retracted_style():
-    class _Lbl:
-        def __init__(self):
-            self.kw = {}
-
-        def winfo_exists(self):
-            return True
-
-        def config(self, **kw):
-            self.kw.update(kw)
-
     win = object.__new__(xmpp.MainWindow)
     row = type("Row", (), {})()
-    lbl = _Lbl()
-    row._body_label = lbl
+    body = _Body()
+    row._body_text = body
     xmpp._identity.update_bubble_text(row, "silindi", retracted=True,
                                    formatter=win._format_markdown,
                                    theme=xmpp._chat_theme())
-    assert lbl.kw.get("fg") == xmpp.FG_DIM
-    assert "italic" in str(lbl.kw.get("font"))
+    assert body.kw.get("fg") == xmpp.FG_DIM
+    assert "italic" in str(body.kw.get("font"))
 
 
 # ── A17: tema listesi ve canlı yenileme eşlemesi ────────────────────────────
