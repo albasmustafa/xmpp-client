@@ -111,3 +111,48 @@ def test_unchanged_counts_do_not_rebuild_chips():
     xmpp.MainWindow._ai_assistant_refresh(w)
     xmpp.MainWindow._ai_assistant_refresh(w)
     assert len(calls) <= 1
+
+
+# "📬 Okunmamışları özetle (n)" açılıştaki sayıyı tutar; kullanıcı o sohbete
+# yanıt verince (masaüstünden ya da telefondan) okunmamışlara yetişmiş
+# sayılır. Kanıt (kod incelemesi, 2026-10-25): sayı sohbet yeniden açılana
+# dek hep "(n)" kalıyordu — yanıttan sonra da ⋮ menüsünde ve çipte.
+def _unread_chip(win):
+    return [lbl for lbl, key in _groups(win)[agent.QUICK_GROUP_CHAT]
+            if key == "summarize_unread"]
+
+
+def test_reply_from_desktop_clears_unread_summary_count():
+    from test_2p_consecutive_send import _o_w
+    w = _assistant(_o_w(["Tamam, bakarım"]))
+    w.active = ALI
+    w._ai_unread_at_open = {ALI: 3}
+    w._ai_agent_context = lambda: ALI
+    xmpp.MainWindow._ai_assistant_refresh(w)
+    assert _unread_chip(w)
+    xmpp.MainWindow._send_message(w)
+    assert w._ai_unread_at_open[ALI] == 0
+    assert not _unread_chip(w)
+
+
+def test_reply_from_phone_clears_unread_summary_count():
+    w = _msg_win()
+    w._ai_unread_at_open = {ALI: 3}
+    w._ai_agent_context = lambda: ALI
+    xmpp.MainWindow._ai_assistant_refresh(w)
+    assert _unread_chip(w)
+    xmpp.MainWindow._handle(w, "own_msg", {
+        "to": ALI, "body": "Telefondan", "oob": "", "encrypted": False,
+        "mid": "o-2", "reply": None})
+    assert w._ai_unread_at_open[ALI] == 0
+    assert not _unread_chip(w)
+
+
+def test_bot_command_keeps_unread_summary_count():
+    from test_2p_consecutive_send import _o_w
+    w = _o_w(["/help"])
+    w.active = ALI
+    w._ai_unread_at_open = {ALI: 3}
+    w._handle_bot_command = lambda body: None
+    xmpp.MainWindow._send_message(w)
+    assert w._ai_unread_at_open[ALI] == 3

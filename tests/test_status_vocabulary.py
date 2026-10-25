@@ -83,3 +83,17 @@ def test_web_chat_subtitle_uses_menu_vocabulary():
                      "xa": STATUS_LABELS["xa"].lower(),
                      "dnd": STATUS_LABELS["dnd"].lower(),
                      "chat": STATUS_LABELS["online"].lower()}
+
+
+def test_i18n_has_no_second_status_vocabulary():
+    """Kanıt (2026-10-23 incelemesi): i18n'de hiçbir yerden okunmayan
+    `available`/`dnd_status`/`xa_status` duruyordu; İngilizcesi
+    "Available"/"Extended Away" ile menü sözlüğünden ayrışıyordu. Durum
+    adlarının tek kaynağı `STATUS_LABELS`'tır."""
+    from xmppcore.i18n import _STRINGS
+    for table in _STRINGS.values():
+        assert not {"available", "dnd_status", "xa_status"} & set(table)
+    tr = _STRINGS["tr"]
+    assert tr["online"] == STATUS_LABELS["online"]
+    assert tr["away"] == STATUS_LABELS["away"]
+    assert tr["busy"] == STATUS_LABELS["dnd"]

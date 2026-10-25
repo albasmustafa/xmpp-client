@@ -5732,6 +5732,14 @@ class MainWindow:
         """Asistanın bağlamı: ana pencerede açık sohbet ("" = yok)."""
         return getattr(self, "active", None) or ""
 
+    def _ai_caught_up(self, jid):
+        """Sohbete yanıt verildi (masaüstü ya da telefon): açılıştaki
+        okunmamışlar okunmuş sayılır, "📬 Okunmamışları özetle (n)" kalkar."""
+        seen = getattr(self, "_ai_unread_at_open", None)
+        if seen and seen.get(jid):
+            seen[jid] = 0
+            self._ai_assistant_refresh()
+
     def _ai_assistant_refresh(self):
         """Bağlam satırı ve hızlı eylemler (açık sohbet, okunmamış, taslak
         sayısı değişince). Asistan kapalıysa bir şey yapmaz; çipler
@@ -8927,6 +8935,7 @@ class MainWindow:
         mid = _new_msg_id()
         self._store(self.active, body, tag="me", sender="Ben", is_me=True,
                     encrypted=is_encrypted, mid=mid, reply_to=reply)
+        self._ai_caught_up(self.active)
         # [2I][2J.b][2L] TTL vadesi teslim/sekmeye beslemeden ÖNCE kaydedilir:
         # sekme kalan süreyi yetkili haritadan çözer. Defter anahtarı girişin
         # örnek UID'sidir; eski/UID'siz girişlerde mid'e düşer.
@@ -10088,9 +10097,18 @@ class MainWindow:
         show = (getattr(self, "_status_show", None)
                 or cfg.get("presence_show", "chat") or "chat")
         busy = show in ("away", "dnd", "xa")
+        # Boştayken yeniden bağlanış otomatik uzaktayı sürdürür (yoksa
+        # `_is_idle` açık kaldığından kullanıcı dönene dek Çevrimiçi kalırdı)
+        auto_away = (getattr(self, "_auto_away", False)
+                     and getattr(self, "_is_idle", False))
         # Kenar çubuğu ve _my_show yayınlananla aynı olur ("connected" etiketi
         # Çevrimiçi'ye çekiyordu, _my_show eski kalıp taslak üretiyordu)
         self._show_my_status(show)
+        if auto_away and not busy:
+            self._auto_away = True
+            self.bot.set_presence("away", status=text)
+            self._status_label.config(text="● Uzakta (oto)", fg=AWAY)
+            return
         if not text and not busy:
             return
         self.bot.set_status_message(text, show)
@@ -12200,6 +12218,7 @@ class MainWindow:
             if self._unread_counts.pop(to, None):
                 self._refresh_contacts()
                 self._ai_assistant_refresh()
+            self._ai_caught_up(to)
 
         elif kind == "read_elsewhere":
             # Sohbet aynı hesabın başka cihazında okundu (XEP-0333 carbon)

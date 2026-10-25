@@ -104,3 +104,34 @@ def test_manual_choice_while_auto_away_is_not_reset(w):
     xmpp.MainWindow._reset_activity(w)
     assert len(w.bot.set_presence.calls) == n   # dnd ezilmez
     assert w._my_show == "dnd"
+
+
+def test_reconnect_while_auto_away_stays_away(w):
+    """Kanıt (2026-10-25): boştayken yeniden bağlanınca `_restore_status_prefs`
+    kayıtlı Çevrimiçi'yi yayınlıyor, `_note_my_show` `_auto_away`'i
+    kapatıyordu; `_is_idle` açık kaldığından `_check_idle` yeniden uzakta
+    yapmıyordu — kullanıcı dönene kadar boşta ama Çevrimiçi görünüyordu."""
+    w._status_show = "chat"
+    xmpp.MainWindow._check_idle(w)
+    assert w._auto_away
+    w.bot.set_presence.calls.clear()
+    xmpp.MainWindow._restore_status_prefs(w)       # yeniden bağlanış
+    assert w.bot.set_presence.calls[-1] == (("away",),
+                                            {"status": "Toplantıda"})
+    assert w.labels[-1] == "● Uzakta (oto)"
+    assert w._auto_away and w._my_show == "online"
+    xmpp.MainWindow._reset_activity(w)             # kullanıcı döndü
+    assert w.bot.set_presence.calls[-1] == (("online",),
+                                            {"status": "Toplantıda"})
+    assert w.labels[-1] == "● Çevrimiçi"
+
+
+def test_reconnect_while_idle_keeps_manual_choice(w):
+    """Elle seçilmiş Meşgul boştayken de yeniden bağlanınca aynen gider."""
+    w._status_show = "dnd"
+    w._my_show = "dnd"
+    xmpp.MainWindow._check_idle(w)
+    xmpp.MainWindow._restore_status_prefs(w)
+    assert w.bot.set_status_message.calls[-1][0] == ("Toplantıda", "dnd")
+    assert w.bot.set_presence.calls == []
+    assert w._my_show == "dnd" and not w._auto_away

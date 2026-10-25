@@ -187,12 +187,16 @@ gerçekten çalıştır.
   çubuğuna ve `_my_show`'a yansır (`test_status_dialog_state.py`). Menü seçimi de
   `presence_show` olarak kaydedilir; bağlanınca `_restore_status_prefs` kenar çubuğunu ve
   `_my_show`'u her zaman eşitler. Otomatik uzakta yalnız Çevrimiçi'yken devreye girer
-  (`_auto_away`; elle Meşgul/Uzakta ezilmez) ve durum mesajını korur
-  (`test_status_persistence.py`). `status_hint` durumdan çıkışı ("meşgulden çıkar") ve
+  (`_auto_away`; elle Meşgul/Uzakta ezilmez) ve durum mesajını korur; boştayken yeniden
+  bağlanınca kayıtlı Çevrimiçi yerine otomatik uzakta yeniden yayınlanır
+  (`test_status_persistence.py`). Durum adlarının tek kaynağı `STATUS_LABELS`'tır; i18n'de
+  ikinci bir durum sözlüğü tutulmaz. `status_hint` durumdan çıkışı ("meşgulden çıkar") ve
   olumsuz emri ("meşgul yapma") modele bırakır (`test_status_hint_direction.py`). `_ai_assistant_refresh` çipleri bağlam/okunmamış/
   taslak sayısıyla tazeler: `_load_chat` (sayaç sıfırlandıktan SONRA), gelen mesaj,
   `own_msg`/`read_elsewhere` ve `_ai_drafts_refresh` çağırır; çipler değişmediyse yeniden
-  kurulmaz (`test_ai_assistant_counts.py`). Çipler ⋮ menüsü gibi "💬 Bu sohbet" / "🗂 Tüm sohbetler"
+  kurulmaz (`test_ai_assistant_counts.py`). "📬 Okunmamışları özetle (n)" açılıştaki sayıyı
+  (`_ai_unread_at_open`) tutar; o sohbete masaüstünden ya da telefondan yanıt verilince
+  `_ai_caught_up` sıfırlar (bot komutu sıfırlamaz). Çipler ⋮ menüsü gibi "💬 Bu sohbet" / "🗂 Tüm sohbetler"
   gruplu, simgeleri ayrı (`ACTION_LABELS`) ve pencere genişliğine göre satır kırar
   (`_flow`, place); bağlam/alt başlık/durum satırları da genişlikte kırılır. Meşgulken
   tıklanan eylem sıraya girer (durum satırında "sırada: …"), meşguliyet bitince
