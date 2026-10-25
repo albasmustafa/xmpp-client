@@ -10,6 +10,8 @@ import uuid
 
 from slixmpp.plugins.base import PluginNotFound
 
+from xmppcore.i18n import tr as _tr
+
 # JID yerel kısmında (kullanıcı/oda adı) yasak karakterler (RFC 7622 §3.3.1)
 _LOCALPART_FORBIDDEN = "\"&'/:<>@"
 _TR_ASCII = str.maketrans("çğıöşüÇĞİÖŞÜâîûÂÎÛ", "cgiosuCGIOSUaiuAIU")
@@ -53,24 +55,25 @@ def _normalize_room_jid(text: str, default_server: str = "") -> str:
         s = s[5:]
     s = s.split("?", 1)[0].strip()
     if not s:
-        raise ValueError("Oda adresi boş")
+        raise ValueError(_tr("Oda adresi boş"))
     local = s.split("/", 1)[0].rsplit("@", 1)[0] if "@" in s else s
     problem = _localpart_problem(local)
     if problem:
         hint = _room_slug(local)
-        raise ValueError(f"Geçersiz oda adresi: {text.strip()!r} — oda adında "
-                         f"{problem}" + (f" (ör. {hint})" if hint else ""))
+        raise ValueError(_tr("Geçersiz oda adresi: {!r} — oda adında {}")
+                         .format(text.strip(), problem) + (_tr(" (ör. {})")
+                                                           .format(hint) if hint else ""))
     if "@" not in s:
         server = (default_server or "").strip()
         if not server:
-            raise ValueError(f"Oda adresinde sunucu yok: {text!r}")
+            raise ValueError(_tr("Oda adresinde sunucu yok: {!r}").format(text))
         s = f"{s}@{server}"
     try:
         jid = JID(s)
     except InvalidJID as e:
-        raise ValueError(f"Geçersiz oda adresi: {text!r}") from e
+        raise ValueError(_tr("Geçersiz oda adresi: {!r}").format(text)) from e
     if not jid.user or not jid.domain:
-        raise ValueError(f"Geçersiz oda adresi: {text!r}")
+        raise ValueError(_tr("Geçersiz oda adresi: {!r}").format(text))
     return jid.bare
 
 
@@ -96,10 +99,10 @@ def _square_avatar_png(path, size: int = 256) -> bytes:
 def _localpart_problem(local: str) -> str:
     """JID yerel kısmını geçersiz kılan sorunu Türkçe anlat ('' = sorun yok)."""
     if any(ch.isspace() for ch in local):
-        return "boşluk kullanılamaz"
+        return _tr("boşluk kullanılamaz")
     bad = sorted({ch for ch in local if ch in _LOCALPART_FORBIDDEN})
     if bad:
-        return "şu karakterler kullanılamaz: " + " ".join(bad)
+        return _tr("şu karakterler kullanılamaz: ") + " ".join(bad)
     return ""
 
 
@@ -123,13 +126,13 @@ def _room_address(name: str, server: str):
     """
     name = (name or "").strip()
     if not name:
-        raise ValueError("Oda adı girin.")
+        raise ValueError(_tr("Oda adı girin."))
     if "@" in name:
         return _normalize_room_jid(name), ""
     slug = _room_slug(name)
     if not slug:
-        raise ValueError("Oda adından adres üretilemedi; harf ya da rakam "
-                         "kullanın (ör. proje-ekibi).")
+        raise ValueError(_tr("Oda adından adres üretilemedi; harf ya da rakam "
+                             "kullanın (ör. proje-ekibi)."))
     return _normalize_room_jid(slug, server), name
 
 
@@ -148,20 +151,20 @@ def _normalize_user_jid(text: str) -> str:
         s = s[5:]
     s = s.split("?", 1)[0].strip()
     if not s:
-        raise ValueError("Lütfen bir JID girin.")
+        raise ValueError(_tr("Lütfen bir JID girin."))
     if "@" not in s:
-        raise ValueError("Geçersiz JID — @ işareti olmalı (ör: ali@sunucu.tld)")
+        raise ValueError(_tr("Geçersiz JID — @ işareti olmalı (ör: ali@sunucu.tld)"))
     problem = _localpart_problem(s.split("/", 1)[0].rsplit("@", 1)[0])
     if not problem and any(ch.isspace() for ch in s.split("/", 1)[0]):
-        problem = "boşluk kullanılamaz"
+        problem = _tr("boşluk kullanılamaz")
     if problem:
-        raise ValueError(f"Geçersiz JID — {problem}: {s!r}")
+        raise ValueError(_tr("Geçersiz JID — {}: {!r}").format(problem, s))
     try:
         jid = JID(s)
     except InvalidJID as e:
-        raise ValueError(f"Geçersiz JID: {s!r}") from e
+        raise ValueError(_tr("Geçersiz JID: {!r}").format(s)) from e
     if not jid.user or not jid.domain:
-        raise ValueError(f"Geçersiz JID: {s!r}")
+        raise ValueError(_tr("Geçersiz JID: {!r}").format(s))
     return jid.bare
 
 

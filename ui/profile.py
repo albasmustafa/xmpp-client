@@ -13,6 +13,11 @@ from tkinter import messagebox, ttk
 from ui.dialogs.simple import _app
 
 
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
+
 def show_status_menu(parent, on_select, x_root, y_root):
     """Durum menüsü (MainWindow._show_status_menu).
 
@@ -26,7 +31,7 @@ def show_status_menu(parent, on_select, x_root, y_root):
                    relief="flat", font=(A.FONT, 9))
     # Renk duruma göre (etikete değil); MainWindow._ai_status_option ile aynı
     colors = {"online": A.ONLINE, "away": A.AWAY}
-    for label, show in A.STATUS_OPTIONS:
+    for label, show in A._status_options():
         c = colors.get(show, A.RED)
         menu.add_command(
             label=f"  ●  {label}",
@@ -43,31 +48,31 @@ def show_story_dialog(parent, on_publish):
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("📖 Hikaye Paylaş")
+    dlg.title(_tr("📖 Hikaye Paylaş"))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("380x340")
     dlg.transient(parent)
     A._make_popover(dlg, form=True)
 
-    tk.Label(dlg, text="📖 Hikaye / Durum Paylaş", font=(A.FONT, 12, "bold"),
+    tk.Label(dlg, text=_tr("📖 Hikaye / Durum Paylaş"), font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 8))
 
     # Metin durumu
-    tk.Label(dlg, text="METİN DURUMU", font=(A.FONT, 7, "bold"),
+    tk.Label(dlg, text=_tr("METİN DURUMU"), font=(A.FONT, 7, "bold"),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", padx=16, pady=(8, 4))
     story_var = tk.StringVar()
     ttk.Entry(dlg, textvariable=story_var, font=(A.FONT, 10)).pack(
         fill="x", padx=16, ipady=5)
 
     # Mood
-    tk.Label(dlg, text="RUHSAL DURUM", font=(A.FONT, 7, "bold"),
+    tk.Label(dlg, text=_tr("RUHSAL DURUM"), font=(A.FONT, 7, "bold"),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", padx=16, pady=(12, 4))
     mood_var = tk.StringVar(value="")
     mood_f = tk.Frame(dlg, bg=A.BG_CARD)
     mood_f.pack(fill="x", padx=16)
-    moods = [("😊 Mutlu", "happy"), ("😔 Üzgün", "sad"), ("😡 Kızgın", "angry"),
-             ("😴 Uykulu", "sleepy"), ("🤔 Düşünceli", "thoughtful"),
-             ("🎉 Heyecanlı", "excited")]
+    moods = [(_tr("😊 Mutlu"), "happy"), (_tr("😔 Üzgün"), "sad"), (_tr("😡 Kızgın"), "angry"),
+             (_tr("😴 Uykulu"), "sleepy"), (_tr("🤔 Düşünceli"), "thoughtful"),
+             (_tr("🎉 Heyecanlı"), "excited")]
     col = 0
     for txt, val in moods:
         tk.Radiobutton(mood_f, text=txt, variable=mood_var, value=val,
@@ -77,22 +82,22 @@ def show_story_dialog(parent, on_publish):
         col += 1
 
     # Fotoğraflı durum
-    tk.Label(dlg, text="FOTOĞRAF", font=(A.FONT, 7, "bold"),
+    tk.Label(dlg, text=_tr("FOTOĞRAF"), font=(A.FONT, 7, "bold"),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", padx=16, pady=(12, 4))
     photo_path = [None]
-    photo_lbl = tk.Label(dlg, text="Seçilmedi", font=(A.FONT, 8),
+    photo_lbl = tk.Label(dlg, text=_tr("Seçilmedi"), font=(A.FONT, 8),
                          fg=A.FG_DIM, bg=A.BG_CARD)
     photo_lbl.pack(anchor="w", padx=16)
 
     def _pick():
         from tkinter import filedialog
         p = filedialog.askopenfilename(parent=dlg,
-            filetypes=[("Resim", "*.png *.jpg *.jpeg")])
+            filetypes=[(_tr("Resim"), _tr("*.png *.jpg *.jpeg"))])
         if p:
             photo_path[0] = p
             photo_lbl.config(text=os.path.basename(p))
 
-    tk.Label(dlg, text="📷 Fotoğraf Seç", font=(A.FONT, 8), fg=A.ACCENT,
+    tk.Label(dlg, text=_tr("📷 Fotoğraf Seç"), font=(A.FONT, 8), fg=A.ACCENT,
              bg=A.BG_CARD, cursor="hand2").pack(anchor="w", padx=16)
     dlg.winfo_children()[-1].bind("<Button-1>", lambda _: _pick())
 
@@ -104,7 +109,7 @@ def show_story_dialog(parent, on_publish):
         on_publish(text, mood, photo_path[0])
         dlg.destroy()
 
-    ttk.Button(dlg, text="📤 Yayınla", command=_publish).pack(
+    ttk.Button(dlg, text=_tr("📤 Yayınla"), command=_publish).pack(
         padx=16, pady=12, fill="x", ipady=4)
 
 
@@ -118,7 +123,7 @@ def show_avatar_dialog(parent, jid, avatar_data, photo_refs, *,
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Profil Fotoğrafı")
+    dlg.title(_tr("Profil Fotoğrafı"))
     dlg.configure(bg=A.SHADOW)
     dlg.resizable(False, False)
     dlg.transient(parent)
@@ -129,10 +134,10 @@ def show_avatar_dialog(parent, jid, avatar_data, photo_refs, *,
     card = tk.Frame(shadow, bg=A.BG_CARD, padx=28, pady=24)
     card.pack()
 
-    tk.Label(card, text="Profil Fotoğrafı",
+    tk.Label(card, text=_tr("Profil Fotoğrafı"),
              font=(A.FONT, 14, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(anchor="w")
-    tk.Label(card, text="Fotoğrafınızı değiştirin veya kaldırın",
+    tk.Label(card, text=_tr("Fotoğrafınızı değiştirin veya kaldırın"),
              font=(A.FONT, 8), fg=A.FG_DIM,
              bg=A.BG_CARD).pack(anchor="w", pady=(2, 16))
 
@@ -150,23 +155,23 @@ def show_avatar_dialog(parent, jid, avatar_data, photo_refs, *,
     def _on_result(ok):
         if dlg.winfo_exists():
             status_lbl.config(
-                text="✓ Güncellendi" if ok else
-                     "⚠ Yayınlanamadı — eski fotoğraf korundu",
+                text=_tr("✓ Güncellendi") if ok else
+                     _tr("⚠ Yayınlanamadı — eski fotoğraf korundu"),
                 fg=A.ACCENT_G if ok else A.RED)
 
     def _pick():
         if not A.HAS_PIL:
-            messagebox.showwarning("Pillow Gerekli",
-                "Fotoğraf desteği için Pillow gerekli:\npip install Pillow",
+            messagebox.showwarning(_tr("Pillow Gerekli"),
+                _tr("Fotoğraf desteği için Pillow gerekli:\npip install Pillow"),
                 parent=dlg)
             return
         from tkinter import filedialog
         path = filedialog.askopenfilename(
             parent=dlg,
-            title="Fotoğraf Seç",
+            title=_tr("Fotoğraf Seç"),
             filetypes=[
-                ("Resim Dosyaları", "*.png *.jpg *.jpeg *.gif *.webp *.bmp"),
-                ("Tüm Dosyalar", "*.*"),
+                (_tr("Resim Dosyaları"), _tr("*.png *.jpg *.jpeg *.gif *.webp *.bmp")),
+                (_tr("Tüm Dosyalar"), "*.*"),
             ])
         if not path:
             return
@@ -189,7 +194,7 @@ def show_avatar_dialog(parent, jid, avatar_data, photo_refs, *,
             img.save(buf, format="PNG")
             photo_bytes = buf.getvalue()
 
-            status_lbl.config(text="Yükleniyor…", fg=A.ACCENT)
+            status_lbl.config(text=_tr("Yükleniyor…"), fg=A.ACCENT)
 
             # Önizlemeyi güncelle
             preview.delete("all")
@@ -207,7 +212,7 @@ def show_avatar_dialog(parent, jid, avatar_data, photo_refs, *,
             on_publish(photo_bytes, _on_result)
 
         except Exception as e:
-            status_lbl.config(text=f"Hata: {e}", fg=A.RED)
+            status_lbl.config(text=_tr("Hata: {}").format(e), fg=A.RED)
 
     def _remove():
         on_forget()
@@ -216,14 +221,14 @@ def show_avatar_dialog(parent, jid, avatar_data, photo_refs, *,
         preview.create_text(48, 48, text=jid[0].upper(),
                             fill=A.FG_ME, font=(A.FONT, 32, "bold"))
         on_removed()
-        status_lbl.config(text="✓ Kaldırıldı", fg=A.ACCENT_G)
+        status_lbl.config(text=_tr("✓ Kaldırıldı"), fg=A.ACCENT_G)
 
     bf = tk.Frame(card, bg=A.BG_CARD)
     bf.pack(fill="x")
-    ttk.Button(bf, text="📷  Fotoğraf Seç",
+    ttk.Button(bf, text=_tr("📷  Fotoğraf Seç"),
                command=_pick).pack(side="left", ipadx=8, ipady=3)
     if avatar_data:
-        ttk.Button(bf, text="Kaldır", style="Ghost.TButton",
+        ttk.Button(bf, text=_tr("Kaldır"), style="Ghost.TButton",
                    command=_remove).pack(side="right", ipadx=8, ipady=3)
 
     dlg.lift()

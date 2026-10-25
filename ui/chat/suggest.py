@@ -8,6 +8,11 @@ model/thread/after YOKTUR.
 """
 import tkinter as tk
 
+# Arayüz metni çevirisi: xmpp içe aktarılınca `xmpp._tr` takılır
+# (ui/chat yalnız tkinter/collections içe aktarır)
+_tr = str
+
+
 
 class SuggestionBar:
     def __init__(self, parent, theme, *, row=1, columnspan=8,
@@ -21,7 +26,7 @@ class SuggestionBar:
                              font=(theme["FONT"], 9, "italic"), anchor="w",
                              cursor="hand2")
         self._lbl.pack(side="left", fill="x", expand=True)
-        tk.Label(self._bar, text="Tab ↹ kabul · Esc kapat",
+        tk.Label(self._bar, text=_tr("Tab ↹ kabul · Esc kapat"),
                  fg=theme["FG_DIM"], bg=theme["BG_CARD"],
                  font=(theme["FONT"], 7)).pack(side="right")
         if on_accept is not None:

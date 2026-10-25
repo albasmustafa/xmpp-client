@@ -80,14 +80,6 @@ def test_db_clear_chat(tmp_db):
     assert len(xmpp._db_load_msgs("x@y.z")) == 1
 
 
-def test_i18n(monkeypatch):
-    monkeypatch.setattr(xmpp, "_current_lang", "tr")
-    assert xmpp._t("send") == "Gönder"
-    monkeypatch.setattr(xmpp, "_current_lang", "en")
-    assert xmpp._t("send") == "Send"
-    assert xmpp._t("olmayan_anahtar") == "olmayan_anahtar"
-
-
 def test_apply_color_theme():
     xmpp._apply_color_theme("dracula")
     assert xmpp.BG == "#282a36"
@@ -190,7 +182,7 @@ def test_room_result_details():
         "address": "a@conf", "nusers": 5, "language": "en",
         "is_public": False, "description": "deneme odası"})
     assert "👤 5" in d and "🌐 en" in d
-    assert xmpp._t("private_room") in d and "deneme odası" in d
+    assert "özel" in d and "deneme odası" in d
     # Boş alanlarda adrese düşer
     assert xmpp._room_result_details({"address": "a@conf"}) == "a@conf"
 

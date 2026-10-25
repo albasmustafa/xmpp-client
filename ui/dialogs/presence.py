@@ -9,10 +9,15 @@ from tkinter import messagebox, ttk
 from ui.dialogs.simple import _app
 
 
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
+
 def status_choices():
     """(yayınlanan show, etiket): Durum Mesajı ve Ayarlar "chat" yayınlar;
     etiketler durum menüsünün sözlüğüdür (STATUS_OPTIONS, "chat" = Çevrimiçi)."""
-    labels = {show: label for label, show in _app().STATUS_OPTIONS}
+    labels = {show: label for label, show in _app()._status_options()}
     return [("chat", labels["online"]), ("away", labels["away"]),
             ("dnd", labels["dnd"]), ("xa", labels["xa"])]
 
@@ -24,17 +29,17 @@ def show_status(parent, on_apply, text="", show="chat"):
     değiştirmek Meşgul'ü Çevrimiçi'ne çevirmesin)."""
     A = _app()
     pop = tk.Toplevel(parent)
-    pop.title("Durum Mesajı")
+    pop.title(_tr("Durum Mesajı"))
     pop.configure(bg=A.BG_CARD)
     pop.geometry("340x200")
     pop.transient(parent)
     A._make_popover(pop, form=True)
 
-    tk.Label(pop, text="Durum Mesajı", fg=A.FG, bg=A.BG_CARD,
+    tk.Label(pop, text=_tr("Durum Mesajı"), fg=A.FG, bg=A.BG_CARD,
              font=(A.FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")
 
     status_var = tk.StringVar(value=text)
-    status_entry = A.PlaceholderEntry(pop, placeholder="Durum yazın...",
+    status_entry = A.PlaceholderEntry(pop, placeholder=_tr("Durum yazın..."),
                                       textvariable=status_var,
                                       font=(A.FONT, 10), style="Modern.TEntry")
     status_entry.pack(fill="x", padx=16, pady=(0, 12))
@@ -55,7 +60,7 @@ def show_status(parent, on_apply, text="", show="chat"):
         on_apply(status_entry.get_value(), show_var.get())
         pop.destroy()
 
-    ttk.Button(pop, text="Uygula", command=_apply).pack(
+    ttk.Button(pop, text=_tr("Uygula"), command=_apply).pack(
         padx=16, pady=(12, 16))
 
 
@@ -66,19 +71,19 @@ def show_location(parent, on_publish, on_stop):
     """
     A = _app()
     pop = tk.Toplevel(parent)
-    pop.title("Konum Paylaş")
+    pop.title(_tr("Konum Paylaş"))
     pop.configure(bg=A.BG_CARD)
     pop.geometry("320x240")
     pop.transient(parent)
     A._make_popover(pop, form=True)
 
-    tk.Label(pop, text="Konum Paylaş", fg=A.FG, bg=A.BG_CARD,
+    tk.Label(pop, text=_tr("Konum Paylaş"), fg=A.FG, bg=A.BG_CARD,
              font=(A.FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")
 
     fields = {}
     for label, key, ph in [("Enlem:", "lat", "41.0082"),
                            ("Boylam:", "lon", "28.9784"),
-                           ("Açıklama:", "desc", "İstanbul")]:
+                           (_tr("Açıklama:"), "desc", _tr("İstanbul"))]:
         f = tk.Frame(pop, bg=A.BG_CARD)
         f.pack(fill="x", padx=16, pady=2)
         tk.Label(f, text=label, fg=A.FG_DIM, bg=A.BG_CARD,
@@ -97,7 +102,7 @@ def show_location(parent, on_publish, on_stop):
             on_publish(lat, lon, desc)
             pop.destroy()
         except ValueError:
-            messagebox.showerror("Hata", "Geçersiz koordinatlar", parent=pop)
+            messagebox.showerror(_tr("Hata"), _tr("Geçersiz koordinatlar"), parent=pop)
 
     def _stop():
         on_stop()
@@ -105,5 +110,5 @@ def show_location(parent, on_publish, on_stop):
 
     btn_f = tk.Frame(pop, bg=A.BG_CARD)
     btn_f.pack(pady=(12, 16))
-    ttk.Button(btn_f, text="Paylaş", command=_send).pack(side="left", padx=4)
-    ttk.Button(btn_f, text="Durdur", command=_stop).pack(side="left", padx=4)
+    ttk.Button(btn_f, text=_tr("Paylaş"), command=_send).pack(side="left", padx=4)
+    ttk.Button(btn_f, text=_tr("Durdur"), command=_stop).pack(side="left", padx=4)

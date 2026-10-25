@@ -192,10 +192,10 @@ def test_room_context_menu_can_pin_rooms_for_the_pinned_filter(window, monkeypat
               for index in range(menus[0].index("end") + 1)
               if menus[0].type(index) != "separator"]
 
-    assert any(xmpp._t("pin") in label for label in labels)
+    assert any("Sabitle" in label for label in labels)
     index = next(index for index in range(menus[0].index("end") + 1)
                  if menus[0].type(index) != "separator"
-                 and xmpp._t("pin") in menus[0].entrycget(index, "label"))
+                 and "Sabitle" in menus[0].entrycget(index, "label"))
     menus[0].invoke(index)
     win._sidebar_filter_var.set("pinned")
     assert win._room_jids == ["dev@conf"]

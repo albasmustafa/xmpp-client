@@ -110,7 +110,7 @@ def test_top_level_is_short_and_grouped(monkeypatch):
     _w, menu, _ai = _build(monkeypatch)
     top = [label for kind, label, _t in menu.items if kind != "sep"]
     assert top == ["👤 Profil", "🔎 Mesaj Ara", "📌 Sabitlenmiş Mesajlar",
-                   f"✨ {xmpp._t('ai_assistant')}", "💬 Sohbet",
+                   "✨ AI Asistanı", "💬 Sohbet",
                    "📤 Paylaşım", "🔒 Güvenlik", "🪟 Görünüm",
                    "⚙ Diğer"]
 

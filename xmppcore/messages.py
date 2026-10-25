@@ -27,6 +27,7 @@ from xmppcore.helpers import (
     _stanza_msg_id,
     _strip_quoted_fallback,
 )
+from xmppcore.i18n import tr as _tr
 
 
 class MessagesMixin:
@@ -106,8 +107,8 @@ class MessagesMixin:
                 if msg.xml.find(
                         "{eu.siacs.conversations.axolotl}encrypted") is not None:
                     self.gui_q.put(("sys_msg",
-                        "⚠ OMEMO mesajı alındı ancak OMEMO hazır değil — "
-                        "çözülemedi"))
+                        _tr("⚠ OMEMO mesajı alındı ancak OMEMO hazır değil — "
+                            "çözülemedi")))
             except Exception:
                 pass
 
@@ -217,11 +218,11 @@ class MessagesMixin:
             if encryption == "omemo":
                 if not self._omemo_enabled():
                     self.gui_q.put(("error",
-                        "OMEMO kütüphanesi yüklü değil (slixmpp-omemo)."))
+                        _tr("OMEMO kütüphanesi yüklü değil (slixmpp-omemo).")))
                     return False
                 if not self.omemo_ready:
                     self.gui_q.put(("error",
-                        "OMEMO henüz hazır değil — lütfen birkaç saniye bekleyin."))
+                        _tr("OMEMO henüz hazır değil — lütfen birkaç saniye bekleyin.")))
                     return False
                 await self._send_omemo(to, body, "chat", mid=mid)
             elif encryption == "pgp":
@@ -233,7 +234,7 @@ class MessagesMixin:
                 self.gui_q.put(("sent_mid", {"to": to, "mid": sent_mid}))
                 return True
         except Exception as e:
-            self.gui_q.put(("error", f"Mesaj gönderilemedi: {e}"))
+            self.gui_q.put(("error", _tr("Mesaj gönderilemedi: {}").format(e)))
             return False
 
     # ── Mesaj Düzenleme (XEP-0308) ───────────────────────────────────────────
@@ -247,7 +248,7 @@ class MessagesMixin:
                 id_to_replace=orig_id, mto=to, mtype=mtype, mbody=new_body)
             correction.send()
         except Exception as e:
-            self.gui_q.put(("error", f"Düzenleme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Düzenleme hatası: {}").format(e)))
 
     # ── Mesaj Silme (XEP-0424) ───────────────────────────────────────────────
     def retract_message(self, to, msg_id, mtype="chat"):
@@ -259,7 +260,7 @@ class MessagesMixin:
             _get_xep(self, "xep_0424").send_retraction(
                 mto=to, id=msg_id, mtype=mtype)
         except Exception as e:
-            self.gui_q.put(("error", f"Silme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Silme hatası: {}").format(e)))
 
     # ── Tepkiler (XEP-0444) ─────────────────────────────────────────────────
     def send_reaction(self, to, msg_id, emojis, mtype="chat"):
@@ -276,7 +277,7 @@ class MessagesMixin:
                 msg.enable("store")
                 msg.send()
             except Exception as e:
-                self.gui_q.put(("error", f"Tepki hatası: {e}"))
+                self.gui_q.put(("error", _tr("Tepki hatası: {}").format(e)))
         self._dispatch_loop(_do)
 
     # ── Chat Markers / Okundu (XEP-0333) ────────────────────────────────────
@@ -411,7 +412,7 @@ class MessagesMixin:
             msg.send()
             self.gui_q.put(("sent_mid", {"to": to, "mid": sent_mid}))
         except Exception as e:
-            self.gui_q.put(("error", f"Yanıt hatası: {e}"))
+            self.gui_q.put(("error", _tr("Yanıt hatası: {}").format(e)))
 
     # ── Mesaj İletme ──────────────────────────────────────────────────────────
     def forward_message(self, to, orig_from, orig_body, mtype="chat",
@@ -432,5 +433,5 @@ class MessagesMixin:
                 _add_origin_id(msg, mid)
                 msg.send()
             except Exception as e:
-                self.gui_q.put(("error", f"İletme hatası: {e}"))
+                self.gui_q.put(("error", _tr("İletme hatası: {}").format(e)))
         self._dispatch_loop(_do)

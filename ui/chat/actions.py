@@ -6,6 +6,12 @@ menü/action-bar popup görünümünü üretir.
 """
 import tkinter as tk
 
+# Arayüz metni çevirisi: xmpp içe aktarılınca `xmpp._tr` takılır
+# (ui/chat yalnız tkinter/collections içe aktarır)
+_tr = str
+N_ = str        # modül düzeyindeki metin işareti (kullanım yerinde _tr)
+
+
 MENU_REACTIONS = ("👍", "❤", "😂", "😮", "😢", "👎")
 QUICK_REACTIONS = ("👍", "❤", "😂", "😮", "😢", "👎", "🔥", "🎉")
 
@@ -80,7 +86,7 @@ def show_context_menu(parent, x, y, *, theme, t, caps, mine, has_reactions,
         menu.add_command(label=f"📋 {t('copy')}",
                          command=callbacks["on_copy"])
     if caps.get("jump"):
-        menu.add_command(label="↪ Alıntılanan mesaja git",
+        menu.add_command(label=_tr("↪ Alıntılanan mesaja git"),
                          command=callbacks["on_jump"])
     if caps.get("edit"):
         menu.add_command(label=f"✏ {t('edit')}",
@@ -109,10 +115,10 @@ def show_context_menu(parent, x, y, *, theme, t, caps, mine, has_reactions,
                 label=f"{emoji}{mark}",
                 command=lambda e=emoji: callbacks["on_react"](e))
         react_menu.add_separator()
-        react_menu.add_command(label="😀 Daha fazla emoji…",
+        react_menu.add_command(label=_tr("😀 Daha fazla emoji…"),
                                command=callbacks["on_more_emoji"])
         if has_reactions:
-            react_menu.add_command(label="👥 Tepkileri gör…",
+            react_menu.add_command(label=_tr("👥 Tepkileri gör…"),
                                    command=callbacks["on_reactions_details"])
         menu.add_cascade(label=f"😊 {t('react')}", menu=react_menu)
     ai_items = [(key, label) for key, label in AI_MESSAGE_ITEMS
@@ -124,18 +130,19 @@ def show_context_menu(parent, x, y, *, theme, t, caps, mine, has_reactions,
                           activeforeground=theme["SEL_FG"],
                           font=(theme["FONT"], 9))
         for key, label in ai_items:
-            ai_menu.add_command(label=label, command=callbacks["on_" + key])
-        menu.add_cascade(label="✨ AI", menu=ai_menu)
+            ai_menu.add_command(label=_tr(label),
+                                command=callbacks["on_" + key])
+        menu.add_cascade(label=_tr("✨ AI"), menu=ai_menu)
     menu.tk_popup(x, y)
 
 
 # Mesaj başına AI eylemleri: (capability/callback anahtarı, etiket)
 AI_MESSAGE_ITEMS = (
-    ("ai_translate", "🌐 Çevir"),
-    ("ai_transcribe", "🎙 Sesi yazıya dök"),
-    ("ai_describe", "🖼 Görseli açıkla"),
-    ("ai_ask_image", "❓ Görsele soru sor…"),
-    ("ai_speak", "🔊 Sesli oku"),
+    ("ai_translate", N_("🌐 Çevir")),
+    ("ai_transcribe", N_("🎙 Sesi yazıya dök")),
+    ("ai_describe", N_("🖼 Görseli açıkla")),
+    ("ai_ask_image", N_("❓ Görsele soru sor…")),
+    ("ai_speak", N_("🔊 Sesli oku")),
 )
 
 
@@ -147,7 +154,8 @@ def show_ai_message_menu(parent, anchor, *, theme, items, callbacks):
                    font=(theme["FONT"], 9))
     for key, label in AI_MESSAGE_ITEMS:
         if key in items:
-            menu.add_command(label=label, command=callbacks["on_" + key])
+            menu.add_command(label=_tr(label),
+                             command=callbacks["on_" + key])
     # grab_release YOK: X11'de tk_popup dışarı tıklamayı yakalayan grab'i
     # kurup hemen döner; bırakılırsa menü açık kalır
     menu.tk_popup(anchor.winfo_rootx(),
@@ -165,7 +173,7 @@ def show_quick_reaction_menu(parent, anchor, *, theme, mine, on_react, on_more):
         menu.add_command(label=f"{emoji}{mark}",
                          command=lambda e=emoji: on_react(e))
     menu.add_separator()
-    menu.add_command(label="😀 Daha fazla emoji…", command=on_more)
+    menu.add_command(label=_tr("😀 Daha fazla emoji…"), command=on_more)
     # grab_release YOK: X11'de tk_popup dışarı tıklamayı yakalayan grab'i
     # kurup hemen döner; bırakılırsa menü açık kalır
     menu.tk_popup(anchor.winfo_rootx(),

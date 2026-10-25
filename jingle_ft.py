@@ -18,6 +18,8 @@ from slixmpp.exceptions import XMPPError
 from slixmpp.plugins.xep_0234.stanza import File
 from slixmpp.xmlstream import ET, ElementBase, register_stanza_plugin
 
+from xmppcore.i18n import tr as _tr
+
 NS_JINGLE = "urn:xmpp:jingle:1"
 NS_FT = "urn:xmpp:jingle:apps:file-transfer:5"
 NS_IBB = "urn:xmpp:jingle:transports:ibb:1"
@@ -267,10 +269,10 @@ async def recv_stream(session: FTSession, stream, part_path: str, on_progress) -
                 chunk = await asyncio.wait_for(
                     stream.recv_queue.get(), DATA_TIMEOUT)
             except asyncio.TimeoutError:
-                raise TimeoutError("Veri zaman aşımı")
+                raise TimeoutError(_tr("Veri zaman aşımı"))
             received += len(chunk)
             if received > session.size:
-                raise ValueError("Beyan edilen boyut aşıldı")
+                raise ValueError(_tr("Beyan edilen boyut aşıldı"))
             fh.write(chunk)
             hasher.update(chunk)
             on_progress(received, session.size)
@@ -368,7 +370,7 @@ class JingleFTManager:
         import uuid
         size = os.path.getsize(filepath)
         if size > MAX_FILE_BYTES:
-            raise ValueError("Dosya 2 GiB sınırını aşıyor")
+            raise ValueError(_tr("Dosya 2 GiB sınırını aşıyor"))
         hasher = hashlib.sha256()
         with open(filepath, "rb") as fh:
             for block in iter(lambda: fh.read(1024 * 1024), b""):
@@ -397,11 +399,11 @@ class JingleFTManager:
             if accepted is False or session.cancelled:
                 return sid
         except asyncio.TimeoutError:
-            await self._terminate(session, "cancel", "Kabul zaman aşımı")
-            self._finish(session, "failed", "Kabul zaman aşımı")
+            await self._terminate(session, "cancel", _tr("Kabul zaman aşımı"))
+            self._finish(session, "failed", _tr("Kabul zaman aşımı"))
             return sid
         except Exception as e:
-            self._finish(session, "failed", f"Teklif gönderilemedi: {e}")
+            self._finish(session, "failed", _tr("Teklif gönderilemedi: {}").format(e))
             return sid
         try:
             open_stream = self.xmpp.plugin["xep_0047"].open_stream
@@ -543,8 +545,8 @@ class JingleFTManager:
                 return
             if session.hash_value and digest != session.hash_value:
                 _remove_quiet(part)
-                await self._terminate(session, "failed", "Hash uyuşmadı")
-                self._finish(session, "failed", "Hash uyuşmazlığı")
+                await self._terminate(session, "failed", _tr("Hash uyuşmadı"))
+                self._finish(session, "failed", _tr("Hash uyuşmazlığı"))
                 return
             os.replace(part, save_path)
             try:
@@ -565,14 +567,14 @@ class JingleFTManager:
         if session is None:
             return
         await self._terminate(session, "decline", text)
-        self._finish(session, "declined", "Reddedildi")
+        self._finish(session, "declined", _tr("Reddedildi"))
 
     async def cancel(self, sid: str):
         session = self.sessions.get(sid)
         if session is None:
             return
         session.cancelled = True
-        await self._terminate(session, "cancel", "İptal edildi")
+        await self._terminate(session, "cancel", _tr("İptal edildi"))
         if session.stream is not None:
             try:
                 await session.stream.close()
@@ -580,7 +582,7 @@ class JingleFTManager:
                 pass
         if session.filepath:
             _remove_quiet(session.filepath + ".part")
-        self._finish(session, "cancelled", "İptal edildi")
+        self._finish(session, "cancelled", _tr("İptal edildi"))
 
     # ── yönlendirme ────────────────────────────────────────────────────────
     async def handle_jingle_iq(self, iq):
@@ -606,8 +608,8 @@ class JingleFTManager:
             raise XMPPError("conflict", "Oturum zaten var", etype="cancel")
         for other in list(self.sessions.values()):
             if other.peer == offer["peer"] and other.state == "pending":
-                await self._terminate(other, "cancel", "Yeni teklif")
-                self._finish(other, "cancelled", "Yeni teklif geldi")
+                await self._terminate(other, "cancel", _tr("Yeni teklif"))
+                self._finish(other, "cancelled", _tr("Yeni teklif geldi"))
         session = FTSession(
             sid=sid, peer=offer["peer"], initiator=False, name=name,
             size=offer["size"], mime=offer["mime"], desc=offer["desc"],
@@ -664,7 +666,7 @@ class JingleFTManager:
         if session.sid not in self.sessions:
             return
         self._finish(session, "failed",
-                     f"Karşı taraf kapattı: {reason_name or 'sebep yok'}")
+                     _tr("Karşı taraf kapattı: {}").format(reason_name or _tr('sebep yok')))
 
 
 def _remove_quiet(path: str):

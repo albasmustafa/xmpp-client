@@ -16,6 +16,13 @@ from tkinter import ttk
 from ui import selectable as _selectable
 from ui.dialogs.simple import _app
 
+N_ = str        # modül düzeyindeki metin işareti (kullanım yerinde _tr)
+
+
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
 
 def _alive(widget) -> bool:
     try:
@@ -51,7 +58,7 @@ class ResultWindow:
 
     def __init__(self, parent, title, subtitle="", actions=(), *,
                  on_ask=None, on_close=None,
-                 ask_hint="Takip sorusu sorun…", ask_ready=False):
+                 ask_hint=N_("Takip sorusu sorun…"), ask_ready=False):
         A = _app()
         self._text_value = ""
         self._actions = list(actions)
@@ -79,7 +86,7 @@ class ResultWindow:
         if subtitle:
             tk.Label(head, text=subtitle, font=(A.FONT, 8), fg=A.FG_DIM,
                      bg=A.BG_CARD, anchor="w").pack(anchor="w")
-        self._status = tk.Label(head, text="⏳ Hazırlanıyor…",
+        self._status = tk.Label(head, text=_tr("⏳ Hazırlanıyor…"),
                                 font=(A.FONT, 8), fg=A.ACCENT, bg=A.BG_CARD,
                                 anchor="w", justify="left", wraplength=440)
         self._status.pack(anchor="w", pady=(4, 0))
@@ -98,11 +105,11 @@ class ResultWindow:
             box.pack(side="left", fill="x", expand=True)
             self._ask_var = tk.StringVar()
             self._ask_entry = A.PlaceholderEntry(
-                box, placeholder=ask_hint, textvariable=self._ask_var,
+                box, placeholder=_tr(ask_hint), textvariable=self._ask_var,
                 font=(A.FONT, 10), style="Modern.TEntry")
             self._ask_entry.pack(fill="x", ipady=6, padx=2, pady=2)
             self._ask_entry.bind("<Return>", self._submit)
-            _link_button(ask, "Sor ↵", self._submit).pack(side="left",
+            _link_button(ask, _tr("Sor ↵"), self._submit).pack(side="left",
                                                           padx=(6, 0))
             self._set_ask_enabled(self._ask_ready)
 
@@ -128,14 +135,14 @@ class ResultWindow:
             self._text.mark_gravity(mark, "left")
 
         self._action_btns = []
-        _link_button(btns, "📋 Kopyala", self._copy).pack(side="left")
+        _link_button(btns, _tr("📋 Kopyala"), self._copy).pack(side="left")
         for label, fn in self._actions:
             b = _link_button(btns, label,
                              lambda f=fn: f(self._text_value)
                              if self._text_value else None)
             b.pack(side="left")
             self._action_btns.append(b)
-        _link_button(btns, "Kapat", self.close,
+        _link_button(btns, _tr("Kapat"), self.close,
                      fg=A.FG_DIM).pack(side="right")
 
     # ── durum ───────────────────────────────────────────────────────────────
@@ -179,7 +186,7 @@ class ResultWindow:
         self._partial = False
         self._pending_q = None
         self._turns += 1
-        self._status.config(text=status or "✓ Hazır", fg=A.ACCENT_G)
+        self._status.config(text=status or _tr("✓ Hazır"), fg=A.ACCENT_G)
         self._set_ask_enabled(self._on_ask is not None)
 
     def set_text(self, text, status=""):
@@ -207,7 +214,7 @@ class ResultWindow:
         if not self._partial:
             self._partial = True
             A = _app()
-            self._status.config(text="✍ Yazılıyor…", fg=A.ACCENT)
+            self._status.config(text=_tr("✍ Yazılıyor…"), fg=A.ACCENT)
 
     def begin_question(self, question):
         """Kabul edilen takip sorusunu göster; yanıt bölgesini aç."""
@@ -229,7 +236,7 @@ class ResultWindow:
         self._pending_q = question
         self._partial = False
         self._set_ask_enabled(False)
-        self._status.config(text="⏳ Yanıt hazırlanıyor…", fg=A.ACCENT)
+        self._status.config(text=_tr("⏳ Yanıt hazırlanıyor…"), fg=A.ACCENT)
 
     def set_answer(self, text, status=""):
         """Geçerli (takip) yanıtının kesin metni: akış parçalarının yerine."""
@@ -292,7 +299,7 @@ class ResultWindow:
             except Exception:
                 pass
 
-    def set_sources(self, items, on_pick, title="Kaynaklar"):
+    def set_sources(self, items, on_pick, title=N_("Kaynaklar")):
         """Tıklanabilir bağlantılar: items [(etiket, payload)] → on_pick."""
         if not self.alive():
             return
@@ -302,7 +309,7 @@ class ResultWindow:
         if not items:
             self._sources.pack_forget()
             return
-        tk.Label(self._sources, text=title, font=(A.FONT, 7, "bold"),
+        tk.Label(self._sources, text=_tr(title), font=(A.FONT, 7, "bold"),
                  fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
         for label, payload in list(items)[:12]:
             lbl = tk.Label(self._sources, text=label, font=(A.FONT, 8),
@@ -315,15 +322,15 @@ class ResultWindow:
         self._sources.pack(side="bottom", fill="x", padx=16, pady=(6, 0),
                            before=self._body)
 
-    def set_choices(self, items, on_pick, hint="Seçince giriş kutusuna "
-                                               "yerleştirilir:"):
+    def set_choices(self, items, on_pick, hint=N_("Seçince giriş kutusuna "
+                                                  "yerleştirilir:")):
         """Seçilebilir öneriler (yanıt önerisi). Seçim pencereyi kapatır."""
         if not self.alive():
             return
         A = _app()
         for child in self._choices.winfo_children():
             child.destroy()
-        tk.Label(self._choices, text=hint, font=(A.FONT, 8), fg=A.FG_DIM,
+        tk.Label(self._choices, text=_tr(hint), font=(A.FONT, 8), fg=A.FG_DIM,
                  bg=A.BG_CARD, anchor="w").pack(anchor="w", pady=(0, 4))
         for item in items:
             card = tk.Label(self._choices, text=item, font=(A.FONT, 10),
@@ -336,7 +343,7 @@ class ResultWindow:
                 on_pick(s)
                 self.close()
             card.bind("<Button-1>", _pick)
-        self.set_text("\n".join(items), status="✓ Bir öneri seçin")
+        self.set_text("\n".join(items), status=_tr("✓ Bir öneri seçin"))
 
     def _copy(self):
         if not self.alive():
@@ -347,7 +354,7 @@ class ResultWindow:
         if value:
             self.top.clipboard_clear()
             self.top.clipboard_append(value)
-            self._status.config(text="📋 Panoya kopyalandı")
+            self._status.config(text=_tr("📋 Panoya kopyalandı"))
 
 
 class SemanticSearchWindow:
@@ -357,25 +364,25 @@ class SemanticSearchWindow:
         A = _app()
         self._payloads = []
         self.top = top = tk.Toplevel(parent)
-        top.title("Anlamsal Arama")
+        top.title(_tr("Anlamsal Arama"))
         top.configure(bg=A.BG_CARD)
         top.geometry("560x460")
         top.transient(parent)
 
         head = tk.Frame(top, bg=A.BG_CARD, padx=16, pady=12)
         head.pack(fill="x")
-        tk.Label(head, text="🧠  Anlamla Ara", font=(A.FONT, 11, "bold"),
+        tk.Label(head, text=_tr("🧠  Anlamla Ara"), font=(A.FONT, 11, "bold"),
                  fg=A.FG, bg=A.BG_CARD).pack(anchor="w")
         tk.Label(head, text=subtitle, font=(A.FONT, 8), fg=A.FG_DIM,
                  bg=A.BG_CARD).pack(anchor="w")
-        tk.Label(head, text="Örn: \"geçen ay konuşulan fiyat\", "
-                            "\"buluşma yeri\"", font=(A.FONT, 8),
+        tk.Label(head, text=_tr("Örn: \"geçen ay konuşulan fiyat\", "
+                                "\"buluşma yeri\""), font=(A.FONT, 8),
                  fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
 
         self._query = tk.StringVar()
         sb = tk.Frame(head, bg=A.BORDER, padx=1, pady=1)
         sb.pack(fill="x", pady=(8, 0))
-        entry = A.PlaceholderEntry(sb, placeholder="Ne arıyorsunuz?",
+        entry = A.PlaceholderEntry(sb, placeholder=_tr("Ne arıyorsunuz?"),
                                    textvariable=self._query,
                                    font=(A.FONT, 10), style="Modern.TEntry")
         entry.pack(fill="x", ipady=7, padx=2, pady=2)
@@ -434,12 +441,17 @@ class SemanticSearchWindow:
             self._payloads.append(payload)
 
 
-_KIND_LABELS = (("event", "📅 Etkinlik"), ("task", "✅ Görev"))
+_KIND_LABELS = (("event", N_("📅 Etkinlik")), ("task", N_("✅ Görev")))
+
+
+def _kind_labels():
+    """Öğe türü etiketleri seçili dilde: ((anahtar, etiket), …)."""
+    return tuple((key, _tr(label)) for key, label in _KIND_LABELS)
 
 
 def format_action_line(item) -> str:
     """Panoya kopyalama için tek satırlık özet (saf; test edilebilir)."""
-    kind = dict(_KIND_LABELS).get(item.get("kind"), "✅ Görev")
+    kind = dict(_kind_labels()).get(item.get("kind"), _tr("✅ Görev"))
     when = " ".join(p for p in (item.get("date", ""), item.get("time", ""))
                     if p)
     if when and item.get("end_time"):
@@ -468,7 +480,7 @@ class ActionsWindow:
         self._on_close = on_close
         self._rows = []
         self.top = top = tk.Toplevel(parent)
-        top.title("Görevler ve Etkinlikler")
+        top.title(_tr("Görevler ve Etkinlikler"))
         top.configure(bg=A.BG_CARD)
         top.geometry("680x600")
         top.transient(parent)
@@ -482,12 +494,12 @@ class ActionsWindow:
         if subtitle:
             tk.Label(head, text=subtitle, font=(A.FONT, 8), fg=A.FG_DIM,
                      bg=A.BG_CARD, anchor="w").pack(anchor="w")
-        tk.Label(head, text="Tarih ve saatler sohbetten tahmin edildi; "
-                            "kaydetmeden önce kontrol edin (YYYY-AA-GG, "
-                            "SS:DD).",
+        tk.Label(head, text=_tr("Tarih ve saatler sohbetten tahmin edildi; "
+                                "kaydetmeden önce kontrol edin (YYYY-AA-GG, "
+                                "SS:DD)."),
                  font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD, anchor="w",
                  justify="left", wraplength=640).pack(anchor="w")
-        self._status = tk.Label(head, text="⏳ Hazırlanıyor…",
+        self._status = tk.Label(head, text=_tr("⏳ Hazırlanıyor…"),
                                 font=(A.FONT, 8), fg=A.ACCENT, bg=A.BG_CARD,
                                 anchor="w", justify="left", wraplength=640)
         self._status.pack(anchor="w", pady=(4, 0))
@@ -495,15 +507,15 @@ class ActionsWindow:
         btns = tk.Frame(top, bg=A.BG_CARD, padx=12, pady=8)
         btns.pack(side="bottom", fill="x")
         self._btns = [
-            _link_button(btns, "📅 .ics olarak kaydet",
+            _link_button(btns, _tr("📅 .ics olarak kaydet"),
                          lambda: self._run(self._on_export)),
-            _link_button(btns, "⏰ Hatırlatıcı kur",
+            _link_button(btns, _tr("⏰ Hatırlatıcı kur"),
                          lambda: self._run(self._on_remind)),
-            _link_button(btns, "📋 Kopyala", self._copy),
+            _link_button(btns, _tr("📋 Kopyala"), self._copy),
         ]
         for b in self._btns:
             b.pack(side="left")
-        _link_button(btns, "Kapat", self.close,
+        _link_button(btns, _tr("Kapat"), self.close,
                      fg=A.FG_DIM).pack(side="right")
 
         wrap = tk.Frame(top, bg=A.BORDER, padx=1, pady=1)
@@ -581,10 +593,10 @@ class ActionsWindow:
         for item in items:
             self._add_row(item)
         if items:
-            self.set_status(f"✓ {len(items)} öğe bulundu — seçip "
-                            "kaydedin ya da hatırlatıcı kurun.")
+            self.set_status(_tr("✓ {} öğe bulundu — seçip kaydedin ya da hatırlatıcı kurun.")
+                            .format(len(items)))
         else:
-            self.set_status("Bu sohbette görev ya da etkinlik bulunamadı.")
+            self.set_status(_tr("Bu sohbette görev ya da etkinlik bulunamadı."))
 
     def _add_row(self, item):
         A = _app()
@@ -593,28 +605,28 @@ class ActionsWindow:
         vars_ = {k: tk.StringVar(value=item.get(k, ""))
                  for k in ("title", "date", "time", "end_time", "location")}
         checked = tk.BooleanVar(value=True)
-        kind = tk.StringVar(value=dict(_KIND_LABELS).get(item.get("kind"),
-                                                         "✅ Görev"))
+        kind = tk.StringVar(value=dict(_kind_labels()).get(item.get("kind"),
+                                                         _tr("✅ Görev")))
         line1 = tk.Frame(card, bg=A.BG_CARD)
         line1.pack(fill="x")
         tk.Checkbutton(line1, variable=checked, bg=A.BG_CARD,
                        activebackground=A.BG_CARD,
                        selectcolor=A.BG_HOVER).pack(side="left")
         ttk.Combobox(line1, textvariable=kind, state="readonly", width=10,
-                     values=[label for _k, label in _KIND_LABELS]
+                     values=[label for _k, label in _kind_labels()]
                      ).pack(side="left", padx=(0, 6))
         ttk.Entry(line1, textvariable=vars_["title"],
                   style="Modern.TEntry").pack(side="left", fill="x",
                                               expand=True)
         line2 = tk.Frame(card, bg=A.BG_CARD)
         line2.pack(fill="x", pady=(6, 0))
-        for label, key, width in (("Tarih", "date", 11), ("Saat", "time", 6),
-                                  ("Bitiş", "end_time", 6)):
+        for label, key, width in ((_tr("Tarih"), "date", 11), (_tr("Saat"), "time", 6),
+                                  (_tr("Bitiş"), "end_time", 6)):
             tk.Label(line2, text=label, font=(A.FONT, 8), fg=A.FG_DIM,
                      bg=A.BG_CARD).pack(side="left", padx=(0, 3))
             ttk.Entry(line2, textvariable=vars_[key], width=width,
                       style="Modern.TEntry").pack(side="left", padx=(0, 8))
-        tk.Label(line2, text="Yer", font=(A.FONT, 8), fg=A.FG_DIM,
+        tk.Label(line2, text=_tr("Yer"), font=(A.FONT, 8), fg=A.FG_DIM,
                  bg=A.BG_CARD).pack(side="left", padx=(0, 3))
         ttk.Entry(line2, textvariable=vars_["location"],
                   style="Modern.TEntry").pack(side="left", fill="x",
@@ -630,7 +642,7 @@ class ActionsWindow:
         self._rows.append((checked, kind, vars_, item))
 
     def selected_items(self) -> list:
-        kinds = {label: key for key, label in _KIND_LABELS}
+        kinds = {label: key for key, label in _kind_labels()}
         out = []
         for checked, kind, vars_, item in self._rows:
             if not checked.get():
@@ -652,7 +664,7 @@ class ActionsWindow:
             return
         items = self.selected_items()
         if not items:
-            self.set_status("Önce en az bir öğe seçin.", ok=False)
+            self.set_status(_tr("Önce en az bir öğe seçin."), ok=False)
             return
         result = callback(items)
         if result is not None and self.alive():
@@ -666,7 +678,7 @@ class ActionsWindow:
         self.top.clipboard_clear()
         self.top.clipboard_append(
             "\n".join(format_action_line(i) for i in items))
-        self.set_status("📋 Panoya kopyalandı")
+        self.set_status(_tr("📋 Panoya kopyalandı"))
 
 
 def question_card(parent, entry, *, on_open, on_remind, on_dismiss,
@@ -687,18 +699,18 @@ def question_card(parent, entry, *, on_open, on_remind, on_dismiss,
              wraplength=wraplength).pack(fill="x", pady=(2, 4))
     row = tk.Frame(card, bg=A.BG_CARD)
     row.pack(fill="x")
-    _link_button(row, "💬 Sohbete git", on_open, bg=A.BG_CARD
+    _link_button(row, _tr("💬 Sohbete git"), on_open, bg=A.BG_CARD
                  ).pack(side="left")
-    _link_button(row, "⏰ Yarın 09:00 hatırlat", on_remind, bg=A.BG_CARD
+    _link_button(row, _tr("⏰ Yarın 09:00 hatırlat"), on_remind, bg=A.BG_CARD
                  ).pack(side="left")
-    _link_button(row, "✓ Yok say", on_dismiss, fg=A.FG_DIM, bg=A.BG_CARD
+    _link_button(row, _tr("✓ Yok say"), on_dismiss, fg=A.FG_DIM, bg=A.BG_CARD
                  ).pack(side="right")
     return card
 
 
 def questions_status(n) -> str:
-    return (f"{n} sohbette yanıt bekleyen soru var." if n else
-            "Yanıt bekleyen soru yok. 🎉")
+    return (_tr("{} sohbette yanıt bekleyen soru var.").format(n) if n else
+            _tr("Yanıt bekleyen soru yok. 🎉"))
 
 
 class PendingQuestionsWindow:
@@ -717,29 +729,29 @@ class PendingQuestionsWindow:
         self._on_dismiss = on_dismiss
         self._cards = {}
         self.top = top = tk.Toplevel(parent)
-        top.title("Yanıt Bekleyen Sorular")
+        top.title(_tr("Yanıt Bekleyen Sorular"))
         top.configure(bg=A.BG_CARD)
         top.geometry("580x520")
         top.transient(parent)
 
         head = tk.Frame(top, bg=A.BG_CARD, padx=16, pady=12)
         head.pack(fill="x")
-        tk.Label(head, text="❓  Yanıt Bekleyen Sorular",
+        tk.Label(head, text=_tr("❓  Yanıt Bekleyen Sorular"),
                  font=(A.FONT, 11, "bold"), fg=A.FG, bg=A.BG_CARD,
                  anchor="w").pack(anchor="w")
-        tk.Label(head, text="Son mesajınızdan sonra size sorulan ve henüz "
-                            "yanıtlamadığınız sorular. Tespit bilgisayarınızda "
-                            "yapılır; hiçbir içerik dışarı gönderilmez.",
+        tk.Label(head, text=_tr("Son mesajınızdan sonra size sorulan ve henüz "
+                                "yanıtlamadığınız sorular. Tespit bilgisayarınızda "
+                                "yapılır; hiçbir içerik dışarı gönderilmez."),
                  font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD, anchor="w",
                  justify="left", wraplength=540).pack(anchor="w")
-        self._status = tk.Label(head, text="⏳ Taranıyor…", font=(A.FONT, 8),
+        self._status = tk.Label(head, text=_tr("⏳ Taranıyor…"), font=(A.FONT, 8),
                                 fg=A.ACCENT, bg=A.BG_CARD, anchor="w",
                                 justify="left", wraplength=540)
         self._status.pack(anchor="w", pady=(4, 0))
 
         btns = tk.Frame(top, bg=A.BG_CARD, padx=12, pady=8)
         btns.pack(side="bottom", fill="x")
-        _link_button(btns, "Kapat", self.close,
+        _link_button(btns, _tr("Kapat"), self.close,
                      fg=A.FG_DIM).pack(side="right")
 
         wrap = tk.Frame(top, bg=A.BORDER, padx=1, pady=1)
@@ -911,12 +923,12 @@ class InlineResult:
     WRAP = 460
 
     def __init__(self, owner, title, subtitle="", *, on_ask=None,
-                 on_close=None, ask_hint="Takip sorusu sorun…",
+                 on_close=None, ask_hint=N_("Takip sorusu sorun…"),
                  ask_ready=False, actions=()):
         A = _app()
         self._owner = owner
         self.title = title
-        self.ask_hint = ask_hint
+        self.ask_hint = _tr(ask_hint)
         self._on_ask = on_ask
         self._on_close = on_close
         self._ask_ready = bool(ask_ready)
@@ -942,7 +954,7 @@ class InlineResult:
             tk.Label(card, text=subtitle, font=(A.FONT, 8), fg=A.FG_DIM,
                      bg=A.BG_CARD, anchor="w", justify="left",
                      wraplength=self.WRAP).pack(fill="x")
-        self._status = tk.Label(card, text="⏳ Hazırlanıyor…",
+        self._status = tk.Label(card, text=_tr("⏳ Hazırlanıyor…"),
                                 font=(A.FONT, 8), fg=A.ACCENT, bg=A.BG_CARD,
                                 anchor="w", justify="left",
                                 wraplength=self.WRAP)
@@ -955,7 +967,7 @@ class InlineResult:
         self._extra.pack(fill="x")
         row = tk.Frame(card, bg=A.BG_CARD)
         row.pack(fill="x", pady=(6, 0))
-        _link_button(row, "📋 Kopyala", self._copy,
+        _link_button(row, _tr("📋 Kopyala"), self._copy,
                      bg=A.BG_CARD).pack(side="left")
         for label, fn in actions:
             _link_button(row, label,
@@ -964,7 +976,7 @@ class InlineResult:
                          bg=A.BG_CARD).pack(side="left")
         self._ask_btn = None
         if on_ask is not None:
-            self._ask_btn = _link_button(row, "↩ Takip sorusu",
+            self._ask_btn = _link_button(row, _tr("↩ Takip sorusu"),
                                          self.focus_ask, bg=A.BG_CARD)
             if self._ask_ready:
                 self._ask_btn.pack(side="left")
@@ -1003,7 +1015,7 @@ class InlineResult:
         self._pending_q = None
         self._q_bubble = self._a_bubble = self._a_label = None
         self._turns += 1
-        self._status.config(text=status or "✓ Hazır", fg=A.ACCENT_G)
+        self._status.config(text=status or _tr("✓ Hazır"), fg=A.ACCENT_G)
         self._ask_enabled = self._on_ask is not None
         if self._ask_btn is not None:
             self._ask_btn.pack(side="left")
@@ -1028,7 +1040,7 @@ class InlineResult:
         if not self._partial:
             self._partial = True
             A = _app()
-            self._status.config(text="✍ Yazılıyor…", fg=A.ACCENT)
+            self._status.config(text=_tr("✍ Yazılıyor…"), fg=A.ACCENT)
         scroller = self._owner._list
         if scroller.at_end():           # okumak için yukarı kaydırdıysa bırak
             scroller.scroll_end()
@@ -1054,7 +1066,7 @@ class InlineResult:
         self._partial = False
         self._stream = ""
         self._ask_enabled = False
-        self._status.config(text="⏳ Yanıt hazırlanıyor…", fg=A.ACCENT)
+        self._status.config(text=_tr("⏳ Yanıt hazırlanıyor…"), fg=A.ACCENT)
         owner._finish()
 
     def set_answer(self, text, status=""):
@@ -1103,7 +1115,7 @@ class InlineResult:
         return True
 
     # ── kaynaklar, öneriler, sorular ────────────────────────────────────────
-    def set_sources(self, items, on_pick, title="Kaynaklar"):
+    def set_sources(self, items, on_pick, title=N_("Kaynaklar")):
         """Tıklanabilir bağlantılar listenin o anki sonuna eklenir (geçerli
         turun kutusu yenilenir; önceki turlarınki yerinde kalır)."""
         if not self.alive():
@@ -1118,7 +1130,7 @@ class InlineResult:
         box = self._sources = tk.Frame(self._owner._list.inner,
                                        bg=A.BG_PANEL, padx=12)
         box.pack(fill="x", padx=8, pady=(0, 4))
-        tk.Label(box, text=title, font=(A.FONT, 7, "bold"), fg=A.FG_DIM,
+        tk.Label(box, text=_tr(title), font=(A.FONT, 7, "bold"), fg=A.FG_DIM,
                  bg=A.BG_PANEL, anchor="w").pack(fill="x")
         for label, payload in items:
             lbl = tk.Label(box, text=label, font=(A.FONT, 8), fg=A.ACCENT,
@@ -1128,15 +1140,15 @@ class InlineResult:
             lbl.bind("<Button-1>", lambda _e, p=payload: on_pick(p))
         self._owner._finish()
 
-    def set_choices(self, items, on_pick, hint="Seçince giriş kutusuna "
-                                               "yerleştirilir:"):
+    def set_choices(self, items, on_pick, hint=N_("Seçince giriş kutusuna "
+                                                  "yerleştirilir:")):
         """Seçilebilir öneriler (yanıt önerisi); seçim kartı kapatmaz."""
         if not self.alive():
             return
         A = _app()
         for child in self._extra.winfo_children():
             child.destroy()
-        tk.Label(self._extra, text=hint, font=(A.FONT, 8), fg=A.FG_DIM,
+        tk.Label(self._extra, text=_tr(hint), font=(A.FONT, 8), fg=A.FG_DIM,
                  bg=A.BG_CARD, anchor="w").pack(anchor="w", pady=(4, 4))
         for item in items:
             card = tk.Label(self._extra, text=item, font=(A.FONT, 10),
@@ -1149,13 +1161,13 @@ class InlineResult:
                 on_pick(s)
                 if self.alive():
                     self._status.config(
-                        text="✓ Giriş kutusuna kondu — kontrol edip siz "
-                             "gönderin.", fg=_app().ACCENT_G)
+                        text=_tr("✓ Giriş kutusuna kondu — kontrol edip siz "
+                                 "gönderin."), fg=_app().ACCENT_G)
             card.bind("<Button-1>", _pick)
         text = "\n".join(items)
         self._log = [(None, text)]
         self._turns = 0
-        self._finish(text, "✓ Bir öneri seçin")
+        self._finish(text, _tr("✓ Bir öneri seçin"))
 
     def set_questions(self, entries, on_open, on_remind, on_dismiss):
         """Yanıt bekleyen sorular (PendingQuestionsWindow ile aynı kartlar).
@@ -1205,7 +1217,7 @@ class InlineResult:
             top = self._owner.top
             top.clipboard_clear()
             top.clipboard_append(value)
-            self._status.config(text="📋 Panoya kopyalandı")
+            self._status.config(text=_tr("📋 Panoya kopyalandı"))
 
 
 class AssistantWindow:
@@ -1244,7 +1256,7 @@ class AssistantWindow:
         self._results = []
         self._followup = None
         self.top = top = tk.Toplevel(parent)
-        top.title("Asistan")
+        top.title(_tr("Asistan"))
         top.configure(bg=A.BG_CARD)
         top.geometry("560x660")
         top.transient(parent)
@@ -1257,10 +1269,10 @@ class AssistantWindow:
         head.pack(fill="x")
         title_row = tk.Frame(head, bg=A.BG_CARD)
         title_row.pack(fill="x")
-        tk.Label(title_row, text="✨  Asistan", font=(A.FONT, 12, "bold"),
+        tk.Label(title_row, text=_tr("✨  Asistan"), font=(A.FONT, 12, "bold"),
                  fg=A.FG, bg=A.BG_CARD).pack(side="left")
         if on_clear is not None:
-            _link_button(title_row, "🗑 Temizle", on_clear,
+            _link_button(title_row, _tr("🗑 Temizle"), on_clear,
                          fg=A.FG_DIM).pack(side="right")
         self._subtitle = tk.Label(head, text=subtitle, font=(A.FONT, 8),
                                   fg=A.FG_DIM, bg=A.BG_CARD, anchor="w",
@@ -1296,7 +1308,7 @@ class AssistantWindow:
         row.pack(fill="x", pady=(4, 0))
         self._var = tk.StringVar()
         self._entry = A.PlaceholderEntry(
-            row, placeholder="Bir komut yazın ya da soru sorun…",
+            row, placeholder=_tr("Bir komut yazın ya da soru sorun…"),
             textvariable=self._var, font=(A.FONT, 10),
             style="Modern.TEntry")
         self._entry.pack(side="left", fill="x", expand=True, ipady=7,
@@ -1402,8 +1414,8 @@ class AssistantWindow:
         if result is None:
             self._fu_bar.pack_forget()
             return
-        self._fu_label.config(text=f"↩ Takip sorusu: {result.title} — "
-                                   f"{result.ask_hint}  (Esc: komut)")
+        self._fu_label.config(text=_tr("↩ Takip sorusu: {} — {}  (Esc: komut)")
+                                   .format(result.title, result.ask_hint))
         self._fu_bar.pack(fill="x", before=self._entry_row)
         try:
             self._entry.focus_force()
@@ -1565,7 +1577,8 @@ class AssistantWindow:
                 text += f" {secs} sn"
         if self._queue:
             names = ", ".join(label for _k, label in self._queue)
-            text = f"{text}  ·  sırada: {names}" if text else f"sırada: {names}"
+            text = (_tr("{}  ·  sırada: {}").format(text, names) if text
+                    else _tr("sırada: {}").format(names))
         self._status.config(text=text, fg=A.ACCENT)
 
     # ── mesajlar ────────────────────────────────────────────────────────────
@@ -1575,7 +1588,7 @@ class AssistantWindow:
         A = _app()
         box = tk.Frame(self._list.inner, bg=A.BG_PANEL, padx=10, pady=10)
         box.pack(fill="x")
-        tk.Label(box, text="Örnekler — tıklayın ya da kendiniz yazın:",
+        tk.Label(box, text=_tr("Örnekler — tıklayın ya da kendiniz yazın:"),
                  font=(A.FONT, 8, "bold"), fg=A.FG_DIM, bg=A.BG_PANEL,
                  anchor="w").pack(fill="x")
         for ex in self._examples:
@@ -1677,7 +1690,7 @@ class AssistantWindow:
         """Belirsiz hedef: options [(etiket, değer)] → on_pick(değer)."""
         buttons = [(f"› {label}", lambda v=value: on_pick(v))
                    for label, value in options]
-        buttons.append(("✗ Vazgeç", lambda: ("Vazgeçildi.", False)))
+        buttons.append((_tr("✗ Vazgeç"), lambda: (_tr("Vazgeçildi."), False)))
         return self.add_card("❔ " + prompt, "Hangisini kastettiniz?",
                              buttons)
 
@@ -1709,17 +1722,17 @@ class DraftsWindow:
         self._cb = {"use": on_use, "regen": on_regen, "consent": on_consent,
                     "dismiss": on_dismiss}
         self.top = top = tk.Toplevel(parent)
-        top.title("Yanıt Taslakları")
+        top.title(_tr("Yanıt Taslakları"))
         top.configure(bg=A.BG_CARD)
         top.geometry("600x560")
         top.transient(parent)
         head = tk.Frame(top, bg=A.BG_CARD, padx=16, pady=12)
         head.pack(fill="x")
-        tk.Label(head, text="📝  Yanıt Taslakları", font=(A.FONT, 11, "bold"),
+        tk.Label(head, text=_tr("📝  Yanıt Taslakları"), font=(A.FONT, 11, "bold"),
                  fg=A.FG, bg=A.BG_CARD, anchor="w").pack(anchor="w")
-        tk.Label(head, text="Taslaklar asla kendiliğinden gönderilmez: "
-                            "“Kullan” metni sohbetin giriş kutusuna koyar, "
-                            "düzenleyip siz gönderirsiniz.",
+        tk.Label(head, text=_tr("Taslaklar asla kendiliğinden gönderilmez: "
+                                "“Kullan” metni sohbetin giriş kutusuna koyar, "
+                                "düzenleyip siz gönderirsiniz."),
                  font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD, anchor="w",
                  justify="left", wraplength=560).pack(anchor="w")
         self._status = tk.Label(head, text="", font=(A.FONT, 8),
@@ -1727,7 +1740,7 @@ class DraftsWindow:
         self._status.pack(anchor="w", pady=(4, 0))
         btns = tk.Frame(top, bg=A.BG_CARD, padx=12, pady=8)
         btns.pack(side="bottom", fill="x")
-        _link_button(btns, "Kapat", self.close, fg=A.FG_DIM).pack(
+        _link_button(btns, _tr("Kapat"), self.close, fg=A.FG_DIM).pack(
             side="right")
         self._list = _ScrollList(top, A.BG_PANEL)
         self._list.wrap.pack(fill="both", expand=True, padx=16, pady=(4, 0))
@@ -1746,8 +1759,8 @@ class DraftsWindow:
         for entry in entries:
             self._add_card(entry)
         n = len(entries)
-        self._status.config(text=f"{n} sohbet için taslak var." if n else
-                            "Bekleyen taslak yok.")
+        self._status.config(text=_tr("{} sohbet için taslak var.").format(n) if n else
+                            _tr("Bekleyen taslak yok."))
 
     def _add_card(self, entry):
         A = _app()
@@ -1756,7 +1769,7 @@ class DraftsWindow:
         card.pack(fill="x", padx=6, pady=4)
         meta = [entry["label"]]
         if entry.get("count"):
-            meta.append(f"{entry['count']} yeni mesaj")
+            meta.append(_tr("{} yeni mesaj").format(entry['count']))
         if entry.get("source"):
             meta.append(entry["source"])
         tk.Label(card, text="👤 " + "  ·  ".join(meta),
@@ -1768,11 +1781,11 @@ class DraftsWindow:
                      wraplength=520).pack(fill="x", pady=(2, 4))
         state = entry.get("state", "ready")
         if state == "pending":
-            tk.Label(card, text="⏳ Taslak hazırlanıyor…", font=(A.FONT, 9),
+            tk.Label(card, text=_tr("⏳ Taslak hazırlanıyor…"), font=(A.FONT, 9),
                      fg=A.ACCENT, bg=A.BG_CARD, anchor="w").pack(fill="x")
         elif state == "blocked":
-            tk.Label(card, text="🔒 Şifreli sohbet: taslak için içerik "
-                                "buluta (Claude) gönderilmeli.",
+            tk.Label(card, text=_tr("🔒 Şifreli sohbet: taslak için içerik "
+                                    "buluta (Claude) gönderilmeli."),
                      font=(A.FONT, 9), fg=A.FG_DIM, bg=A.BG_CARD,
                      anchor="w", justify="left", wraplength=520).pack(
                 fill="x")
@@ -1786,28 +1799,28 @@ class DraftsWindow:
             tk.Label(row, text=text, font=(A.FONT, 10), fg=A.FG,
                      bg=A.BG_HOVER, anchor="w", justify="left",
                      wraplength=440).pack(side="left", fill="x", expand=True)
-            _link_button(row, "➡ Kullan",
+            _link_button(row, _tr("➡ Kullan"),
                          lambda t=text: cb["use"](entry, t),
                          bg=A.BG_HOVER).pack(side="right")
         actions = tk.Frame(card, bg=A.BG_CARD)
         actions.pack(fill="x", pady=(4, 0))
         if state == "blocked":
-            _link_button(actions, "☁ Onayla ve hazırla",
+            _link_button(actions, _tr("☁ Onayla ve hazırla"),
                          lambda: cb["consent"](entry),
                          bg=A.BG_CARD).pack(side="left")
         elif state in ("ready", "error") and entry.get("regen", True):
-            _link_button(actions, "🔄 Yeniden üret",
+            _link_button(actions, _tr("🔄 Yeniden üret"),
                          lambda: cb["regen"](entry),
                          bg=A.BG_CARD).pack(side="left")
-        _link_button(actions, "✓ Kaldır", lambda: cb["dismiss"](entry),
+        _link_button(actions, _tr("✓ Kaldır"), lambda: cb["dismiss"](entry),
                      fg=A.FG_DIM, bg=A.BG_CARD).pack(side="right")
         self._list.bind_wheel(card)
 
 
 _PROVIDER_CHOICES = (
-    ("off", "Kapalı"),
-    ("ollama", "🖥 Yerel — Ollama (önerilen; veri bilgisayarda kalır)"),
-    ("claude", "☁ Claude — bulut (Anthropic API)"),
+    ("off", N_("Kapalı")),
+    ("ollama", N_("🖥 Yerel — Ollama (önerilen; veri bilgisayarda kalır)")),
+    ("claude", N_("☁ Claude — bulut (Anthropic API)")),
 )
 _CLAUDE_MODELS = ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5")
 
@@ -1826,7 +1839,7 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("AI Ayarları")
+    dlg.title(_tr("AI Ayarları"))
     dlg.configure(bg=A.BG_CARD)
     dlg.minsize(560, 0)
     dlg.transient(parent)
@@ -1834,11 +1847,11 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
 
     head = tk.Frame(dlg, bg=A.BG_CARD, padx=18, pady=12)
     head.pack(fill="x")
-    tk.Label(head, text="✨ AI Asistanı", font=(A.FONT, 12, "bold"),
+    tk.Label(head, text=_tr("✨ AI Asistanı"), font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(anchor="w")
-    tk.Label(head, text="Şifreli sohbetler varsayılan olarak yalnız yerel "
-                        "modelle işlenir. Ses→metin ve anlamsal arama her "
-                        "zaman yereldir.",
+    tk.Label(head, text=_tr("Şifreli sohbetler varsayılan olarak yalnız yerel "
+                            "modelle işlenir. Ses→metin ve anlamsal arama her "
+                            "zaman yereldir."),
              font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD, justify="left",
              wraplength=510).pack(anchor="w", pady=(2, 0))
 
@@ -1891,91 +1904,90 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
         return var
 
     # ── 1) Model ────────────────────────────────────────────────────────────
-    page = _page("🤖 Model")
-    _section(page, "SAĞLAYICI")
+    page = _page(_tr("🤖 Model"))
+    _section(page, _tr("SAĞLAYICI"))
     provider = tk.StringVar(value=settings["provider"])
     for value, text in _PROVIDER_CHOICES:
-        tk.Radiobutton(page, text=text, variable=provider, value=value,
+        tk.Radiobutton(page, text=_tr(text), variable=provider, value=value,
                        **chk_kw).pack(anchor="w")
-    _section(page, "YEREL MODEL (OLLAMA)")
+    _section(page, _tr("YEREL MODEL (OLLAMA)"))
     v_url = tk.StringVar(value=settings["ollama_url"])
     v_model = tk.StringVar(value=settings["ollama_model"])
     v_vision = tk.StringVar(value=settings["ollama_vision_model"])
     v_embed = tk.StringVar(value=settings["embed_model"])
-    _row(page, "Adres", v_url)
-    _row(page, "Sohbet modeli", v_model)
-    _row(page, "Görsel modeli", v_vision)
-    _row(page, "Gömme modeli", v_embed)
+    _row(page, _tr("Adres"), v_url)
+    _row(page, _tr("Sohbet modeli"), v_model)
+    _row(page, _tr("Görsel modeli"), v_vision)
+    _row(page, _tr("Gömme modeli"), v_embed)
     v_keep = tk.StringVar(value=settings["keep_alive"])
-    _row(page, "Model sıcak", v_keep, values=keep_alive_choices)
+    _row(page, _tr("Model sıcak"), v_keep, values=keep_alive_choices)
     v_gpu = tk.StringVar(value=settings["ollama_gpu"])
-    _row(page, "Ekran kartı", v_gpu, values=gpu_choices)
-    _hint(page, f"Kurulum: ollama pull {settings['ollama_model']}  ·  "
-                f"ollama pull {settings['embed_model']}\n"
-                "Model, bu süre boyunca bellekte tutulur; boşta geçen "
-                "isteklerde yeniden yükleme beklemesi olmaz (5 dk = Ollama "
-                "varsayılanı). Ekran kartı \"off\": sohbet modeli yalnız "
-                "CPU'da (zayıf ekran kartında daha hızlı).")
+    _row(page, _tr("Ekran kartı"), v_gpu, values=gpu_choices)
+    _hint(page, _tr("Kurulum: ollama pull {}  ·  ollama pull {}\nModel, bu süre "
+                    "boyunca bellekte tutulur; boşta geçen isteklerde yeniden "
+                    "yükleme beklemesi olmaz (5 dk = Ollama varsayılanı). Ekran "
+                    "kartı \"off\": sohbet modeli yalnız CPU'da (zayıf ekran kartında "
+                    "daha hızlı).").format(settings['ollama_model'], settings['embed_model']))
 
     # ── 2) Claude ───────────────────────────────────────────────────────────
-    page = _page("☁ Claude")
-    _section(page, "CLAUDE (BULUT)")
+    page = _page(_tr("☁ Claude"))
+    _section(page, _tr("CLAUDE (BULUT)"))
     v_cmodel = tk.StringVar(value=settings["claude_model"])
     v_key = tk.StringVar(value="")
-    _row(page, "Model", v_cmodel, values=_CLAUDE_MODELS)
-    _row(page, "API anahtarı", v_key, show="•")
-    _hint(page, "Kayıtlı anahtar var — değiştirmek için yazın." if has_key
-          else "Boş bırakılırsa ANTHROPIC_API_KEY ortam değişkeni kullanılır.")
+    _row(page, _tr("Model"), v_cmodel, values=_CLAUDE_MODELS)
+    _row(page, _tr("API anahtarı"), v_key, show="•")
+    _hint(page, _tr("Kayıtlı anahtar var — değiştirmek için yazın.") if has_key
+          else _tr("Boş bırakılırsa ANTHROPIC_API_KEY ortam değişkeni kullanılır."))
     v_delkey = tk.BooleanVar(value=False)
     if has_key:
-        tk.Checkbutton(page, text="Kayıtlı anahtarı sil", variable=v_delkey,
+        tk.Checkbutton(page, text=_tr("Kayıtlı anahtarı sil"), variable=v_delkey,
                        **chk_kw).pack(anchor="w")
-    v_cloud_enc = _check(page, "Şifreli sohbetlerde de her seferinde "
-                               "sormadan Claude'u kullan (önerilmez)",
+    v_cloud_enc = _check(page, _tr("Şifreli sohbetlerde de her seferinde "
+                                   "sormadan Claude'u kullan (önerilmez)"),
                          "cloud_for_encrypted")
 
     # ── 3) Özellikler ───────────────────────────────────────────────────────
-    page = _page("✨ Özellikler")
-    _section(page, "GENEL")
+    page = _page(_tr("✨ Özellikler"))
+    _section(page, _tr("GENEL"))
     v_lang = tk.StringVar(value=settings["target_language"])
-    _row(page, "Çeviri/yanıt dili", v_lang)
-    v_guard = _check(page, "Şifresiz gönderimde parola/IBAN/kart gibi hassas "
-                           "bilgi uyarısı (yerel)", "leak_guard")
-    _section(page, "ASİSTAN")
-    v_inline = _check(page, "Yazarken satır içi öneri — Tab ile kabul et "
-                            "(yalnız yerel Ollama modeliyle çalışır)",
+    _row(page, _tr("Çeviri/yanıt dili"), v_lang)
+    v_guard = _check(page, _tr("Şifresiz gönderimde parola/IBAN/kart gibi hassas "
+                               "bilgi uyarısı (yerel)"), "leak_guard")
+    _section(page, _tr("ASİSTAN"))
+    v_inline = _check(page, _tr("Yazarken satır içi öneri — Tab ile kabul et "
+                                "(yalnız yerel Ollama modeliyle çalışır)"),
                       "inline_complete")
-    v_away = _check(page, "Uzaktayken gelen mesajlara yanıt taslağı hazırla "
-                          "(asla gönderilmez; dönüşte gözden geçirirsiniz)",
+    v_away = _check(page, _tr("Uzaktayken gelen mesajlara yanıt taslağı hazırla "
+                              "(asla gönderilmez; dönüşte gözden geçirirsiniz)"),
                     "away_drafts")
 
     # ── 4) Ses ──────────────────────────────────────────────────────────────
-    page = _page("🎙 Ses")
-    _section(page, "SES → METİN")
+    page = _page(_tr("🎙 Ses"))
+    _section(page, _tr("SES → METİN"))
     v_whisper = tk.StringVar(value=settings["whisper_model"])
-    _row(page, "Whisper modeli", v_whisper, values=whisper_models)
-    v_auto_stt = _check(page, "Gelen sesli mesajları otomatik yazıya dök "
-                              "(yerel, faster-whisper)", "auto_transcribe")
-    _section(page, "SESLİ OKUMA")
+    _row(page, _tr("Whisper modeli"), v_whisper, values=whisper_models)
+    v_auto_stt = _check(page, _tr("Gelen sesli mesajları otomatik yazıya dök "
+                                  "(yerel, faster-whisper)"), "auto_transcribe")
+    _section(page, _tr("SESLİ OKUMA"))
     v_tts = tk.StringVar(value=settings["tts_engine"])
     v_voice = tk.StringVar(value=settings["tts_voice"])
     v_tts_lang = tk.StringVar(value=settings["tts_lang"])
-    _row(page, "Motor", v_tts, values=tts_engines)
-    _row(page, "Piper ses modeli", v_voice)
-    _row(page, "Okuma dili", v_tts_lang)
-    _hint(page, "Motor yoksa: sudo pacman -S espeak-ng · Piper için .onnx "
-                "ses modelinin tam yolunu girin (ör. tr_TR-dfki-medium.onnx).")
+    _row(page, _tr("Motor"), v_tts, values=tts_engines)
+    _row(page, _tr("Piper ses modeli"), v_voice)
+    _row(page, _tr("Okuma dili"), v_tts_lang)
+    _hint(page, _tr("Motor yoksa: sudo pacman -S espeak-ng · Piper için .onnx "
+                    "ses modelinin tam yolunu girin (ör. tr_TR-dfki-medium.onnx)."))
 
     # ── 5) MCP ──────────────────────────────────────────────────────────────
-    page = _page("🔌 MCP")
-    _section(page, "CLAUDE CODE / DESKTOP")
-    v_mcp = _check(page, "MCP erişimi: harici AI araçları sohbet geçmişini "
-                         "okuyabilir ve taslak bırakabilir (mesaj gönderemez)",
+    page = _page(_tr("🔌 MCP"))
+    _section(page, _tr("CLAUDE CODE / DESKTOP"))
+    v_mcp = _check(page, _tr("MCP erişimi: harici AI araçları sohbet geçmişini "
+                             "okuyabilir ve taslak bırakabilir (mesaj gönderemez)"),
                    "mcp_enabled")
-    v_mcp_enc = _check(page, "MCP'ye şifreli mesajların içeriğini de göster "
-                             "(önerilmez)", "mcp_include_encrypted")
+    v_mcp_enc = _check(page, _tr("MCP'ye şifreli mesajların içeriğini de göster "
+                                 "(önerilmez)"), "mcp_include_encrypted")
     if mcp_command:
-        _hint(page, "Kayıt komutu (taslak için REST API de açık olmalı):")
+        _hint(page, _tr("Kayıt komutu (taslak için REST API de açık olmalı):"))
         cmd_f = tk.Frame(page, bg=A.BG_CARD)
         cmd_f.pack(fill="x", pady=(2, 0))
         tk.Label(cmd_f, text=mcp_command, font=("Courier", 8), fg=A.FG,
@@ -1985,7 +1997,7 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
         def _copy_cmd():
             dlg.clipboard_clear()
             dlg.clipboard_append(mcp_command)
-            status.config(text="📋 MCP komutu panoya kopyalandı.",
+            status.config(text=_tr("📋 MCP komutu panoya kopyalandı."),
                           fg=A.ACCENT_G)
         _link_button(cmd_f, "📋", _copy_cmd).pack(side="right")
 
@@ -2024,16 +2036,16 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
             status.config(text=message, fg=A.ACCENT_G if ok else A.RED)
 
     def _test():
-        status.config(text="⏳ Test ediliyor…", fg=A.ACCENT)
+        status.config(text=_tr("⏳ Test ediliyor…"), fg=A.ACCENT)
         on_test(_values(), _key(), _report)
 
     def _save():
         on_save(_values(), _key())
         dlg.destroy()
 
-    ttk.Button(btns, text="🔌 Bağlantıyı Test Et",
+    ttk.Button(btns, text=_tr("🔌 Bağlantıyı Test Et"),
                command=_test).pack(side="left")
-    ttk.Button(btns, text="İptal", command=dlg.destroy).pack(side="right")
-    ttk.Button(btns, text="Kaydet", command=_save).pack(side="right",
+    ttk.Button(btns, text=_tr("İptal"), command=dlg.destroy).pack(side="right")
+    ttk.Button(btns, text=_tr("Kaydet"), command=_save).pack(side="right",
                                                         padx=(0, 6))
     return dlg

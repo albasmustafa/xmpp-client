@@ -36,7 +36,7 @@ def test_sidebar_spec_sections_in_order():
     """Bölüm başlıkları Kişiler → Odalar → Gelişmiş sırasında olmalı."""
     sections = [item[1] for item in xmpp._sidebar_menu_spec(has_active_chat=False)
                 if item[0] == "section"]
-    assert sections == [xmpp._t("contacts"), xmpp._t("rooms"), xmpp._t("advanced")]
+    assert sections == ["KİŞİLER", "ODALAR", "GELİŞMİŞ"]
 
 
 def test_sidebar_spec_no_empty_labels_and_settings_last():
@@ -50,7 +50,7 @@ def test_sidebar_spec_no_empty_labels_and_settings_last():
 
 def test_sidebar_spec_language_switch(monkeypatch):
     """Dil değişince bölüm başlıkları da değişmeli."""
-    monkeypatch.setattr(xmpp, "_current_lang", "en")
+    monkeypatch.setattr(xmpp._i18n, "_lang", "en")
     sections = [item[1] for item in xmpp._sidebar_menu_spec(has_active_chat=False)
                 if item[0] == "section"]
-    assert sections == [xmpp._t("contacts"), xmpp._t("rooms"), xmpp._t("advanced")]
+    assert sections == ["CONTACTS", "ROOMS", "ADVANCED"]

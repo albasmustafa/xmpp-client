@@ -92,7 +92,7 @@ def test_sidebar_menu_has_theme_entry():
     keys = [item[2] for item in spec if item[0] == "item"]
     assert "theme" in keys
     labels = [item[1] for item in spec if item[0] == "item"]
-    assert any(xmpp._t("theme") in lbl for lbl in labels)
+    assert any("Tema" in lbl for lbl in labels)
 
 
 def test_theme_picker_bound_in_actions():

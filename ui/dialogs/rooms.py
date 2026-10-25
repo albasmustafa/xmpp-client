@@ -14,6 +14,13 @@ from ui.timers import after_alive
 from xmppcore.format import _bookmark_add
 from xmppcore.helpers import _room_address
 
+N_ = str        # modül düzeyindeki metin işareti (kullanım yerinde _tr)
+
+
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
 
 def ask_invite(parent, room):
     """Davet JID'i ve sebebini sor.
@@ -22,12 +29,12 @@ def ask_invite(parent, room):
     Orijinal davranış: sebep sorusu iptal edilirse reason "" olur.
     """
     jid = simpledialog.askstring(
-        "Davet Gönder", f"{room} odasına davet edilecek JID:",
+        _tr("Davet Gönder"), _tr("{} odasına davet edilecek JID:").format(room),
         parent=parent)
     if not jid:
         return None
     reason = simpledialog.askstring(
-        "Davet Gönder", "Sebep (opsiyonel):", parent=parent) or ""
+        _tr("Davet Gönder"), _tr("Sebep (opsiyonel):"), parent=parent) or ""
     return jid, reason
 
 
@@ -35,13 +42,13 @@ def show_common_groups(parent, name, jid, rooms, room_members):
     """Kişiyle ortak grupları listeleyen pencere (MainWindow._common_groups_dialog)."""
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Ortak Gruplar")
+    dlg.title(_tr("Ortak Gruplar"))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("340x300")
     dlg.transient(parent)
     A._make_popover(dlg)
 
-    tk.Label(dlg, text=f"🏠 {name} ile Ortak Gruplar", font=(A.FONT, 11, "bold"),
+    tk.Label(dlg, text=_tr("🏠 {} ile Ortak Gruplar").format(name), font=(A.FONT, 11, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 8))
 
     lb = tk.Listbox(dlg, bg=A.BG_PANEL, fg=A.FG, selectbackground=A.SEL_BG,
@@ -59,9 +66,9 @@ def show_common_groups(parent, name, jid, rooms, room_members):
                 break
 
     if found == 0:
-        lb.insert("end", "  Ortak grup bulunamadı")
+        lb.insert("end", _tr("  Ortak grup bulunamadı"))
 
-    ttk.Button(dlg, text="Kapat", command=dlg.destroy).pack(pady=8)
+    ttk.Button(dlg, text=_tr("Kapat"), command=dlg.destroy).pack(pady=8)
 
 
 def show_join_room(parent, default_conf, default_nick, on_discover, on_join):
@@ -73,7 +80,7 @@ def show_join_room(parent, default_conf, default_nick, on_discover, on_join):
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Odaya Katıl")
+    dlg.title(_tr("Odaya Katıl"))
     dlg.configure(bg=A.SHADOW)
     dlg.resizable(False, False)
     dlg.transient(parent)
@@ -84,10 +91,10 @@ def show_join_room(parent, default_conf, default_nick, on_discover, on_join):
     card = tk.Frame(shadow, bg=A.BG_CARD, padx=32, pady=28)
     card.pack()
 
-    tk.Label(card, text="Odaya Katıl",
+    tk.Label(card, text=_tr("Odaya Katıl"),
              font=(A.FONT, 14, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(anchor="w")
-    tk.Label(card, text="Bir konferans sunucusu keşfedin veya doğrudan katılın",
+    tk.Label(card, text=_tr("Bir konferans sunucusu keşfedin veya doğrudan katılın"),
              font=(A.FONT, 8), fg=A.FG_DIM,
              bg=A.BG_CARD).pack(anchor="w", pady=(2, 16))
 
@@ -96,7 +103,7 @@ def show_join_room(parent, default_conf, default_nick, on_discover, on_join):
     nick_var = tk.StringVar(value=default_nick)
 
     # -- Konferans sunucusu
-    tk.Label(card, text="🌐  KONFERANS SUNUCUSU", fg=A.FG_DIM, bg=A.BG_CARD,
+    tk.Label(card, text=_tr("🌐  KONFERANS SUNUCUSU"), fg=A.FG_DIM, bg=A.BG_CARD,
              font=(A.FONT, 7, "bold")).pack(anchor="w")
     cb = tk.Frame(card, bg=A.BORDER, padx=1, pady=1)
     cb.pack(fill="x", pady=(4, 0))
@@ -110,22 +117,22 @@ def show_join_room(parent, default_conf, default_nick, on_discover, on_join):
             on_discover(srv)
             dlg.destroy()
 
-    ttk.Button(card, text="Odaları Keşfet", style="Ghost.TButton",
+    ttk.Button(card, text=_tr("Odaları Keşfet"), style="Ghost.TButton",
                command=_discover).pack(anchor="w", pady=(8, 10), ipadx=4)
 
     tk.Frame(card, bg=A.BORDER, height=1).pack(fill="x", pady=6)
 
     # -- Doğrudan katılma
-    tk.Label(card, text="🚪  ODA JID (doğrudan katıl)", fg=A.FG_DIM,
+    tk.Label(card, text=_tr("🚪  ODA JID (doğrudan katıl)"), fg=A.FG_DIM,
              bg=A.BG_CARD, font=(A.FONT, 7, "bold")).pack(anchor="w", pady=(6, 0))
     rb = tk.Frame(card, bg=A.BORDER, padx=1, pady=1)
     rb.pack(fill="x", pady=(4, 0))
-    room_e = A.PlaceholderEntry(rb, placeholder="oda@conference.sunucu.tld",
+    room_e = A.PlaceholderEntry(rb, placeholder=_tr("oda@conference.sunucu.tld"),
                                 textvariable=room_var, font=(A.FONT, 10),
                                 width=34, style="Modern.TEntry")
     room_e.pack(fill="x", ipady=7, padx=2, pady=2)
 
-    tk.Label(card, text="👤  TAKMA AD", fg=A.FG_DIM, bg=A.BG_CARD,
+    tk.Label(card, text=_tr("👤  TAKMA AD"), fg=A.FG_DIM, bg=A.BG_CARD,
              font=(A.FONT, 7, "bold")).pack(anchor="w", pady=(10, 0))
     nb = tk.Frame(card, bg=A.BORDER, padx=1, pady=1)
     nb.pack(fill="x", pady=(4, 0))
@@ -144,7 +151,7 @@ def show_join_room(parent, default_conf, default_nick, on_discover, on_join):
         dlg.destroy()
         on_join(room, nick)
 
-    ttk.Button(card, text="Katıl",
+    ttk.Button(card, text=_tr("Katıl"),
                command=_ok).pack(pady=(16, 0), fill="x", ipady=5)
     dlg.bind("<Return>", _ok)
     dlg.lift()
@@ -162,7 +169,7 @@ def show_create_room(parent, default_conf, default_nick, on_create):
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Oda Oluştur")
+    dlg.title(_tr("Oda Oluştur"))
     dlg.configure(bg=A.SHADOW)
     dlg.resizable(False, False)
     dlg.transient(parent)
@@ -173,10 +180,10 @@ def show_create_room(parent, default_conf, default_nick, on_create):
     card = tk.Frame(shadow, bg=A.BG_CARD, padx=32, pady=28)
     card.pack()
 
-    tk.Label(card, text="Oda Oluştur",
+    tk.Label(card, text=_tr("Oda Oluştur"),
              font=(A.FONT, 14, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(anchor="w")
-    tk.Label(card, text="Yeni bir sohbet odası oluşturun",
+    tk.Label(card, text=_tr("Yeni bir sohbet odası oluşturun"),
              font=(A.FONT, 8), fg=A.FG_DIM,
              bg=A.BG_CARD).pack(anchor="w", pady=(2, 16))
 
@@ -184,17 +191,17 @@ def show_create_room(parent, default_conf, default_nick, on_create):
     room_name_var = tk.StringVar()
     nick_var = tk.StringVar(value=default_nick)
 
-    tk.Label(card, text="🏠  ODA ADI", fg=A.FG_DIM, bg=A.BG_CARD,
+    tk.Label(card, text=_tr("🏠  ODA ADI"), fg=A.FG_DIM, bg=A.BG_CARD,
              font=(A.FONT, 7, "bold")).pack(anchor="w")
     rb = tk.Frame(card, bg=A.BORDER, padx=1, pady=1)
     rb.pack(fill="x", pady=(4, 0))
-    room_entry = A.PlaceholderEntry(rb, placeholder="yeni-oda",
+    room_entry = A.PlaceholderEntry(rb, placeholder=_tr("yeni-oda"),
                                     textvariable=room_name_var,
                                     font=(A.FONT, 10), width=34,
                                     style="Modern.TEntry")
     room_entry.pack(fill="x", ipady=7, padx=2, pady=2)
 
-    addr_lbl = tk.Label(card, text=f"Adres: …@{conf_server}", fg=A.FG_DIM,
+    addr_lbl = tk.Label(card, text=_tr("Adres: …@{}").format(conf_server), fg=A.FG_DIM,
                         bg=A.BG_CARD, font=(A.FONT, 7), wraplength=340,
                         justify="left")
     addr_lbl.pack(anchor="w", pady=(2, 0))
@@ -205,14 +212,14 @@ def show_create_room(parent, default_conf, default_nick, on_create):
     def _preview(*_):
         try:
             jid, _title = _room_address(_name(), conf_server)
-            addr_lbl.config(text=f"Adres: {jid}", fg=A.FG_DIM)
+            addr_lbl.config(text=_tr("Adres: {}").format(jid), fg=A.FG_DIM)
         except ValueError as e:
-            addr_lbl.config(text=f"Adres: …@{conf_server}" if not _name()
+            addr_lbl.config(text=_tr("Adres: …@{}").format(conf_server) if not _name()
                             else f"⚠ {e}", fg=A.FG_DIM if not _name() else A.RED)
 
     room_name_var.trace_add("write", _preview)
 
-    tk.Label(card, text="👤  TAKMA AD", fg=A.FG_DIM, bg=A.BG_CARD,
+    tk.Label(card, text=_tr("👤  TAKMA AD"), fg=A.FG_DIM, bg=A.BG_CARD,
              font=(A.FONT, 7, "bold")).pack(anchor="w", pady=(10, 0))
     nb = tk.Frame(card, bg=A.BORDER, padx=1, pady=1)
     nb.pack(fill="x", pady=(4, 0))
@@ -221,15 +228,15 @@ def show_create_room(parent, default_conf, default_nick, on_create):
         fill="x", ipady=7, padx=2, pady=2)
 
     # Oda türü: şifreli (OMEMO) oda yalnız davetlilere açık ve anonim değildir
-    tk.Label(card, text="🛡  ODA TÜRÜ", fg=A.FG_DIM, bg=A.BG_CARD,
+    tk.Label(card, text=_tr("🛡  ODA TÜRÜ"), fg=A.FG_DIM, bg=A.BG_CARD,
              font=(A.FONT, 7, "bold")).pack(anchor="w", pady=(10, 2))
     kind_var = tk.StringVar(value="normal")
     kinds = [
-        ("normal", "🌐  Normal oda",
-         "Adresi bilen herkes katılabilir, mesajlar şifresizdir."),
-        ("encrypted", "🔒  Şifreli oda (OMEMO)",
-         "Yalnız davet ettikleriniz katılır, mesajlar uçtan uca şifrelenir."
-         if A.HAS_OMEMO else "OMEMO kütüphanesi (slixmpp-omemo) yüklü değil."),
+        ("normal", _tr("🌐  Normal oda"),
+         _tr("Adresi bilen herkes katılabilir, mesajlar şifresizdir.")),
+        ("encrypted", _tr("🔒  Şifreli oda (OMEMO)"),
+         _tr("Yalnız davet ettikleriniz katılır, mesajlar uçtan uca şifrelenir.")
+         if A.HAS_OMEMO else _tr("OMEMO kütüphanesi (slixmpp-omemo) yüklü değil.")),
     ]
     for value, label, hint in kinds:
         tk.Radiobutton(card, text=label, variable=kind_var, value=value,
@@ -254,7 +261,7 @@ def show_create_room(parent, default_conf, default_nick, on_create):
         dlg.destroy()
         on_create(room_jid, nick, kind_var.get(), title)
 
-    ttk.Button(card, text="Oluştur ve Katıl",
+    ttk.Button(card, text=_tr("Oluştur ve Katıl"),
                command=_create).pack(pady=(16, 0), fill="x", ipady=5)
     dlg.bind("<Return>", _create)
     dlg.lift()
@@ -273,13 +280,13 @@ def show_bookmarks(parent, jid, active, rooms, my_nick, bookmarks,
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Yer İmleri")
+    dlg.title(_tr("Yer İmleri"))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("440x380")
     dlg.transient(parent)
     A._make_popover(dlg)
 
-    tk.Label(dlg, text="📑  Yer İmleri", font=(A.FONT, 12, "bold"),
+    tk.Label(dlg, text=_tr("📑  Yer İmleri"), font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 8), anchor="w")
 
     lb = tk.Listbox(dlg, bg=A.BG_PANEL, fg=A.FG, selectbackground=A.SEL_BG,
@@ -323,13 +330,13 @@ def show_bookmarks(parent, jid, active, rooms, my_nick, bookmarks,
             on_save(bookmarks)
             _reload()
 
-    ttk.Button(btn_f, text="Katıl",
+    ttk.Button(btn_f, text=_tr("Katıl"),
                command=_join_selected).pack(side="left", padx=4)
-    ttk.Button(btn_f, text="Mevcut Odayı Ekle", style="Ghost.TButton",
+    ttk.Button(btn_f, text=_tr("Mevcut Odayı Ekle"), style="Ghost.TButton",
                command=_add_current).pack(side="left", padx=4)
-    ttk.Button(btn_f, text="🗑 Sil", style="Danger.TButton",
+    ttk.Button(btn_f, text=_tr("🗑 Sil"), style="Danger.TButton",
                command=_delete_selected).pack(side="left", padx=4)
-    ttk.Button(btn_f, text="Kapat",
+    ttk.Button(btn_f, text=_tr("Kapat"),
                command=dlg.destroy).pack(side="right", padx=4)
 
 
@@ -343,7 +350,7 @@ def show_room_config(parent, room, form, on_submit):
     """
     A = _app()
     win = tk.Toplevel(parent)
-    win.title(f"Oda Ayarları — {room}")
+    win.title(_tr("Oda Ayarları — {}").format(room))
     win.configure(bg=A.BG_PANEL)
     win.geometry("520x560")
     win.transient(parent)
@@ -487,8 +494,8 @@ def show_room_config(parent, room, form, on_submit):
         on_submit(form)
         win.destroy()
 
-    ttk.Button(btn_frame, text="Kaydet", command=_save).pack(side="right", padx=4)
-    ttk.Button(btn_frame, text="İptal", command=win.destroy).pack(side="right", padx=4)
+    ttk.Button(btn_frame, text=_tr("Kaydet"), command=_save).pack(side="right", padx=4)
+    ttk.Button(btn_frame, text=_tr("İptal"), command=win.destroy).pack(side="right", padx=4)
 
 
 def show_room_admin(parent, room, members, subject, contacts,
@@ -501,7 +508,7 @@ def show_room_admin(parent, room, members, subject, contacts,
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title(f"Oda Yönetimi — {room.split('@')[0]}")
+    dlg.title(_tr("Oda Yönetimi — {}").format(room.split('@')[0]))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("460x440")
     dlg.transient(parent)
@@ -512,7 +519,7 @@ def show_room_admin(parent, room, members, subject, contacts,
 
     # Üyeler sekmesi
     t_members = tk.Frame(nb, bg=A.BG_CARD, padx=16, pady=12)
-    nb.add(t_members, text="  Üyeler  ")
+    nb.add(t_members, text=_tr("  Üyeler  "))
 
     for nick, info in sorted(members.items()):
         mf = tk.Frame(t_members, bg=A.BG_HOVER, padx=10, pady=4)
@@ -528,9 +535,9 @@ def show_room_admin(parent, room, members, subject, contacts,
 
     # Ayarlar sekmesi
     t_settings = tk.Frame(nb, bg=A.BG_CARD, padx=16, pady=12)
-    nb.add(t_settings, text="  Ayarlar  ")
+    nb.add(t_settings, text=_tr("  Ayarlar  "))
 
-    tk.Label(t_settings, text="Oda Konusu:", font=(A.FONT, 9),
+    tk.Label(t_settings, text=_tr("Oda Konusu:"), font=(A.FONT, 9),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
     subj_var = tk.StringVar(value=subject)
     ttk.Entry(t_settings, textvariable=subj_var,
@@ -541,14 +548,14 @@ def show_room_admin(parent, room, members, subject, contacts,
         if on_set_subject(new_subj):
             dlg.destroy()
 
-    ttk.Button(t_settings, text="Konuyu Güncelle",
+    ttk.Button(t_settings, text=_tr("Konuyu Güncelle"),
                command=_set_subject).pack(anchor="w", pady=8)
 
     # Davet sekmesi
     t_invite = tk.Frame(nb, bg=A.BG_CARD, padx=16, pady=12)
-    nb.add(t_invite, text="  Davet  ")
+    nb.add(t_invite, text=_tr("  Davet  "))
 
-    tk.Label(t_invite, text="Davet edilecek JID:", font=(A.FONT, 9),
+    tk.Label(t_invite, text=_tr("Davet edilecek JID:"), font=(A.FONT, 9),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
     inv_var = tk.StringVar()
     ttk.Entry(t_invite, textvariable=inv_var,
@@ -570,17 +577,17 @@ def show_room_admin(parent, room, members, subject, contacts,
             if sel:
                 jid = inv_jids[sel[0]]
         if jid and on_invite(jid):
-            messagebox.showinfo("Davet", f"{jid} davet edildi", parent=dlg)
+            messagebox.showinfo(_tr("Davet"), _tr("{} davet edildi").format(jid), parent=dlg)
 
-    ttk.Button(t_invite, text="📨 Davet Gönder",
+    ttk.Button(t_invite, text=_tr("📨 Davet Gönder"),
                command=_invite).pack(fill="x", ipady=4, pady=8)
 
 
 _SORT_LABELS = {
-    "name_asc":  "İsim A→Z",
-    "name_desc": "İsim Z→A",
-    "jid_asc":   "Adres A→Z",
-    "jid_desc":  "Adres Z→A",
+    "name_asc":  N_("İsim A→Z"),
+    "name_desc": N_("İsim Z→A"),
+    "jid_asc":   N_("Adres A→Z"),
+    "jid_desc":  N_("Adres Z→A"),
 }
 
 
@@ -615,7 +622,7 @@ def show_rooms_browser(parent, default_nick, rooms, on_join):
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Keşfedilen Odalar")
+    dlg.title(_tr("Keşfedilen Odalar"))
     dlg.configure(bg=A.SHADOW)
     dlg.geometry("660x560")
     dlg.minsize(520, 440)
@@ -633,7 +640,7 @@ def show_rooms_browser(parent, default_nick, rooms, on_join):
     # -- Başlık
     hdr = tk.Frame(card, bg=A.BG_CARD)
     hdr.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 8))
-    tk.Label(hdr, text="Keşfedilen Odalar",
+    tk.Label(hdr, text=_tr("Keşfedilen Odalar"),
              font=(A.FONT, 14, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(side="left")
     count_lbl = tk.Label(hdr, text=f"{len(rooms)} oda",
@@ -649,7 +656,7 @@ def show_rooms_browser(parent, default_nick, rooms, on_join):
     fb = tk.Frame(toolbar, bg=A.BORDER, padx=1, pady=1)
     fb.grid(row=0, column=0, sticky="ew")
     filter_entry = A.PlaceholderEntry(
-        fb, placeholder="Oda ara (isim veya adres)...",
+        fb, placeholder=_tr("Oda ara (isim veya adres)..."),
         textvariable=filter_var,
         font=(A.FONT, 9), style="Modern.TEntry")
     filter_entry.pack(fill="x", ipady=5, padx=2, pady=2)
@@ -664,7 +671,7 @@ def show_rooms_browser(parent, default_nick, rooms, on_join):
     sort_menu["menu"].delete(0, "end")
     for key, label in _SORT_LABELS.items():
         sort_menu["menu"].add_command(
-            label=label,
+            label=_tr(label),
             command=lambda v=key: (sort_var.set(v), _apply_filter()))
 
     # -- Oda listesi
@@ -696,9 +703,9 @@ def show_rooms_browser(parent, default_nick, rooms, on_join):
             filtered_jids.append(jid)
 
         if not matched:
-            lb.insert("end", "  (Eşleşen oda bulunamadı)")
+            lb.insert("end", _tr("  (Eşleşen oda bulunamadı)"))
 
-        count_lbl.config(text=f"{len(matched)}/{len(rooms)} oda")
+        count_lbl.config(text=_tr("{}/{} oda").format(len(matched), len(rooms)))
 
     filter_var.trace_add("write", lambda *_: _apply_filter())
 
@@ -710,7 +717,7 @@ def show_rooms_browser(parent, default_nick, rooms, on_join):
     inf = tk.Frame(card, bg=A.BG_CARD)
     inf.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(12, 0))
     inf.columnconfigure(1, weight=1)
-    tk.Label(inf, text="👤  TAKMA AD", fg=A.FG_DIM, bg=A.BG_CARD,
+    tk.Label(inf, text=_tr("👤  TAKMA AD"), fg=A.FG_DIM, bg=A.BG_CARD,
              font=(A.FONT, 7, "bold")).grid(row=0, column=0, padx=(0, 8))
     nb = tk.Frame(inf, bg=A.BORDER, padx=1, pady=1)
     nb.grid(row=0, column=1, sticky="ew")
@@ -730,7 +737,7 @@ def show_rooms_browser(parent, default_nick, rooms, on_join):
         dlg.destroy()
         on_join(room, nick)
 
-    ttk.Button(card, text="Seçilen Odaya Katıl", command=_join).grid(
+    ttk.Button(card, text=_tr("Seçilen Odaya Katıl"), command=_join).grid(
         row=4, column=0, columnspan=2, pady=(12, 0), sticky="ew", ipady=5)
     lb.bind("<Double-Button-1>", _join)
 
@@ -755,10 +762,9 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
     okunur/yazılır; geç sonuçlar no-op'a düşer.
     """
     A = _app()
-    _t = A._t
 
     dlg = tk.Toplevel(parent)
-    dlg.title("Oda Keşfet")
+    dlg.title(_tr("Oda Keşfet"))
     dlg.configure(bg=A.SHADOW)
     dlg.geometry("660x600")
     dlg.minsize(520, 440)
@@ -790,7 +796,7 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
         inf = tk.Frame(parent_f, bg=A.BG_CARD)
         inf.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(10, 0))
         inf.columnconfigure(1, weight=1)
-        tk.Label(inf, text="👤  TAKMA AD", fg=A.FG_DIM, bg=A.BG_CARD,
+        tk.Label(inf, text=_tr("👤  TAKMA AD"), fg=A.FG_DIM, bg=A.BG_CARD,
                  font=(A.FONT, 7, "bold")).grid(row=0, column=0, padx=(0, 8))
         nv = tk.StringVar(value=default_nick)
         nb_ = tk.Frame(inf, bg=A.BORDER, padx=1, pady=1)
@@ -804,7 +810,7 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
     t1 = tk.Frame(nb, bg=A.BG_CARD, padx=16, pady=14)
     t1.columnconfigure(0, weight=1)
     t1.rowconfigure(2, weight=1)
-    nb.add(t1, text="  Genel Ara  ")
+    nb.add(t1, text=_tr("  Genel Ara  "))
 
     # Arama satırı
     sf = tk.Frame(t1, bg=A.BG_CARD)
@@ -813,7 +819,7 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
     query_var = tk.StringVar()
     sb = tk.Frame(sf, bg=A.BORDER, padx=1, pady=1)
     sb.grid(row=0, column=0, sticky="ew")
-    search_entry = A.PlaceholderEntry(sb, placeholder="Oda adı veya konu ara...",
+    search_entry = A.PlaceholderEntry(sb, placeholder=_tr("Oda adı veya konu ara..."),
                                       textvariable=query_var,
                                       font=(A.FONT, 10), style="Modern.TEntry")
     search_entry.pack(fill="x", ipady=6, padx=2, pady=2)
@@ -849,7 +855,7 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
         q = query_var.get().strip() if not search_entry._showing_ph else ""
         if not q:
             return
-        status_lbl.config(text="Aranıyor…")
+        status_lbl.config(text=_tr("Aranıyor…"))
         res_lb.delete(0, "end")
         res_items.clear()
         details_lbl.config(text="")
@@ -861,13 +867,13 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
             res_items.clear()
             details_lbl.config(text="")
             if not items:
-                res_lb.insert("end", "  (Sonuç bulunamadı)")
+                res_lb.insert("end", _tr("  (Sonuç bulunamadı)"))
                 status_lbl.config(text="")
                 return
             for item in items:
                 res_lb.insert("end", A._room_result_line(item))
                 res_items.append(item)
-            status_lbl.config(text=f"{len(items)} sonuç")
+            status_lbl.config(text=_tr("{} sonuç").format(len(items)))
 
         def _show_error(err):
             if _alive[0]:
@@ -877,7 +883,7 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
 
         on_search(q, _show_results, _show_error)
 
-    ttk.Button(sf, text="Ara",
+    ttk.Button(sf, text=_tr("Ara"),
                command=_do_search).grid(row=0, column=1, padx=(6, 0), ipady=2)
     search_entry.bind("<Return>", _do_search)
 
@@ -908,7 +914,7 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
 
         def _set_saved():
             if _alive[0]:
-                status_lbl.config(text=_t("bookmark_added"))
+                status_lbl.config(text=_tr("Yer imine eklendi"))
 
         on_add_bookmark(room, name, nick, _set_saved)
 
@@ -916,10 +922,10 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
     acts.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(10, 0))
     acts.columnconfigure(0, weight=1)
     acts.columnconfigure(1, weight=1)
-    ttk.Button(acts, text=_t("join_selected"),
+    ttk.Button(acts, text=_tr("Seçilen Odaya Katıl"),
                command=_join_search).grid(row=0, column=0, sticky="ew",
                                           ipady=5, padx=(0, 4))
-    ttk.Button(acts, text=_t("add_bookmark"),
+    ttk.Button(acts, text=_tr("Yer İmine Ekle"),
                command=_add_selected_bookmark).grid(row=0, column=1,
                                                     sticky="ew", ipady=5)
     res_lb.bind("<Double-Button-1>", _join_search)
@@ -929,9 +935,9 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
     t2 = tk.Frame(nb, bg=A.BG_CARD, padx=16, pady=14)
     t2.columnconfigure(0, weight=1)
     t2.rowconfigure(1, weight=1)
-    nb.add(t2, text="  Popüler Sunucular  ")
+    nb.add(t2, text=_tr("  Popüler Sunucular  "))
 
-    tk.Label(t2, text="Bir sunucu seçip 'Keşfet' ile odaları listeleyin.",
+    tk.Label(t2, text=_tr("Bir sunucu seçip 'Keşfet' ile odaları listeleyin."),
              fg=A.FG_DIM, bg=A.BG_CARD,
              font=(A.FONT, 8)).grid(
         row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
@@ -963,19 +969,19 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
         dlg.destroy()
         on_discover(server)
 
-    ttk.Button(t2, text=_t("discover_selected"),
+    ttk.Button(t2, text=_tr("Seçili Sunucudan Keşfet"),
                command=_discover_selected).grid(
         row=2, column=0, columnspan=2, sticky="ew", pady=(10, 0), ipady=5)
     srv_lb.bind("<Double-Button-1>", _discover_selected)
 
     # ── Diğer sunucu (elle giriş) ────────────────────────────────────────
-    tk.Label(t2, text=f"🌐  {_t('server_address')}", fg=A.FG_DIM,
+    tk.Label(t2, text=f"🌐  {_tr('Sunucu adresi')}", fg=A.FG_DIM,
              bg=A.BG_CARD, font=(A.FONT, 7, "bold")).grid(
         row=3, column=0, columnspan=2, sticky="w", pady=(14, 0))
     custom_var = tk.StringVar()
     cb = tk.Frame(t2, bg=A.BORDER, padx=1, pady=1)
     cb.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(4, 0))
-    custom_entry = A.PlaceholderEntry(cb, placeholder="muc.sunucu.tld",
+    custom_entry = A.PlaceholderEntry(cb, placeholder=_tr("muc.sunucu.tld"),
                                       textvariable=custom_var,
                                       font=(A.FONT, 10), style="Modern.TEntry")
     custom_entry.pack(fill="x", ipady=6, padx=2, pady=2)
@@ -989,7 +995,7 @@ def show_room_search(parent, default_nick, own_domain, known_servers,
         dlg.destroy()
         on_discover(srv)
 
-    ttk.Button(t2, text="  Keşfet  ", command=_discover_custom).grid(
+    ttk.Button(t2, text=_tr("  Keşfet  "), command=_discover_custom).grid(
         row=5, column=0, columnspan=2, sticky="e", pady=(6, 0), ipady=3)
     custom_entry.bind("<Return>", _discover_custom)
 

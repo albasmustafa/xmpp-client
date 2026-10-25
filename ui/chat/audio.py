@@ -5,12 +5,17 @@ ve ağ MainWindow'da kalır. Bu modül thread/after/worker üretmez.
 """
 import tkinter as tk
 
+# Arayüz metni çevirisi: xmpp içe aktarılınca `xmpp._tr` takılır
+# (ui/chat yalnız tkinter/collections içe aktarır)
+_tr = str
+
+
 
 def audio_placeholder(parent, theme, bg):
     """İndirilme placeholder'ı (frame + başlık)."""
     holder = tk.Frame(parent, bg=bg)
     holder.pack(anchor="w", pady=(4, 2))
-    tk.Label(holder, text="🎤 Yükleniyor…", fg=theme["FG_DIM"], bg=bg,
+    tk.Label(holder, text=_tr("🎤 Yükleniyor…"), fg=theme["FG_DIM"], bg=bg,
              font=(theme["FONT"], 8)).pack(anchor="w")
     return holder
 
@@ -19,7 +24,7 @@ def start_player(holder, theme, bg):
     """Placeholder'ı oynatıcı başlığıyla değiştir (eski içerik temizlenir)."""
     for w in holder.winfo_children():
         w.destroy()
-    tk.Label(holder, text="🎤 Ses Mesajı", fg=theme["FG_DIM"], bg=bg,
+    tk.Label(holder, text=_tr("🎤 Ses Mesajı"), fg=theme["FG_DIM"], bg=bg,
              font=(theme["FONT"], 8, "bold")).pack(anchor="w")
 
 
@@ -27,7 +32,7 @@ def fallback_link(holder, theme, bg, url, on_open):
     """Ses yüklenemedi — tıklanabilir link."""
     for w in holder.winfo_children():
         w.destroy()
-    lnk = tk.Label(holder, text=f"🎤 Ses: {url[:50]}…", fg=theme["ACCENT"],
+    lnk = tk.Label(holder, text=_tr("🎤 Ses: {}…").format(url[:50]), fg=theme["ACCENT"],
                    bg=bg, font=(theme["FONT"], 8), cursor="hand2")
     lnk.pack(anchor="w")
     lnk.bind("<Button-1>", lambda _e: on_open())
@@ -40,7 +45,7 @@ def sent_voice_bubble(parent, theme):
     row.pack(fill="x", padx=18, pady=(8, 0))
     bubble = tk.Frame(row, bg=theme["BG_ME"], padx=14, pady=8)
     bubble.pack(side="right", anchor="e", padx=(60, 0))
-    tk.Label(bubble, text="🎤 Ses Mesajı", fg=theme["FG_ME"],
+    tk.Label(bubble, text=_tr("🎤 Ses Mesajı"), fg=theme["FG_ME"],
              bg=theme["BG_ME"], font=(theme["FONT"], 8, "bold")).pack(
         anchor="w")
     return row, bubble

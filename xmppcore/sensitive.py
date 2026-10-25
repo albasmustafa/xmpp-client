@@ -9,6 +9,9 @@ Bulgular yalnız MASKELİ örnekle döner; ham değer hiçbir yere yazılmaz.
 import re
 from collections import namedtuple
 
+from xmppcore.i18n import N_
+from xmppcore.i18n import tr as _tr
+
 Finding = namedtuple("Finding", ("kind", "label", "sample"))
 
 MAX_FINDINGS = 6
@@ -19,16 +22,16 @@ _PRIVATE_KEY_RE = re.compile(
 # Sıra önemlidir: önce eşleşen aralık sonrakilerce yeniden sayılmaz
 # (ör. sk-ant- anahtarı ayrıca "OpenAI" olarak raporlanmaz).
 _TOKEN_PATTERNS = (
-    ("Anthropic API anahtarı", r"\bsk-ant-[A-Za-z0-9_\-]{20,}"),
-    ("OpenAI API anahtarı",
+    (N_("Anthropic API anahtarı"), r"\bsk-ant-[A-Za-z0-9_\-]{20,}"),
+    (N_("OpenAI API anahtarı"),
      r"\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_\-]{32,}"),
-    ("GitHub belirteci",
+    (N_("GitHub belirteci"),
      r"\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})"),
-    ("AWS erişim anahtarı", r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
-    ("Google API anahtarı", r"\bAIza[0-9A-Za-z_\-]{35}"),
-    ("Slack belirteci", r"\bxox[abposr]-[A-Za-z0-9\-]{10,}"),
-    ("Stripe gizli anahtarı", r"\b[sr]k_live_[A-Za-z0-9]{16,}"),
-    ("Oturum belirteci (JWT)",
+    (N_("AWS erişim anahtarı"), r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
+    (N_("Google API anahtarı"), r"\bAIza[0-9A-Za-z_\-]{35}"),
+    (N_("Slack belirteci"), r"\bxox[abposr]-[A-Za-z0-9\-]{10,}"),
+    (N_("Stripe gizli anahtarı"), r"\b[sr]k_live_[A-Za-z0-9]{16,}"),
+    (N_("Oturum belirteci (JWT)"),
      r"\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"),
 )
 _TOKEN_RES = tuple((label, re.compile(p)) for label, p in _TOKEN_PATTERNS)
@@ -147,26 +150,26 @@ def scan(text: str) -> list:
             found.append(Finding(kind, label, sample))
 
     for m in _PRIVATE_KEY_RE.finditer(text):
-        _add(m.start(), m.end(), "private_key", "Özel anahtar (private key)",
+        _add(m.start(), m.end(), "private_key", _tr("Özel anahtar (private key)"),
              "-----BEGIN … PRIVATE KEY-----")
     for label, rx in _TOKEN_RES:
         for m in rx.finditer(text):
-            _add(m.start(), m.end(), "token", label, _mask_token(m.group(0)))
+            _add(m.start(), m.end(), "token", _tr(label), _mask_token(m.group(0)))
     for start, end, iban in _iban_matches(text):
         _add(start, end, "iban", "IBAN", f"{iban[:4]} {_mask_tail(iban)}")
     for m in _PASSWORD_RE.finditer(text):
         value = m.group(1)
-        _add(m.start(1), m.end(1), "password", "Parola / PIN",
+        _add(m.start(1), m.end(1), "password", _tr("Parola / PIN"),
              value[0] + "•••")
     for m in _CARD_RE.finditer(text):
         digits = re.sub(r"\D", "", m.group(0))
         if (13 <= len(digits) <= 19 and digits.startswith(_CARD_PREFIXES)
                 and len(set(digits)) > 1 and luhn_ok(digits)):
-            _add(m.start(), m.end(), "card", "Kart numarası",
+            _add(m.start(), m.end(), "card", _tr("Kart numarası"),
                  _mask_tail(digits))
     for m in _TCKN_RE.finditer(text):
         if tckn_ok(m.group(0)):
-            _add(m.start(), m.end(), "tckn", "T.C. kimlik no",
+            _add(m.start(), m.end(), "tckn", _tr("T.C. kimlik no"),
                  _mask_tail(m.group(0), 2))
     return found[:MAX_FINDINGS]
 
@@ -174,10 +177,10 @@ def scan(text: str) -> list:
 def warning_text(findings, *, room: bool = False) -> str:
     """Onay penceresi metni (maskeli örneklerle)."""
     lines = [f"• {f.label}: {f.sample}" for f in findings]
-    where = ("Bu grup sohbetine şifresiz gönderilecek mesaj"
-             if room else "Bu mesaj şifresiz gönderilecek ve")
-    return (f"{where} şu hassas bilgileri içeriyor gibi görünüyor:\n\n"
+    where = (_tr("Bu grup sohbetine şifresiz gönderilecek mesaj")
+             if room else _tr("Bu mesaj şifresiz gönderilecek ve"))
+    return (_tr("{} şu hassas bilgileri içeriyor gibi görünüyor:\n\n").format(where)
             + "\n".join(lines)
-            + "\n\nŞifresiz mesajları sunucu yöneticileri görebilir ve "
-              "sunucu arşivinde (MAM) saklanabilir. Göndermeden önce 🔒 "
-              "ile şifrelemeyi açabilirsiniz.\n\nYine de gönderilsin mi?")
+            + _tr("\n\nŞifresiz mesajları sunucu yöneticileri görebilir ve "
+                  "sunucu arşivinde (MAM) saklanabilir. Göndermeden önce 🔒 "
+                  "ile şifrelemeyi açabilirsiniz.\n\nYine de gönderilsin mi?"))

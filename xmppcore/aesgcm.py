@@ -13,6 +13,8 @@ import re
 import secrets
 from urllib.parse import unquote, urlsplit, urlunsplit
 
+from xmppcore.i18n import tr as _tr
+
 # Mesaj gövdesindeki aesgcm bağlantısı (parça zorunlu)
 URL_RE = re.compile(r'(aesgcm://[^\s<>"#]+#(?:[0-9a-fA-F]{96}|[0-9a-fA-F]{88}))'
                     r'(?![0-9a-fA-F])')
@@ -54,7 +56,7 @@ def to_url(https_url: str, key: bytes, iv: bytes) -> str:
     bağlantıyı https olarak indirir; başka şema kabul edilmez."""
     parts = urlsplit(str(https_url))
     if parts.scheme.lower() != "https" or not parts.netloc:
-        raise ValueError("aesgcm bağlantısı yalnız https yüklemeden kurulur")
+        raise ValueError(_tr("aesgcm bağlantısı yalnız https yüklemeden kurulur"))
     return urlunsplit(("aesgcm", parts.netloc, parts.path, parts.query,
                        (iv + key).hex()))
 

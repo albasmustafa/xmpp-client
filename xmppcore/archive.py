@@ -6,6 +6,7 @@ birebir aynıdır.
 import asyncio
 
 from xmppcore.helpers import _get_xep, _stanza_is_encrypted, _stanza_msg_id
+from xmppcore.i18n import tr as _tr
 
 
 class ArchiveMixin:
@@ -54,7 +55,7 @@ class ArchiveMixin:
                 body = m.get("body", "")
                 if not body:
                     if _stanza_is_encrypted(getattr(m, "xml", None)):
-                        body = "🔒 Şifreli mesaj (arşivde çözülemedi)"
+                        body = _tr("🔒 Şifreli mesaj (arşivde çözülemedi)")
                     else:
                         continue
                 frm = str(m["from"].bare) if hasattr(m["from"], "bare") else str(m["from"])

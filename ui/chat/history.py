@@ -5,6 +5,11 @@ bilmez; entry'leri caller'ın verdiği sırada render ettirir. Worker yoktur.
 """
 import tkinter as tk
 
+# Arayüz metni çevirisi: xmpp içe aktarılınca `xmpp._tr` takılır
+# (ui/chat yalnız tkinter/collections içe aktarır)
+_tr = str
+
+
 
 def clear_view(msg_frame, bubble_widgets, photo_refs):
     """Yalnız görünümü temizle (domain history'ye dokunmaz).
@@ -76,7 +81,7 @@ def build_history_nav(parent, th, on_older, on_latest):
     bar.grid(row=1, column=0, sticky="ew")
     bar.grid_remove()
 
-    older = tk.Label(bar, text="⬆ Daha eski", font=(th["FONT"], 8, "bold"),
+    older = tk.Label(bar, text=_tr("⬆ Daha eski"), font=(th["FONT"], 8, "bold"),
                      fg=th["ACCENT"], bg=th["BG_HOVER"], cursor="hand2",
                      padx=10, pady=2)
     older.pack(side="left")
@@ -84,7 +89,7 @@ def build_history_nav(parent, th, on_older, on_latest):
     older.bind("<Enter>", lambda _: older.config(fg=th["ACCENT_G"]))
     older.bind("<Leave>", lambda _: older.config(fg=th["ACCENT"]))
 
-    latest = tk.Label(bar, text="↓ En yeni", font=(th["FONT"], 8, "bold"),
+    latest = tk.Label(bar, text=_tr("↓ En yeni"), font=(th["FONT"], 8, "bold"),
                       fg=th["ACCENT"], bg=th["BG_HOVER"], cursor="hand2",
                       padx=10, pady=2)
     latest.pack(side="right")
@@ -115,9 +120,9 @@ def update_history_nav(bar, show_older, show_latest, pending):
         older.pack_forget()
     if show_latest:
         if pending > 0:
-            latest.config(text=f"↓ Yeni mesajlar ({pending})")
+            latest.config(text=_tr("↓ Yeni mesajlar ({})").format(pending))
         else:
-            latest.config(text="↓ En yeni")
+            latest.config(text=_tr("↓ En yeni"))
         latest.pack(side="right")
     else:
         latest.pack_forget()

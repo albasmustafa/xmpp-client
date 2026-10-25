@@ -1,5 +1,6 @@
 """Tema renk tanımları (Faz 1 yaprak modülü) — saf veri."""
-
+from xmppcore.i18n import N_
+from xmppcore.i18n import tr as _tr
 
 # ── Tema sistemi ─────────────────────────────────────────────────────────────
 _THEMES = {
@@ -104,3 +105,15 @@ _THEMES = {
         "RED": "#ff4466", "ONLINE": "#00ebc7", "AWAY": "#ffd803",
     },
 }
+
+
+# Ekranda gösterilen tema adları (config'te anahtar saklanır); listede
+# olmayanlar özel addır (Dracula, Nord…) ve çevrilmez
+THEME_LABELS = {"koyu": N_("Koyu"), "acik": N_("Açık"),
+                "gece-mavisi": N_("Gece mavisi")}
+
+
+def theme_label(name: str) -> str:
+    """Tema anahtarının seçili dildeki görünen adı."""
+    label = THEME_LABELS.get(name)
+    return _tr(label) if label else name.capitalize()

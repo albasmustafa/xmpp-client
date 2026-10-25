@@ -14,6 +14,11 @@ from tkinter import messagebox, ttk
 from ui.dialogs.simple import _app
 
 
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
+
 def show_disappearing(parent, current_ttl, on_apply):
     """Kaybolan mesaj TTL seçimi (MainWindow._disappearing_dialog).
 
@@ -22,23 +27,23 @@ def show_disappearing(parent, current_ttl, on_apply):
     """
     A = _app()
     pop = tk.Toplevel(parent)
-    pop.title("Kaybolan Mesajlar")
+    pop.title(_tr("Kaybolan Mesajlar"))
     pop.configure(bg=A.BG_CARD)
     pop.geometry("300x200")
     pop.transient(parent)
     A._make_popover(pop)
 
-    tk.Label(pop, text="Kaybolan Mesajlar", fg=A.FG, bg=A.BG_CARD,
+    tk.Label(pop, text=_tr("Kaybolan Mesajlar"), fg=A.FG, bg=A.BG_CARD,
              font=(A.FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")
-    tk.Label(pop, text="Mesajlar belirli süre sonra\notomatik silinir.",
+    tk.Label(pop, text=_tr("Mesajlar belirli süre sonra\notomatik silinir."),
              fg=A.FG_DIM, bg=A.BG_CARD, font=(A.FONT, 8)).pack(
                  padx=16, anchor="w")
 
     ttl_var = tk.IntVar(value=current_ttl)
     sf = tk.Frame(pop, bg=A.BG_CARD)
     sf.pack(fill="x", padx=16, pady=12)
-    for val, txt in [(0, "Kapalı"), (30, "30sn"), (300, "5dk"),
-                     (3600, "1sa"), (86400, "1gün")]:
+    for val, txt in [(0, _tr("Kapalı")), (30, _tr("30sn")), (300, _tr("5dk")),
+                     (3600, _tr("1sa")), (86400, _tr("1gün"))]:
         tk.Radiobutton(sf, text=txt, variable=ttl_var, value=val,
                        bg=A.BG_CARD, fg=A.FG, selectcolor=A.BG_HOVER,
                        activebackground=A.BG_CARD, font=(A.FONT, 9)).pack(
@@ -48,7 +53,7 @@ def show_disappearing(parent, current_ttl, on_apply):
         on_apply(ttl_var.get())
         pop.destroy()
 
-    ttk.Button(pop, text="Uygula",
+    ttk.Button(pop, text=_tr("Uygula"),
                command=_apply).pack(padx=16, pady=(0, 16))
 
 
@@ -61,26 +66,26 @@ def show_clear_history(parent, total, chats, has_active,
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Geçmişi Sil")
+    dlg.title(_tr("Geçmişi Sil"))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("340x220")
     dlg.transient(parent)
     A._make_popover(dlg)
 
-    tk.Label(dlg, text="🗑 Mesaj Geçmişini Sil", font=(A.FONT, 12, "bold"),
+    tk.Label(dlg, text=_tr("🗑 Mesaj Geçmişini Sil"), font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 12))
 
-    tk.Label(dlg, text=f"Toplam: {total} mesaj, {chats} sohbet",
+    tk.Label(dlg, text=_tr("Toplam: {} mesaj, {} sohbet").format(total, chats),
              font=(A.FONT, 9), fg=A.FG_DIM, bg=A.BG_CARD).pack(padx=16)
 
     def _clear_active():
         if on_clear_active():
-            messagebox.showinfo("Silindi", "Bu sohbetin geçmişi silindi",
+            messagebox.showinfo(_tr("Silindi"), _tr("Bu sohbetin geçmişi silindi"),
                                 parent=dlg)
 
     def _clear_all():
-        if messagebox.askyesno("Tüm Geçmişi Sil",
-                               "Tüm sohbet geçmişi silinecek. Emin misiniz?",
+        if messagebox.askyesno(_tr("Tüm Geçmişi Sil"),
+                               _tr("Tüm sohbet geçmişi silinecek. Emin misiniz?"),
                                parent=dlg):
             on_clear_all()
             dlg.destroy()
@@ -88,7 +93,7 @@ def show_clear_history(parent, total, chats, has_active,
     btn_f = tk.Frame(dlg, bg=A.BG_CARD, padx=16)
     btn_f.pack(fill="x", pady=12)
     if has_active:
-        ttk.Button(btn_f, text="🗑 Bu Sohbeti Sil",
+        ttk.Button(btn_f, text=_tr("🗑 Bu Sohbeti Sil"),
                    command=_clear_active).pack(fill="x", ipady=4, pady=4)
-    ttk.Button(btn_f, text="⚠ Tüm Geçmişi Sil",
+    ttk.Button(btn_f, text=_tr("⚠ Tüm Geçmişi Sil"),
                command=_clear_all).pack(fill="x", ipady=4)

@@ -341,7 +341,7 @@ def test_date_separator_uses_message_date_and_dedupes(monkeypatch):
     xmpp.MainWindow._maybe_add_date_separator(w, "2026-09-25T10:00:00Z")
     texts = [k.get("text") for k in created if "text" in k]
     assert len(texts) == 1
-    assert texts[0] != xmpp._t("today") and "2026" in texts[0] and "25" in texts[0]
+    assert texts[0] != "Bugün" and "2026" in texts[0] and "25" in texts[0]
 
     # Aynı gün ikinci mesaj → duplicate separator yok
     n = len(created)
@@ -351,7 +351,7 @@ def test_date_separator_uses_message_date_and_dedupes(monkeypatch):
     # Bugün → "Bugün"
     xmpp.MainWindow._maybe_add_date_separator(w, None)
     new_texts = [k.get("text") for k in created[n:] if "text" in k]
-    assert new_texts == [xmpp._t("today")]
+    assert new_texts == ["Bugün"]
 
     # Bozuk timestamp → güvenli fallback (bugün zaten eklendi → yeni separator yok)
     n2 = len(created)

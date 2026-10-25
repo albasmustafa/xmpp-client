@@ -5,6 +5,8 @@ XMPPBot örneğinde kalır. Event adları, gui_q payload'ları ve iş mantığı
 xmpp.py'deki taşınmadan önceki haliyle birebir aynıdır.
 """
 
+from xmppcore.i18n import tr as _tr
+
 
 class PresenceMixin:
     """Presence, durum bildirimi ve abonelik istekleri."""
@@ -40,10 +42,10 @@ class PresenceMixin:
         self.gui_q.put(("subscribe_req", str(presence["from"].bare)))
 
     def _on_subscribed(self, presence):
-        self.gui_q.put(("sys_msg", f"✓ {presence['from'].bare} isteği kabul etti"))
+        self.gui_q.put(("sys_msg", _tr("✓ {} isteği kabul etti").format(presence['from'].bare)))
 
     def _on_unsubscribed(self, presence):
-        self.gui_q.put(("sys_msg", f"✗ {presence['from'].bare} sizi kaldırdı"))
+        self.gui_q.put(("sys_msg", _tr("✗ {} sizi kaldırdı").format(presence['from'].bare)))
 
     def set_presence(self, show, status=""):
         def _do():

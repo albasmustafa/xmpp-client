@@ -13,6 +13,9 @@ import re
 import shutil
 from collections import namedtuple
 
+from xmppcore.i18n import N_
+from xmppcore.i18n import tr as _tr
+
 from .ai import AISetupError
 
 Step = namedtuple("Step", ("argv", "stdin"))
@@ -22,7 +25,7 @@ _PLAYERS = (("pw-play", ()), ("paplay", ()), ("aplay", ("-q",)),
             ("ffplay", ("-nodisp", "-autoexit", "-loglevel", "quiet")))
 _AUTO_ORDER = ("piper", "espeak-ng", "espeak", "spd-say")
 
-INSTALL_HINT = (
+INSTALL_HINT = N_(
     "Sesli okuma için yerel bir ses motoru gerekli. Örneğin:\n"
     "  sudo pacman -S espeak-ng\n"
     "Daha doğal ses için Piper: piper-tts kurun ve ✨ → AI Ayarları'nda "
@@ -72,12 +75,12 @@ def pick_engine(settings, which=None) -> str:
             return engine
     if pref == "piper":
         raise AISetupError(
-            "Piper için `piper` komutu, bir ses modeli (.onnx) ve bir ses "
-            "çalar (pw-play/paplay/aplay) gerekli.\n\n" + INSTALL_HINT)
+            _tr("Piper için `piper` komutu, bir ses modeli (.onnx) ve bir ses "
+                "çalar (pw-play/paplay/aplay) gerekli.\n\n") + _tr(INSTALL_HINT))
     if pref != "auto":
-        raise AISetupError(f"Seçili ses motoru bulunamadı: {pref}\n\n"
-                           + INSTALL_HINT)
-    raise AISetupError(INSTALL_HINT)
+        raise AISetupError(_tr("Seçili ses motoru bulunamadı: {}\n\n").format(pref)
+                           + _tr(INSTALL_HINT))
+    raise AISetupError(_tr(INSTALL_HINT))
 
 
 def plan_speech(text: str, settings, wav_path: str, which=None) -> list:
@@ -85,7 +88,7 @@ def plan_speech(text: str, settings, wav_path: str, which=None) -> list:
     which = which or shutil.which
     text = clean_for_speech(text)
     if not text:
-        raise AISetupError("Okunacak metin yok.")
+        raise AISetupError(_tr("Okunacak metin yok."))
     engine = pick_engine(settings, which)
     lang = settings.get("tts_lang") or "tr"
     if engine == "piper":
@@ -104,6 +107,6 @@ def describe_engines(settings, which=None) -> str:
     try:
         engine = pick_engine(settings, which)
     except AISetupError:
-        return ("ℹ Sesli okuma motoru yok (isteğe bağlı): sudo pacman -S "
-                "espeak-ng")
-    return f"✓ Sesli okuma: {engine}"
+        return (_tr("ℹ Sesli okuma motoru yok (isteğe bağlı): sudo pacman -S "
+                    "espeak-ng"))
+    return _tr("✓ Sesli okuma: {}").format(engine)

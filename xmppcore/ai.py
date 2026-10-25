@@ -32,6 +32,10 @@ import urllib.request
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
+from xmppcore.i18n import N_
+from xmppcore.i18n import language as _ui_language
+from xmppcore.i18n import tr as _tr
+
 from . import aesgcm
 from .constants import _log
 
@@ -87,10 +91,19 @@ _CLAUDE_TIMEOUT = 180.0
 _CLAUDE_MAX_TOKENS = 16000
 _IMAGE_MAX_SIDE = 1568
 
-RETRACTED_BODY = "🚫 Bu mesaj silindi"
-VOICE_PLACEHOLDER = "🎤 Ses mesajı"
-NO_SPEECH = "(Konuşma algılanmadı)"
-TRUNCATED_NOTE = "[…yanıt uzunluk sınırına takıldı ve kesildi]"
+# İşaret metinleri: saklanır ve karşılaştırılır (Türkçe kalır); ekranda
+# `display_text` / `_tr` ile seçili dile çevrilir
+RETRACTED_BODY = N_("🚫 Bu mesaj silindi")
+VOICE_PLACEHOLDER = N_("🎤 Ses mesajı")
+NO_SPEECH = N_("(Konuşma algılanmadı)")
+TRUNCATED_NOTE = N_("[…yanıt uzunluk sınırına takıldı ve kesildi]")
+_MARKERS = frozenset({RETRACTED_BODY, VOICE_PLACEHOLDER, NO_SPEECH})
+
+
+def display_text(text):
+    """Saklanan işaret metnini (silindi, ses mesajı, konuşma yok) ekrana
+    seçili dilde ver; diğer metinler aynen döner."""
+    return _tr(text) if text in _MARKERS else text
 
 
 class AIError(Exception):
@@ -122,6 +135,10 @@ def load_settings(cfg: dict | None) -> dict:
                 s[key] = bool(val)
             elif isinstance(val, str):
                 s[key] = val.strip()
+    # Yanıt dili seçilmemişse arayüz diline uyar (İngilizce arayüz → English)
+    if (not (isinstance(raw, dict) and str(raw.get("target_language") or "").strip())
+            and _ui_language() == "en"):
+        s["target_language"] = "English"
     if s["provider"] not in PROVIDERS:
         s["provider"] = DEFAULTS["provider"]
     if s["whisper_model"] not in WHISPER_MODELS:
@@ -175,13 +192,13 @@ def ensure_allowed(settings: dict, *, sensitive: bool,
     """Bu istek için kullanılacak sağlayıcıyı döndür ya da reddet."""
     provider = settings.get("provider", PROVIDER_OFF)
     if provider == PROVIDER_OFF:
-        raise AIError("AI asistanı kapalı. ⚙ AI Ayarları'ndan bir "
-                      "sağlayıcı seçin.")
+        raise AIError(_tr("AI asistanı kapalı. ⚙ AI Ayarları'ndan bir "
+                          "sağlayıcı seçin."))
     if (provider == PROVIDER_CLAUDE and sensitive
             and not settings.get("cloud_for_encrypted") and not allow_cloud):
         raise AIPrivacyError(
-            "Bu sohbet şifreli. Şifreli içerik izniniz olmadan buluta "
-            "(Claude) gönderilmez.")
+            _tr("Bu sohbet şifreli. Şifreli içerik izniniz olmadan buluta "
+                "(Claude) gönderilmez."))
     return provider
 
 
@@ -189,25 +206,25 @@ def provider_label(settings: dict, *, vision: bool = False) -> str:
     """Verinin nereye gittiğini gösteren kısa etiket (şeffaflık)."""
     provider = settings.get("provider")
     if provider == PROVIDER_CLAUDE:
-        return f"☁ Claude (bulut) · {settings['claude_model']}"
+        return _tr("☁ Claude (bulut) · {}").format(settings['claude_model'])
     if provider == PROVIDER_OLLAMA:
         model = (settings["ollama_vision_model"] if vision
                  else settings["ollama_model"])
-        return f"🖥 Yerel (Ollama) · {model}"
-    return "AI kapalı"
+        return _tr("🖥 Yerel (Ollama) · {}").format(model)
+    return _tr("AI kapalı")
 
 
 # ── HTTP yardımcıları (Ollama) ──────────────────────────────────────────────
 def _read_limited(resp, max_bytes: int) -> bytes:
     data = resp.read(max_bytes + 1)
     if len(data) > max_bytes:
-        raise AIError("Yanıt boyut sınırını aştı.")
+        raise AIError(_tr("Yanıt boyut sınırını aştı."))
     return data
 
 
 def _check_http_url(url: str) -> str:
     if not re.match(r"^https?://", url or "", re.IGNORECASE):
-        raise AIError(f"Geçersiz adres: {url!r} (http/https olmalı)")
+        raise AIError(_tr("Geçersiz adres: {!r} (http/https olmalı)").format(url))
     return url
 
 
@@ -239,15 +256,15 @@ def _ollama_open(settings: dict, path: str, payload: dict | None,
         model = (payload or {}).get("model", "")
         if e.code == 404 and model:
             raise AIError(
-                f"Ollama'da '{model}' modeli yok. Terminalde kurun:\n"
-                f"  ollama pull {model}") from e
-        raise AIError(f"Ollama hatası ({e.code}): {detail or e.reason}") from e
+                _tr("Ollama'da '{}' modeli yok. Terminalde kurun:\n  ollama pull {}")
+                .format(model, model)) from e
+        raise AIError(_tr("Ollama hatası ({}): {}").format(e.code, detail or e.reason)) from e
     except (urllib.error.URLError, ConnectionError) as e:
         raise AIError(
-            f"Ollama'ya ulaşılamadı ({base}).\nOllama çalışıyor mu? "
-            f"Terminalde: ollama serve") from e
+            _tr("Ollama'ya ulaşılamadı ({}).\nOllama çalışıyor mu? Terminalde: "
+                "ollama serve").format(base)) from e
     except TimeoutError as e:
-        raise AIError("Yerel model zamanında yanıt vermedi.") from e
+        raise AIError(_tr("Yerel model zamanında yanıt vermedi.")) from e
 
 
 def _ollama_request(settings: dict, path: str, payload: dict | None,
@@ -257,9 +274,9 @@ def _ollama_request(settings: dict, path: str, payload: dict | None,
     try:
         res = json.loads(body)
     except ValueError as e:
-        raise AIError("Ollama'dan geçersiz yanıt alındı.") from e
+        raise AIError(_tr("Ollama'dan geçersiz yanıt alındı.")) from e
     if not isinstance(res, dict):
-        raise AIError("Ollama'dan geçersiz yanıt alındı.")
+        raise AIError(_tr("Ollama'dan geçersiz yanıt alındı."))
     return res
 
 
@@ -273,21 +290,21 @@ def _ollama_stream_consume(resp, on_delta) -> tuple[str, dict]:
     while True:
         line = resp.readline(_HTTP_LINE_MAX)
         if not line:
-            raise AIError("Ollama yanıtı yarıda kesildi.")
+            raise AIError(_tr("Ollama yanıtı yarıda kesildi."))
         total += len(line)
         if total > _HTTP_JSON_MAX:
-            raise AIError("Yanıt boyut sınırını aştı.")
+            raise AIError(_tr("Yanıt boyut sınırını aştı."))
         line = line.strip()
         if not line:
             continue
         try:
             obj = json.loads(line)
         except ValueError as e:
-            raise AIError("Ollama'dan geçersiz yanıt alındı.") from e
+            raise AIError(_tr("Ollama'dan geçersiz yanıt alındı.")) from e
         if not isinstance(obj, dict):
-            raise AIError("Ollama'dan geçersiz yanıt alındı.")
+            raise AIError(_tr("Ollama'dan geçersiz yanıt alındı."))
         if obj.get("error"):
-            raise AIError(f"Ollama hatası: {obj['error']}")
+            raise AIError(_tr("Ollama hatası: {}").format(obj['error']))
         msg = obj.get("message")
         piece = msg.get("content") if isinstance(msg, dict) else ""
         if piece:
@@ -340,8 +357,8 @@ def ollama_warm(settings: dict) -> bool:
     return True
 
 
-_TRUNCATED_JSON = ("Model yanıtı uzunluk sınırına takıldı; daha kısa bir "
-                   "sohbet aralığıyla tekrar deneyin.")
+_TRUNCATED_JSON = N_("Model yanıtı uzunluk sınırına takıldı; daha kısa bir "
+                     "sohbet aralığıyla tekrar deneyin.")
 
 
 def ollama_chat(settings: dict, system: str, user: str,
@@ -374,12 +391,12 @@ def ollama_chat(settings: dict, system: str, user: str,
             settings, "/api/chat", payload, _OLLAMA_CHAT_TIMEOUT,
             lambda resp: _ollama_stream_consume(resp, on_delta))
     if not text.strip():
-        raise AIError("Yerel model boş yanıt döndürdü.")
+        raise AIError(_tr("Yerel model boş yanıt döndürdü."))
     if final.get("done_reason") == "length":
         if schema is not None:
-            raise AIError(_TRUNCATED_JSON)
+            raise AIError(_tr(_TRUNCATED_JSON))
         if max_tokens is None:          # istenen kısa yanıtta not eklenmez
-            text = f"{text.rstrip()}\n\n{TRUNCATED_NOTE}"
+            text = f"{text.rstrip()}\n\n{_tr(TRUNCATED_NOTE)}"
     return text
 
 
@@ -392,7 +409,7 @@ def ollama_embed(settings: dict, texts: list[str]) -> list[list[float]]:
                           _OLLAMA_EMBED_TIMEOUT)
     vecs = res.get("embeddings")
     if not isinstance(vecs, list) or len(vecs) != len(texts):
-        raise AIError("Gömme modeli beklenmeyen yanıt döndürdü.")
+        raise AIError(_tr("Gömme modeli beklenmeyen yanıt döndürdü."))
     return vecs
 
 
@@ -492,8 +509,8 @@ def claude_chat(settings: dict, system: str, user: str,
         import anthropic
     except ImportError as e:
         raise AIError(
-            "Claude için 'anthropic' paketi kurulu değil:\n"
-            "  .venv-xmpp/bin/python -m pip install anthropic") from e
+            _tr("Claude için 'anthropic' paketi kurulu değil:\n"
+                "  .venv-xmpp/bin/python -m pip install anthropic")) from e
     kwargs = claude_request_kwargs(settings, system, user, images, effort,
                                    history=history, cache=cache,
                                    schema=schema, max_tokens=max_tokens)
@@ -504,36 +521,36 @@ def claude_chat(settings: dict, system: str, user: str,
                   if key else anthropic.Anthropic(timeout=_CLAUDE_TIMEOUT))
         resp = _claude_send(client, kwargs, on_delta)
     except anthropic.AuthenticationError as e:
-        raise AIError("Claude API anahtarı geçersiz ya da eksik "
-                      "(⚙ AI Ayarları).") from e
+        raise AIError(_tr("Claude API anahtarı geçersiz ya da eksik "
+                          "(⚙ AI Ayarları).")) from e
     except anthropic.PermissionDeniedError as e:
-        raise AIError("Bu API anahtarının bu modele erişim izni yok.") from e
+        raise AIError(_tr("Bu API anahtarının bu modele erişim izni yok.")) from e
     except anthropic.NotFoundError as e:
-        raise AIError(f"Claude modeli bulunamadı: {model}") from e
+        raise AIError(_tr("Claude modeli bulunamadı: {}").format(model)) from e
     except anthropic.RateLimitError as e:
-        raise AIError("Claude hız sınırına takıldı; biraz sonra tekrar "
-                      "deneyin.") from e
+        raise AIError(_tr("Claude hız sınırına takıldı; biraz sonra tekrar "
+                          "deneyin.")) from e
     except anthropic.BadRequestError as e:
-        raise AIError(f"Claude isteği kabul etmedi: {e.message}") from e
+        raise AIError(_tr("Claude isteği kabul etmedi: {}").format(e.message)) from e
     except anthropic.APIStatusError as e:
-        raise AIError(f"Claude sunucu hatası ({e.status_code}); daha sonra "
-                      "tekrar deneyin.") from e
+        raise AIError(_tr("Claude sunucu hatası ({}); daha sonra tekrar deneyin.")
+                      .format(e.status_code)) from e
     except anthropic.APIConnectionError as e:
-        raise AIError("Claude'a bağlanılamadı (internet bağlantısı?).") from e
+        raise AIError(_tr("Claude'a bağlanılamadı (internet bağlantısı?).")) from e
     except anthropic.AnthropicError as e:
-        raise AIError(f"Claude hatası: {e}") from e
+        raise AIError(_tr("Claude hatası: {}").format(e)) from e
     if resp.stop_reason == "refusal":
         # Tüm zincir reddetti: akışta gösterilen kısmi metin de geçersizdir.
-        raise AIError("Claude bu isteği güvenlik nedeniyle yanıtlamadı.")
+        raise AIError(_tr("Claude bu isteği güvenlik nedeniyle yanıtlamadı."))
     text = "".join(getattr(b, "text", "") for b in resp.content
                    if getattr(b, "type", "") == "text")
     if not text.strip():
-        raise AIError("Claude boş yanıt döndürdü.")
+        raise AIError(_tr("Claude boş yanıt döndürdü."))
     if resp.stop_reason == "max_tokens":
         if schema is not None:
-            raise AIError(_TRUNCATED_JSON)
+            raise AIError(_tr(_TRUNCATED_JSON))
         if max_tokens is None:          # istenen kısa yanıtta not eklenmez
-            text = f"{text.rstrip()}\n\n{TRUNCATED_NOTE}"
+            text = f"{text.rstrip()}\n\n{_tr(TRUNCATED_NOTE)}"
     return text
 
 
@@ -672,7 +689,7 @@ class StreamSink:
 
     def check(self):
         if self._cancel is not None and self._cancel.is_set():
-            raise AICancelled("İptal edildi.")
+            raise AICancelled(_tr("İptal edildi."))
 
     def __call__(self, chunk: str):
         self.check()
@@ -856,25 +873,25 @@ def translate_request(text: str, lang: str):
 
 
 REWRITE_MODES = {
-    "fix": ("✍ Yazımı düzelt",
+    "fix": (N_("✍ Yazımı düzelt"),
             "Fix spelling, grammar and punctuation. Keep the language, "
             "meaning, tone and emojis unchanged."),
-    "formal": ("🎩 Resmîleştir",
+    "formal": (N_("🎩 Resmîleştir"),
                "Rewrite it in a polite, formal tone in the same language."),
-    "friendly": ("😊 Samimileştir",
+    "friendly": (N_("😊 Samimileştir"),
                  "Rewrite it in a warm, friendly, casual tone in the same "
                  "language."),
-    "short": ("✂ Kısalt",
+    "short": (N_("✂ Kısalt"),
               "Make it shorter and clearer in the same language, keeping "
               "all important information."),
-    "english": ("🌐 İngilizceye çevir",
+    "english": (N_("🌐 İngilizceye çevir"),
                 "Translate it into natural English."),
 }
 
 
 def rewrite_request(text: str, mode: str):
     if mode not in REWRITE_MODES:
-        raise AIError(f"Bilinmeyen düzenleme modu: {mode}")
+        raise AIError(_tr("Bilinmeyen düzenleme modu: {}").format(mode))
     instruction = REWRITE_MODES[mode][1]
     system = (
         "You edit a chat message the user is about to send. "
@@ -1202,7 +1219,7 @@ def _loads_json(text: str):
             return json.loads(raw[start:end + 1])
         except ValueError:
             pass
-    raise AIError("Model geçerli JSON döndürmedi; tekrar deneyin.")
+    raise AIError(_tr("Model geçerli JSON döndürmedi; tekrar deneyin."))
 
 
 def parse_date(value) -> date | None:
@@ -1251,7 +1268,7 @@ def parse_actions(text: str) -> list[dict]:
     data = _loads_json(text)
     items = data.get("items") if isinstance(data, dict) else data
     if not isinstance(items, list):
-        raise AIError("Model beklenen biçimde yanıt vermedi; tekrar deneyin.")
+        raise AIError(_tr("Model beklenen biçimde yanıt vermedi; tekrar deneyin."))
     out = []
     for item in items:
         norm = normalize_action(item)
@@ -1271,22 +1288,22 @@ def validate_actions(items):
     for item in items:
         title = _clip(item.get("title"), 120)
         if not title:
-            errors.append("Başlığı boş bir öğe var.")
+            errors.append(_tr("Başlığı boş bir öğe var."))
             continue
         raw_d = str(item.get("date") or "").strip()
         raw_t = str(item.get("time") or "").strip()
         raw_e = str(item.get("end_time") or "").strip()
         if raw_d and parse_date(raw_d) is None:
-            errors.append(f"“{title}”: tarih YYYY-AA-GG biçiminde olmalı.")
+            errors.append(_tr("“{}”: tarih YYYY-AA-GG biçiminde olmalı.").format(title))
             continue
         if raw_t and parse_time(raw_t) is None:
-            errors.append(f"“{title}”: saat SS:DD biçiminde olmalı.")
+            errors.append(_tr("“{}”: saat SS:DD biçiminde olmalı.").format(title))
             continue
         if raw_e and parse_time(raw_e) is None:
-            errors.append(f"“{title}”: bitiş saati SS:DD biçiminde olmalı.")
+            errors.append(_tr("“{}”: bitiş saati SS:DD biçiminde olmalı.").format(title))
             continue
         if raw_t and not raw_d:
-            errors.append(f"“{title}”: saat verildiyse tarih de gerekli.")
+            errors.append(_tr("“{}”: saat verildiyse tarih de gerekli.").format(title))
             continue
         norm = normalize_action(dict(item, title=title))
         if norm:
@@ -1319,7 +1336,7 @@ def _ics_fold(line: str) -> str:
 def _ics_description(item: dict) -> str:
     parts = [item.get("notes") or ""]
     if item.get("quote"):
-        parts.append(f"Sohbetten: “{item['quote']}”")
+        parts.append(_tr("Sohbetten: “{}”").format(item['quote']))
     return "\n".join(p for p in parts if p)
 
 
@@ -1450,14 +1467,14 @@ def prepare_image(raw: bytes) -> tuple[bytes, str]:
     except ImportError:
         mt = _sniff_media_type(raw)
         if not mt:
-            raise AIError("Görsel biçimi tanınmadı.")
+            raise AIError(_tr("Görsel biçimi tanınmadı."))
         return raw, mt
     try:
         img = Image.open(io.BytesIO(raw))
         img = ImageOps.exif_transpose(img)
         img.load()
     except Exception as e:
-        raise AIError("Görsel açılamadı.") from e
+        raise AIError(_tr("Görsel açılamadı.")) from e
     if getattr(img, "is_animated", False):
         img.seek(0)
     if max(img.size) > _IMAGE_MAX_SIDE:
@@ -1482,7 +1499,7 @@ def fetch_url(url: str, max_bytes: int, timeout: float = 30) -> bytes:
     except AIError:
         raise
     except Exception as e:
-        raise AIError("Medya indirilemedi.") from e
+        raise AIError(_tr("Medya indirilemedi.")) from e
 
 
 # ── Gömme (anlamsal arama) ──────────────────────────────────────────────────
@@ -1554,8 +1571,8 @@ def transcribe_file(path: str, model_size: str = "small") -> str:
         from faster_whisper import WhisperModel
     except ImportError as e:
         raise AISetupError(
-            "Ses→metin için faster-whisper gerekli (yerel çalışır):\n"
-            '  .venv-xmpp/bin/python -m pip install faster-whisper "av<19"'
+            _tr("Ses→metin için faster-whisper gerekli (yerel çalışır):\n"
+                '  .venv-xmpp/bin/python -m pip install faster-whisper "av<19"')
         ) from e
     with _whisper_lock:
         model = _whisper_models.get(model_size)
@@ -1565,8 +1582,8 @@ def transcribe_file(path: str, model_size: str = "small") -> str:
                 model = WhisperModel(model_size, device="cpu",
                                      compute_type="int8")
             except Exception as e:
-                raise AISetupError(f"Whisper modeli yüklenemedi ({model_size}): "
-                              f"{e}") from e
+                raise AISetupError(_tr("Whisper modeli yüklenemedi ({}): {}")
+                                   .format(model_size, e)) from e
             _whisper_models[model_size] = model
     try:
         segments, _info = model.transcribe(path, vad_filter=True)
@@ -1576,9 +1593,9 @@ def transcribe_file(path: str, model_size: str = "small") -> str:
         # metadata_errors'u geçiriyor: her ses bu hatayla düşer
         if "metadata_errors" in str(e):
             raise AISetupError(
-                "Ses çözücü (PyAV) faster-whisper ile uyumsuz. Düzeltmek için:"
-                '\n  .venv-xmpp/bin/python -m pip install "av<19"') from e
-        raise AIError(f"Ses yazıya dökülemedi: {e}") from e
+                _tr("Ses çözücü (PyAV) faster-whisper ile uyumsuz. Düzeltmek için:"
+                    '\n  .venv-xmpp/bin/python -m pip install "av<19"')) from e
+        raise AIError(_tr("Ses yazıya dökülemedi: {}").format(e)) from e
     except Exception as e:
-        raise AIError(f"Ses yazıya dökülemedi: {e}") from e
+        raise AIError(_tr("Ses yazıya dökülemedi: {}").format(e)) from e
     return text or NO_SPEECH

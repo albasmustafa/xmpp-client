@@ -5,6 +5,11 @@ Reaction state/DB/bot/identity lookup YOK; snapshot veriler caller'dan gelir.
 """
 import tkinter as tk
 
+# Arayüz metni çevirisi: xmpp içe aktarılınca `xmpp._tr` takılır
+# (ui/chat yalnız tkinter/collections içe aktarır)
+_tr = str
+
+
 FRAME_TAG = "_reactions_frame"
 
 
@@ -67,7 +72,7 @@ def render_reactions(row, reactions, mine, *, theme, on_toggle, on_details,
         reply_chip.bind("<Leave>",
                         lambda e, w=reply_chip: w.config(fg=theme["FG_DIM"]))
         reply_chip.bind("<Button-1>", lambda e: on_reply())
-        add_tooltip(reply_chip, "Yanıtla")
+        add_tooltip(reply_chip, _tr("Yanıtla"))
         plus = tk.Label(rf, text="＋", font=(theme["FONT"], 9),
                         fg=theme["FG_DIM"], bg=theme["BG_CHAT"],
                         padx=4, pady=1, cursor="hand2")
@@ -77,5 +82,5 @@ def render_reactions(row, reactions, mine, *, theme, on_toggle, on_details,
         plus.bind("<Leave>",
                   lambda e, w=plus: w.config(fg=theme["FG_DIM"]))
         plus.bind("<Button-1>", lambda e: on_add())
-        add_tooltip(plus, "Tepki ekle")
+        add_tooltip(plus, _tr("Tepki ekle"))
     return rf

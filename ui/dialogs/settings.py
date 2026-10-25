@@ -25,6 +25,11 @@ from tkinter import messagebox, simpledialog, ttk
 
 from ui.dialogs.simple import _app
 
+
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
 # Tema seçim kartlarının önizleme renkleri (arka plan, yazı)
 THEME_SWATCHES = {
     "koyu": ("#12101e", "#e8edf5"),
@@ -48,7 +53,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     A = _app()
     jid = state["jid"]
     dlg = tk.Toplevel(parent)
-    dlg.title("Ayarlar")
+    dlg.title(_tr("Ayarlar"))
     dlg.configure(bg=A.SHADOW)
     dlg.geometry("560x640")
     dlg.transient(parent)
@@ -105,7 +110,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     # SEKME 1 — HESAP & PROFİL
     # ═══════════════════════════════════════════════════════════════════
     t_account = tk.Frame(nb, bg=A.BG_CARD, padx=20, pady=16)
-    nb.add(t_account, text="  Hesap  ")
+    nb.add(t_account, text=_tr("  Hesap  "))
 
     # — Scrollable container —
     ac_canvas = tk.Canvas(t_account, bg=A.BG_CARD, highlightthickness=0)
@@ -125,7 +130,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     t1 = ac_inner  # alias
 
     # ── Profil fotoğrafı ──
-    tk.Label(t1, text="PROFİL", font=(A.FONT, 7, "bold"),
+    tk.Label(t1, text=_tr("PROFİL"), font=(A.FONT, 7, "bold"),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(0, 6))
 
     profile_f = tk.Frame(t1, bg=A.BG_HOVER, padx=14, pady=10)
@@ -140,15 +145,15 @@ def show_settings(parent, cfg, state, actions, on_save):
     tk.Label(prof_info, text=jid, font=(A.FONT, 10, "bold"),
              fg=A.FG, bg=A.BG_HOVER).pack(anchor="w")
     server = jid.split("@")[1] if "@" in jid else "—"
-    tk.Label(prof_info, text=f"Sunucu: {server}", font=(A.FONT, 8),
+    tk.Label(prof_info, text=_tr("Sunucu: {}").format(server), font=(A.FONT, 8),
              fg=A.FG_DIM, bg=A.BG_HOVER).pack(anchor="w")
 
     def _pick_photo():
         from tkinter import filedialog
         path = filedialog.askopenfilename(
-            parent=dlg, title="Profil Fotoğrafı Seç",
-            filetypes=[("Resim", "*.png *.jpg *.jpeg *.gif *.webp *.bmp"),
-                       ("Tüm", "*.*")])
+            parent=dlg, title=_tr("Profil Fotoğrafı Seç"),
+            filetypes=[(_tr("Resim"), _tr("*.png *.jpg *.jpeg *.gif *.webp *.bmp")),
+                       (_tr("Tüm"), "*.*")])
         if not path:
             return
         try:
@@ -166,7 +171,7 @@ def show_settings(parent, cfg, state, actions, on_save):
             photo_refs.append(pho)
             actions["refresh_sidebar_avatar"]()
         except Exception as e:
-            messagebox.showerror("Hata", f"Fotoğraf yüklenemedi: {e}",
+            messagebox.showerror(_tr("Hata"), _tr("Fotoğraf yüklenemedi: {}").format(e),
                                  parent=dlg)
 
     def _remove_photo():
@@ -182,8 +187,8 @@ def show_settings(parent, cfg, state, actions, on_save):
 
     btn_f2 = tk.Frame(prof_info, bg=A.BG_HOVER)
     btn_f2.pack(anchor="w", pady=(6, 0))
-    for txt, clr, cmd in [("Fotoğraf Değiştir", A.ACCENT, _pick_photo),
-                          ("Kaldır", A.RED, _remove_photo)]:
+    for txt, clr, cmd in [(_tr("Fotoğraf Değiştir"), A.ACCENT, _pick_photo),
+                          (_tr("Kaldır"), A.RED, _remove_photo)]:
         b = tk.Label(btn_f2, text=txt, font=(A.FONT, 8), fg=clr,
                      bg=A.BG_HOVER, cursor="hand2", padx=6)
         b.pack(side="left")
@@ -192,11 +197,11 @@ def show_settings(parent, cfg, state, actions, on_save):
         b.bind("<Leave>", lambda e, c=clr: e.widget.config(fg=c))
 
     # ── Durum Mesajı ──
-    _section(t1, "DURUM MESAJI")
+    _section(t1, _tr("DURUM MESAJI"))
     status_f = tk.Frame(t1, bg=A.BG_CARD)
     status_f.pack(fill="x")
     status_var = tk.StringVar(value=cfg.get("status_text", ""))
-    status_entry = A.PlaceholderEntry(status_f, placeholder="Durum yazın...",
+    status_entry = A.PlaceholderEntry(status_f, placeholder=_tr("Durum yazın..."),
                                       textvariable=status_var,
                                       font=(A.FONT, 9), style="Modern.TEntry")
     status_entry.pack(fill="x", ipady=4)
@@ -205,7 +210,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     show_f = tk.Frame(t1, bg=A.BG_CARD)
     show_f.pack(fill="x", pady=(6, 0))
     # Adlar durum menüsüyle aynı (STATUS_OPTIONS; "chat" = Çevrimiçi)
-    labels = {show: label for label, show in A.STATUS_OPTIONS}
+    labels = {show: label for label, show in A._status_options()}
     for val, txt, dot in [("chat", labels["online"], "🟢"),
                           ("away", labels["away"], "🟡"),
                           ("dnd", labels["dnd"], "🔴"),
@@ -216,21 +221,21 @@ def show_settings(parent, cfg, state, actions, on_save):
                            side="left", padx=(0, 10))
 
     # ── Giriş ──
-    _section(t1, "GİRİŞ")
+    _section(t1, _tr("GİRİŞ"))
     remember_var = tk.BooleanVar(value=bool(cfg.get("remember")))
     auto_login_var = tk.BooleanVar(value=state["auto_login"])
-    auto_cb = tk.Checkbutton(t1, text="Açılışta otomatik giriş (formu atla)",
+    auto_cb = tk.Checkbutton(t1, text=_tr("Açılışta otomatik giriş (formu atla)"),
                              variable=auto_login_var, **chk_kw)
 
     def _sync_auto():
         auto_cb.config(state="normal" if remember_var.get() else "disabled")
-    tk.Checkbutton(t1, text="Şifremi hatırla", variable=remember_var,
+    tk.Checkbutton(t1, text=_tr("Şifremi hatırla"), variable=remember_var,
                    command=_sync_auto, **chk_kw).pack(anchor="w")
     auto_cb.pack(anchor="w", padx=(20, 0))
     _sync_auto()
 
     # ── Çoklu Hesap ──
-    _section(t1, "ÇOKLU HESAP")
+    _section(t1, _tr("ÇOKLU HESAP"))
     accounts = cfg.get("accounts", [])
     acc_list_f = tk.Frame(t1, bg=A.BG_CARD)
     acc_list_f.pack(fill="x")
@@ -248,29 +253,29 @@ def show_settings(parent, cfg, state, actions, on_save):
             rm.pack(side="right")
             rm.bind("<Button-1>", lambda _, idx=i: (
                 accounts.pop(idx), _refresh_acc_list()))
-            sw = tk.Label(af, text="⇄ Geçiş", font=(A.FONT, 8), fg=A.ACCENT,
+            sw = tk.Label(af, text=_tr("⇄ Geçiş"), font=(A.FONT, 8), fg=A.ACCENT,
                           bg=A.BG_HOVER, cursor="hand2")
             sw.pack(side="right", padx=(0, 8))
             sw.bind("<Button-1>",
                     lambda _, a=acc: actions["switch_account"](a))
         if not accounts:
-            tk.Label(acc_list_f, text="Ek hesap yok",
+            tk.Label(acc_list_f, text=_tr("Ek hesap yok"),
                      font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
 
     _refresh_acc_list()
 
     def _add_account():
-        new_jid = simpledialog.askstring("Hesap Ekle", "JID:", parent=dlg)
+        new_jid = simpledialog.askstring(_tr("Hesap Ekle"), _tr("JID:"), parent=dlg)
         if not new_jid:
             return
-        pw = simpledialog.askstring("Hesap Ekle", "Şifre:",
+        pw = simpledialog.askstring(_tr("Hesap Ekle"), _tr("Şifre:"),
                                     parent=dlg, show="*")
         if not pw:
             return
         accounts.append({"jid": new_jid, "password": actions["encode_pw"](pw)})
         _refresh_acc_list()
 
-    add_acc = tk.Label(t1, text="+ Hesap Ekle", font=(A.FONT, 8),
+    add_acc = tk.Label(t1, text=_tr("+ Hesap Ekle"), font=(A.FONT, 8),
                        fg=A.ACCENT, bg=A.BG_CARD, cursor="hand2")
     add_acc.pack(anchor="w", pady=(6, 0))
     add_acc.bind("<Button-1>", lambda _: _add_account())
@@ -278,10 +283,10 @@ def show_settings(parent, cfg, state, actions, on_save):
     # ═══════════════════════════════════════════════════════════════════
     # SEKME 2 — GÖRÜNÜM
     # ═══════════════════════════════════════════════════════════════════
-    t_appear = _scroll_tab("  Görünüm  ")
+    t_appear = _scroll_tab(_tr("  Görünüm  "))
 
     # ── Tema ──
-    tk.Label(t_appear, text="TEMA", font=(A.FONT, 7, "bold"),
+    tk.Label(t_appear, text=_tr("TEMA"), font=(A.FONT, 7, "bold"),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(0, 6))
 
     theme_var = tk.StringVar(value=cfg.get("theme", "koyu"))
@@ -294,7 +299,7 @@ def show_settings(parent, cfg, state, actions, on_save):
         theme_f.columnconfigure(col % 4, weight=1)
         inner = tk.Frame(card, bg=bg_c, padx=8, pady=6)
         inner.pack(fill="x")
-        rb = tk.Radiobutton(inner, text=tname.capitalize(),
+        rb = tk.Radiobutton(inner, text=A._theme_label(tname),
                             variable=theme_var, value=tname,
                             bg=bg_c, fg=fg_c, selectcolor=bg_c,
                             activebackground=bg_c, activeforeground=fg_c,
@@ -303,13 +308,13 @@ def show_settings(parent, cfg, state, actions, on_save):
         col += 1
 
     # ── Yazı Tipi ──
-    _section(t_appear, "YAZI TİPİ")
+    _section(t_appear, _tr("YAZI TİPİ"))
     font_var = tk.IntVar(value=cfg.get("font_size", 10))
     font_family_var = tk.StringVar(value=cfg.get("font_family", A.FONT))
 
     ff_f = tk.Frame(t_appear, bg=A.BG_CARD)
     ff_f.pack(fill="x")
-    tk.Label(ff_f, text="Yazı tipi:", font=(A.FONT, 9),
+    tk.Label(ff_f, text=_tr("Yazı tipi:"), font=(A.FONT, 9),
              fg=A.FG, bg=A.BG_CARD).pack(side="left")
     font_combo = ttk.Combobox(ff_f, textvariable=font_family_var,
                               values=FONT_FAMILIES, state="readonly",
@@ -319,7 +324,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     # Font boyutu slider
     fs_f = tk.Frame(t_appear, bg=A.BG_CARD)
     fs_f.pack(fill="x", pady=(8, 0))
-    tk.Label(fs_f, text="Boyut:", font=(A.FONT, 9),
+    tk.Label(fs_f, text=_tr("Boyut:"), font=(A.FONT, 9),
              fg=A.FG, bg=A.BG_CARD).pack(side="left")
     fs_lbl = tk.Label(fs_f, text=str(font_var.get()), font=(A.FONT, 9, "bold"),
                       fg=A.ACCENT, bg=A.BG_CARD, width=3)
@@ -333,11 +338,11 @@ def show_settings(parent, cfg, state, actions, on_save):
     font_scale.pack(side="left", padx=(8, 0), fill="x", expand=True)
 
     # Önizleme
-    _section(t_appear, "ÖNİZLEME")
+    _section(t_appear, _tr("ÖNİZLEME"))
     preview_f = tk.Frame(t_appear, bg=A.BG_HOVER, padx=14, pady=10)
     preview_f.pack(fill="x")
     preview_lbl = tk.Label(preview_f,
-                           text="Merhaba! Bu bir önizleme mesajıdır. 🎉",
+                           text=_tr("Merhaba! Bu bir önizleme mesajıdır. 🎉"),
                            fg=A.FG, bg=A.BG_HOVER, font=(A.FONT, 10))
     preview_lbl.pack(anchor="w")
 
@@ -352,7 +357,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     font_family_var.trace_add("write", _update_preview)
 
     # ── Dil ──
-    _section(t_appear, "DİL")
+    _section(t_appear, _tr("DİL"))
     lang_f = tk.Frame(t_appear, bg=A.BG_CARD)
     lang_f.pack(fill="x")
     lang_var = tk.StringVar(value=cfg.get("language", state["current_lang"]))
@@ -363,92 +368,92 @@ def show_settings(parent, cfg, state, actions, on_save):
                            side="left", padx=(0, 16))
 
     # ── Kompakt Mod ──
-    _section(t_appear, "DÜZEN")
+    _section(t_appear, _tr("DÜZEN"))
     compact_var = tk.BooleanVar(value=state["compact_mode"])
-    tk.Checkbutton(t_appear, text="📐 Kompakt mod (mesaj balonları daha sıkışık)",
+    tk.Checkbutton(t_appear, text=_tr("📐 Kompakt mod (mesaj balonları daha sıkışık)"),
                    variable=compact_var, **chk_kw).pack(anchor="w")
 
     # ── Sohbet Arka Planı ──
-    _section(t_appear, "SOHBET ARKA PLANI")
+    _section(t_appear, _tr("SOHBET ARKA PLANI"))
     wp_f = tk.Frame(t_appear, bg=A.BG_CARD)
     wp_f.pack(fill="x")
-    current_wp = state["wallpaper"] or "(varsayılan)"
+    current_wp = state["wallpaper"] or _tr("(varsayılan)")
     wp_display = current_wp if len(current_wp) < 40 else "…" + current_wp[-37:]
-    tk.Label(wp_f, text=f"Mevcut: {wp_display}",
+    tk.Label(wp_f, text=_tr("Mevcut: {}").format(wp_display),
              font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
-    _link(wp_f, "🖼 Arka Plan Değiştir…", actions["wallpaper"], pady=(4, 0))
+    _link(wp_f, _tr("🖼 Arka Plan Değiştir…"), actions["wallpaper"], pady=(4, 0))
 
     # ═══════════════════════════════════════════════════════════════════
     # SEKME 3 — BİLDİRİMLER & GİZLİLİK
     # ═══════════════════════════════════════════════════════════════════
     t_notif = tk.Frame(nb, bg=A.BG_CARD, padx=20, pady=16)
-    nb.add(t_notif, text="  Bildirimler  ")
+    nb.add(t_notif, text=_tr("  Bildirimler  "))
 
     # ── Bildirimler ──
-    tk.Label(t_notif, text="BİLDİRİMLER", font=(A.FONT, 7, "bold"),
+    tk.Label(t_notif, text=_tr("BİLDİRİMLER"), font=(A.FONT, 7, "bold"),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(0, 6))
 
     notify_var = tk.BooleanVar(value=cfg.get("notifications", True))
-    tk.Checkbutton(t_notif, text="Masaüstü bildirimleri göster",
+    tk.Checkbutton(t_notif, text=_tr("Masaüstü bildirimleri göster"),
                    variable=notify_var, **chk_kw).pack(anchor="w")
 
     sound_var = tk.BooleanVar(value=cfg.get("sounds", True))
-    tk.Checkbutton(t_notif, text="Bildirim sesleri çal",
+    tk.Checkbutton(t_notif, text=_tr("Bildirim sesleri çal"),
                    variable=sound_var, **chk_kw).pack(anchor="w", pady=(4, 0))
 
-    sound_test = tk.Label(t_notif, text="🔊 Sesi Test Et", font=(A.FONT, 8),
+    sound_test = tk.Label(t_notif, text=_tr("🔊 Sesi Test Et"), font=(A.FONT, 8),
                           fg=A.ACCENT, bg=A.BG_CARD, cursor="hand2")
     sound_test.pack(anchor="w", padx=(24, 0), pady=(2, 0))
     sound_test.bind("<Button-1>", lambda _: actions["test_sound"]())
 
     # ── Sistem Tepsisi ──
-    _section(t_notif, "SİSTEM TEPSİSİ")
-    tray_status = "🟢 Aktif" if state["tray_active"] else "⚫ pystray yüklü değil"
-    tk.Label(t_notif, text=f"Tepsi ikonu: {tray_status}",
+    _section(t_notif, _tr("SİSTEM TEPSİSİ"))
+    tray_status = _tr("🟢 Aktif") if state["tray_active"] else _tr("⚫ pystray yüklü değil")
+    tk.Label(t_notif, text=_tr("Tepsi ikonu: {}").format(tray_status),
              font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
     if not state["tray_active"]:
-        tk.Label(t_notif, text="Yüklemek için: pip install pystray",
+        tk.Label(t_notif, text=_tr("Yüklemek için: pip install pystray"),
                  font=(A.FONT, 7), fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(2, 0))
 
     # ── Gizlilik ──
-    _section(t_notif, "GİZLİLİK")
+    _section(t_notif, _tr("GİZLİLİK"))
 
     read_receipt_var = tk.BooleanVar(
         value=cfg.get("send_read_receipts", True))
-    tk.Checkbutton(t_notif, text="Okundu bilgisi gönder (XEP-0333)",
+    tk.Checkbutton(t_notif, text=_tr("Okundu bilgisi gönder (XEP-0333)"),
                    variable=read_receipt_var, **chk_kw).pack(anchor="w")
 
     typing_var = tk.BooleanVar(
         value=cfg.get("send_typing", True))
-    tk.Checkbutton(t_notif, text="Yazıyor bildirimi gönder (XEP-0085)",
+    tk.Checkbutton(t_notif, text=_tr("Yazıyor bildirimi gönder (XEP-0085)"),
                    variable=typing_var, **chk_kw).pack(anchor="w", pady=(4, 0))
 
     # ── Kaybolan Mesajlar ──
-    _section(t_notif, "KAYBOLAN MESAJLAR")
-    tk.Label(t_notif, text="Varsayılan süre (tüm yeni sohbetler için):",
+    _section(t_notif, _tr("KAYBOLAN MESAJLAR"))
+    tk.Label(t_notif, text=_tr("Varsayılan süre (tüm yeni sohbetler için):"),
              font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(
                  anchor="w", pady=(0, 4))
 
     disappear_var = tk.IntVar(value=cfg.get("default_disappear", 0))
     dis_f = tk.Frame(t_notif, bg=A.BG_CARD)
     dis_f.pack(fill="x")
-    for val, txt in [(0, "Kapalı"), (30, "30 sn"), (300, "5 dk"),
-                     (3600, "1 saat"), (86400, "1 gün")]:
+    for val, txt in [(0, _tr("Kapalı")), (30, _tr("30 sn")), (300, _tr("5 dk")),
+                     (3600, _tr("1 saat")), (86400, _tr("1 gün"))]:
         tk.Radiobutton(dis_f, text=txt, variable=disappear_var,
                        value=val, bg=A.BG_CARD, fg=A.FG, selectcolor=A.BG_HOVER,
                        activebackground=A.BG_CARD, font=(A.FONT, 8)).pack(
                            side="left", padx=(0, 8))
 
     # ── Engelli Kişiler ──
-    _section(t_notif, "ENGELLİ KİŞİLER")
-    _link(t_notif, "🚫 Engelli kişileri yönet...", actions["blocking"])
+    _section(t_notif, _tr("ENGELLİ KİŞİLER"))
+    _link(t_notif, _tr("🚫 Engelli kişileri yönet..."), actions["blocking"])
 
     # ── Dosya Transferi ──
     t_ft = tk.Frame(nb, bg=A.BG_CARD, padx=16, pady=12)
-    nb.add(t_ft, text=A._t("ft_title"))
-    _section(t_ft, A._t("ft_title"))
+    nb.add(t_ft, text=_tr("Dosya Transferi"))
+    _section(t_ft, _tr("Dosya Transferi"))
 
-    tk.Label(t_ft, text=A._t("ft_download_dir"), font=(A.FONT, 8),
+    tk.Label(t_ft, text=_tr("İndirme klasörü"), font=(A.FONT, 8),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
     dl_var = tk.StringVar(value=cfg.get(
         "download_dir", os.path.expanduser("~/Downloads")))
@@ -468,16 +473,16 @@ def show_settings(parent, cfg, state, actions, on_save):
                command=_pick_dir).pack(side="left", padx=(6, 0))
 
     auto_var = tk.BooleanVar(value=bool(cfg.get("ft_auto_accept", False)))
-    tk.Checkbutton(t_ft, text=A._t("ft_auto_accept"), variable=auto_var,
+    tk.Checkbutton(t_ft, text=_tr("Gelen dosyaları otomatik kabul et"), variable=auto_var,
                    **chk_kw).pack(anchor="w", pady=(10, 0))
 
-    tk.Label(t_ft, text=A._t("ft_block_size"), font=(A.FONT, 8),
+    tk.Label(t_ft, text=_tr("IBB blok boyutu"), font=(A.FONT, 8),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(10, 2))
     bs_var = tk.StringVar(value=str(cfg.get("ft_block_size", 4096)))
     ttk.Combobox(t_ft, textvariable=bs_var, values=("4096", "8192"),
                  state="readonly", width=8).pack(anchor="w")
 
-    tk.Label(t_ft, text=A._t("ft_warn_mb"), font=(A.FONT, 8),
+    tk.Label(t_ft, text=_tr("Büyük dosya uyarı eşiği (MB)"), font=(A.FONT, 8),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(10, 2))
     warn_var = tk.StringVar(value=str(cfg.get("ft_warn_mb", 50)))
     ttk.Entry(t_ft, textvariable=warn_var, width=8).pack(anchor="w")
@@ -486,7 +491,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     # SEKME 4 — ŞİFRELEME
     # ═══════════════════════════════════════════════════════════════════
     t2 = tk.Frame(nb, bg=A.BG_CARD, padx=20, pady=16)
-    nb.add(t2, text="  Şifreleme  ")
+    nb.add(t2, text=_tr("  Şifreleme  "))
 
     # — Scrollable —
     enc_canvas = tk.Canvas(t2, bg=A.BG_CARD, highlightthickness=0)
@@ -505,7 +510,7 @@ def show_settings(parent, cfg, state, actions, on_save):
                     lambda _: enc_canvas.yview_scroll(3, "units"))
     t2i = enc_inner  # alias
 
-    tk.Label(t2i, text="OMEMO (XEP-0384)", font=(A.FONT, 7, "bold"),
+    tk.Label(t2i, text=_tr("OMEMO (XEP-0384)"), font=(A.FONT, 7, "bold"),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(0, 6))
 
     # OMEMO durumu
@@ -514,11 +519,11 @@ def show_settings(parent, cfg, state, actions, on_save):
     omemo_ok = state["omemo_ok"]
     status_row = tk.Frame(omemo_f, bg=A.BG_HOVER)
     status_row.pack(fill="x")
-    omemo_status = "Hazır" if omemo_ok else (
-        "Yüklü değil" if not state["has_omemo"] else "Başlatılmadı")
+    omemo_status = _tr("Hazır") if omemo_ok else (
+        _tr("Yüklü değil") if not state["has_omemo"] else _tr("Başlatılmadı"))
     omemo_color = A.ACCENT_G if omemo_ok else A.RED
     dot = "🟢" if omemo_ok else "🔴"
-    tk.Label(status_row, text="🔒 OMEMO", font=(A.FONT, 10, "bold"),
+    tk.Label(status_row, text=_tr("🔒 OMEMO"), font=(A.FONT, 10, "bold"),
              fg=A.FG, bg=A.BG_HOVER).pack(side="left")
     tk.Label(status_row, text=f"  {dot} {omemo_status}",
              font=(A.FONT, 9), fg=omemo_color, bg=A.BG_HOVER).pack(side="left")
@@ -528,7 +533,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     omemo_info_f.pack(fill="x", pady=(8, 0))
 
     if omemo_ok:
-        tk.Label(omemo_info_f, text="Cihaz bilgileri yükleniyor…",
+        tk.Label(omemo_info_f, text=_tr("Cihaz bilgileri yükleniyor…"),
                  font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
 
         def _show_omemo_info(info):
@@ -537,13 +542,13 @@ def show_settings(parent, cfg, state, actions, on_save):
             for w in omemo_info_f.winfo_children():
                 w.destroy()
             if info is None or "error" in (info or {}):
-                err = (info or {}).get("error", "Bilgi alınamadı")
-                tk.Label(omemo_info_f, text=f"Hata: {err}",
+                err = (info or {}).get("error", _tr("Bilgi alınamadı"))
+                tk.Label(omemo_info_f, text=_tr("Hata: {}").format(err),
                          font=(A.FONT, 8), fg=A.RED, bg=A.BG_CARD).pack(anchor="w")
                 return
             dev_f = tk.Frame(omemo_info_f, bg=A.BG_HOVER, padx=12, pady=8)
             dev_f.pack(fill="x", pady=(0, 4))
-            tk.Label(dev_f, text=f"Bu Cihaz  (ID: {info['device_id']})",
+            tk.Label(dev_f, text=_tr("Bu Cihaz  (ID: {})").format(info['device_id']),
                      font=(A.FONT, 9, "bold"),
                      fg=A.ACCENT, bg=A.BG_HOVER).pack(anchor="w")
             fp_var = tk.StringVar(value=info["fingerprint"])
@@ -552,18 +557,18 @@ def show_settings(parent, cfg, state, actions, on_save):
                              style="Modern.TEntry")
             fp_e.pack(fill="x", pady=(4, 0))
             # Kopyala butonu
-            copy_b = tk.Label(dev_f, text="📋 Kopyala", font=(A.FONT, 7),
+            copy_b = tk.Label(dev_f, text=_tr("📋 Kopyala"), font=(A.FONT, 7),
                               fg=A.ACCENT, bg=A.BG_HOVER, cursor="hand2")
             copy_b.pack(anchor="w", pady=(2, 0))
             copy_b.bind("<Button-1>", lambda _: (
                 dlg.clipboard_clear(),
                 dlg.clipboard_append(info["fingerprint"]),
-                copy_b.config(text="✓ Kopyalandı")))
+                copy_b.config(text=_tr("✓ Kopyalandı"))))
 
             others = info.get("other_devices", [])
             if others:
                 tk.Label(omemo_info_f,
-                         text=f"Diğer Cihazlar ({len(others)})",
+                         text=_tr("Diğer Cihazlar ({})").format(len(others)),
                          font=(A.FONT, 9, "bold"),
                          fg=A.FG, bg=A.BG_CARD).pack(anchor="w", pady=(8, 4))
                 for dev in others:
@@ -572,7 +577,7 @@ def show_settings(parent, cfg, state, actions, on_save):
                     df.pack(fill="x", pady=(0, 3))
                     active = "aktif" if dev["active"] else "pasif"
                     ac = A.ACCENT_G if dev["active"] else A.FG_DIM
-                    tk.Label(df, text=f"Cihaz: {dev['device_id']}  ({active})",
+                    tk.Label(df, text=_tr("Cihaz: {}  ({})").format(dev['device_id'], active),
                              font=(A.FONT, 8, "bold"), fg=ac,
                              bg=A.BG_HOVER).pack(anchor="w")
                     dv = tk.StringVar(value=dev["fingerprint"])
@@ -581,23 +586,23 @@ def show_settings(parent, cfg, state, actions, on_save):
                     de.pack(fill="x", pady=(2, 0))
             else:
                 tk.Label(omemo_info_f,
-                         text="Başka cihaz bulunamadı",
+                         text=_tr("Başka cihaz bulunamadı"),
                          font=(A.FONT, 8), fg=A.FG_DIM,
                          bg=A.BG_CARD).pack(anchor="w", pady=(4, 0))
 
         actions["omemo_device_info"](_show_omemo_info)
 
     # PGP durumu
-    _section(t2i, "OpenPGP (XEP-0027)")
+    _section(t2i, _tr("OpenPGP (XEP-0027)"))
     pgp_f = tk.Frame(t2i, bg=A.BG_HOVER, padx=14, pady=10)
     pgp_f.pack(fill="x")
     pgp_ok = state["pgp_ok"]
     pgp_row = tk.Frame(pgp_f, bg=A.BG_HOVER)
     pgp_row.pack(fill="x")
-    pgp_status = "Hazır" if pgp_ok else "GPG bulunamadı"
+    pgp_status = _tr("Hazır") if pgp_ok else _tr("GPG bulunamadı")
     pgp_color = A.ACCENT_G if pgp_ok else A.FG_DIM
     pgp_dot = "🟢" if pgp_ok else "⚫"
-    tk.Label(pgp_row, text="🔑 OpenPGP", font=(A.FONT, 10, "bold"),
+    tk.Label(pgp_row, text=_tr("🔑 OpenPGP"), font=(A.FONT, 10, "bold"),
              fg=A.FG, bg=A.BG_HOVER).pack(side="left")
     tk.Label(pgp_row, text=f"  {pgp_dot} {pgp_status}",
              font=(A.FONT, 9), fg=pgp_color, bg=A.BG_HOVER).pack(side="left")
@@ -605,7 +610,7 @@ def show_settings(parent, cfg, state, actions, on_save):
     keys = state["pgp_keys"]   # owner'da okunamadıysa None
     if pgp_ok and keys:
         try:
-            tk.Label(pgp_f, text=f"Anahtar: {len(keys)} adet",
+            tk.Label(pgp_f, text=_tr("Anahtar: {} adet").format(len(keys)),
                      font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_HOVER).pack(
                          anchor="w", pady=(4, 0))
             for k in keys[:5]:
@@ -618,8 +623,8 @@ def show_settings(parent, cfg, state, actions, on_save):
 
     # PGP Anahtar Eşleştirme
     if pgp_ok:
-        _section(t2i, "PGP ANAHTAR EŞLEŞTİRME")
-        tk.Label(t2i, text="JID → GPG Key ID eşleştirmesi",
+        _section(t2i, _tr("PGP ANAHTAR EŞLEŞTİRME"))
+        tk.Label(t2i, text=_tr("JID → GPG Key ID eşleştirmesi"),
                  font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(
                      anchor="w", pady=(0, 6))
 
@@ -653,15 +658,15 @@ def show_settings(parent, cfg, state, actions, on_save):
 
         hdr = tk.Frame(pgp_map_f, bg=A.BG_CARD)
         hdr.pack(fill="x")
-        tk.Label(hdr, text="JID", font=(A.FONT, 7, "bold"),
+        tk.Label(hdr, text=_tr("JID"), font=(A.FONT, 7, "bold"),
                  fg=A.FG_DIM, bg=A.BG_CARD).pack(side="left")
-        tk.Label(hdr, text="Key ID", font=(A.FONT, 7, "bold"),
+        tk.Label(hdr, text=_tr("Key ID"), font=(A.FONT, 7, "bold"),
                  fg=A.FG_DIM, bg=A.BG_CARD).pack(side="right", padx=(0, 24))
 
         for jid_key, kid in saved_pgp.items():
             _add_pgp_row(jid_key, kid)
 
-        add_b = tk.Label(pgp_map_f, text="+ Eşleştirme Ekle",
+        add_b = tk.Label(pgp_map_f, text=_tr("+ Eşleştirme Ekle"),
                          font=(A.FONT, 8), fg=A.ACCENT, bg=A.BG_CARD,
                          cursor="hand2")
         add_b.pack(anchor="w", pady=(4, 0))
@@ -669,20 +674,20 @@ def show_settings(parent, cfg, state, actions, on_save):
         actions["pgp_entries"](pgp_entries)
 
     # QR Doğrulama
-    _section(t2i, "OMEMO QR DOĞRULAMA")
-    _link(t2i, "🔐 QR Kod ile Parmak İzi Doğrula…", actions["omemo_qr"])
+    _section(t2i, _tr("OMEMO QR DOĞRULAMA"))
+    _link(t2i, _tr("🔐 QR Kod ile Parmak İzi Doğrula…"), actions["omemo_qr"])
     if state["has_qrcode"]:
-        tk.Label(t2i, text="🟢 qrcode kütüphanesi yüklü",
+        tk.Label(t2i, text=_tr("🟢 qrcode kütüphanesi yüklü"),
                  font=(A.FONT, 7), fg=A.ACCENT_G, bg=A.BG_CARD).pack(anchor="w", pady=(2, 0))
     else:
-        tk.Label(t2i, text="⚫ QR için: pip install qrcode[pil]",
+        tk.Label(t2i, text=_tr("⚫ QR için: pip install qrcode[pil]"),
                  font=(A.FONT, 7), fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(2, 0))
 
     # Varsayılan şifreleme
-    _section(t2i, "VARSAYILAN ŞİFRELEME")
+    _section(t2i, _tr("VARSAYILAN ŞİFRELEME"))
     default_enc_var = tk.StringVar(
         value=cfg.get("default_encryption", "none"))
-    enc_opts = [("🔓 Kapalı", "none"), ("🔒 OMEMO", "omemo"),
+    enc_opts = [(_tr("🔓 Kapalı"), "none"), ("🔒 OMEMO", "omemo"),
                 ("🔑 OpenPGP", "pgp")]
     for label, val in enc_opts:
         tk.Radiobutton(t2i, text=label, variable=default_enc_var,
@@ -694,37 +699,37 @@ def show_settings(parent, cfg, state, actions, on_save):
     # ═══════════════════════════════════════════════════════════════════
     # SEKME 5 — BAĞLANTI
     # ═══════════════════════════════════════════════════════════════════
-    t_conn = _scroll_tab("  Bağlantı  ")
+    t_conn = _scroll_tab(_tr("  Bağlantı  "))
 
-    tk.Label(t_conn, text="BAĞLANTI AYARLARI", font=(A.FONT, 7, "bold"),
+    tk.Label(t_conn, text=_tr("BAĞLANTI AYARLARI"), font=(A.FONT, 7, "bold"),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(0, 6))
 
     auto_rejoin_var = tk.BooleanVar(value=cfg.get("auto_rejoin", True))
-    tk.Checkbutton(t_conn, text="Odalara otomatik yeniden katıl",
+    tk.Checkbutton(t_conn, text=_tr("Odalara otomatik yeniden katıl"),
                    variable=auto_rejoin_var, **chk_kw).pack(anchor="w")
 
     # ── Otomatik Uzakta ──
-    _section(t_conn, "OTOMATİK UZAKTA")
-    tk.Label(t_conn, text="İşlem yapılmadığında otomatik uzakta durumuna geç:",
+    _section(t_conn, _tr("OTOMATİK UZAKTA"))
+    tk.Label(t_conn, text=_tr("İşlem yapılmadığında otomatik uzakta durumuna geç:"),
              font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", pady=(0, 4))
     idle_var = tk.IntVar(value=cfg.get("idle_after_min", 5))
     idle_f = tk.Frame(t_conn, bg=A.BG_CARD)
     idle_f.pack(fill="x")
-    for val, txt in [(0, "Kapalı"), (3, "3 dk"), (5, "5 dk"),
-                     (10, "10 dk"), (15, "15 dk"), (30, "30 dk")]:
+    for val, txt in [(0, _tr("Kapalı")), (3, _tr("3 dk")), (5, _tr("5 dk")),
+                     (10, _tr("10 dk")), (15, _tr("15 dk")), (30, _tr("30 dk"))]:
         tk.Radiobutton(idle_f, text=txt, variable=idle_var,
                        value=val, bg=A.BG_CARD, fg=A.FG, selectcolor=A.BG_HOVER,
                        activebackground=A.BG_CARD, font=(A.FONT, 8)).pack(
                            side="left", padx=(0, 6))
 
     # ── Bağlantı Kalitesi ──
-    _section(t_conn, "BAĞLANTI KALİTESİ")
+    _section(t_conn, _tr("BAĞLANTI KALİTESİ"))
     ping_ms = state["ping_ms"]
     if ping_ms < 0:
-        ping_txt = "📶 Bağlantı yok"
+        ping_txt = _tr("📶 Bağlantı yok")
         ping_c = A.RED
     elif ping_ms == 0:
-        ping_txt = "📶 Henüz ölçülmedi"
+        ping_txt = _tr("📶 Henüz ölçülmedi")
         ping_c = A.FG_DIM
     else:
         ping_txt = f"📶 Gecikme: {ping_ms} ms"
@@ -733,7 +738,7 @@ def show_settings(parent, cfg, state, actions, on_save):
              fg=ping_c, bg=A.BG_CARD).pack(anchor="w")
 
     # Kayıtlı odalar
-    _section(t_conn, "KAYITLI ODALAR")
+    _section(t_conn, _tr("KAYITLI ODALAR"))
     saved_rooms = cfg.get("rooms", {})
     rooms_f = tk.Frame(t_conn, bg=A.BG_CARD)
     rooms_f.pack(fill="x")
@@ -748,53 +753,54 @@ def show_settings(parent, cfg, state, actions, on_save):
             tk.Label(rf, text=nick, font=(A.FONT, 7),
                      fg=A.FG_DIM, bg=A.BG_HOVER).pack(side="right")
     else:
-        tk.Label(rooms_f, text="Kayıtlı oda yok",
+        tk.Label(rooms_f, text=_tr("Kayıtlı oda yok"),
                  font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
 
     # Bağlantı durumu
-    _section(t_conn, "BAĞLANTI DURUMU")
+    _section(t_conn, _tr("BAĞLANTI DURUMU"))
     conn_f = tk.Frame(t_conn, bg=A.BG_HOVER, padx=14, pady=10)
     conn_f.pack(fill="x")
     connected = state["connected"]
     conn_dot = "🟢" if connected else "🔴"
-    conn_text = "Bağlı" if connected else "Bağlı değil"
+    conn_text = _tr("Bağlı") if connected else _tr("Bağlı değil")
     tk.Label(conn_f, text=f"{conn_dot}  {conn_text}",
              font=(A.FONT, 10, "bold"), fg=A.FG, bg=A.BG_HOVER).pack(
                  anchor="w")
     if connected:
-        tk.Label(conn_f, text=f"Hesap: {jid}",
+        tk.Label(conn_f, text=_tr("Hesap: {}").format(jid),
                  font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_HOVER).pack(anchor="w")
-        tk.Label(conn_f, text=f"Kişiler: {state['contacts_count']}  •  "
-                              f"Aktif Odalar: {state['rooms_count']}",
+        tk.Label(conn_f, text=_tr("Kişiler: {}  •  Aktif Odalar: {}")
+                              .format(state['contacts_count'], state['rooms_count']),
                  font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_HOVER).pack(anchor="w")
 
     # ── Proxy / SOCKS ──
-    _section(t_conn, "PROXY / ANONİM BAĞLANTI")
+    _section(t_conn, _tr("PROXY / ANONİM BAĞLANTI"))
     proxy_cfg = cfg.get("proxy", {})
     proxy_type = proxy_cfg.get("type", "none")
-    proxy_txt = f"Tür: {proxy_type}" if proxy_type != "none" else "Yapılandırılmamış"
+    proxy_txt = (_tr("Tür: {}").format(proxy_type) if proxy_type != "none"
+                 else _tr("Yapılandırılmamış"))
     tk.Label(t_conn, text=f"🔒 {proxy_txt}", font=(A.FONT, 8),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
-    _link(t_conn, "🔧 Proxy Ayarları…", actions["proxy"], pady=(4, 0))
+    _link(t_conn, _tr("🔧 Proxy Ayarları…"), actions["proxy"], pady=(4, 0))
 
     # ── Otomatik Tema Geçişi ──
-    _section(t_conn, "OTOMATİK TEMA GEÇİŞİ")
+    _section(t_conn, _tr("OTOMATİK TEMA GEÇİŞİ"))
     auto_theme = cfg.get("auto_theme", False)
-    at_txt = "🟢 Aktif" if auto_theme else "⚫ Kapalı"
+    at_txt = _tr("🟢 Aktif") if auto_theme else _tr("⚫ Kapalı")
     tk.Label(t_conn, text=f"🌓 {at_txt}", font=(A.FONT, 8),
              fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
-    _link(t_conn, "🌓 Otomatik Tema Ayarları…", actions["auto_theme"], pady=(4, 0))
+    _link(t_conn, _tr("🌓 Otomatik Tema Ayarları…"), actions["auto_theme"], pady=(4, 0))
 
     # ── Güvenlik ──
-    _section(t_conn, "GÜVENLİK")
-    _link(t_conn, "🔑 Uygulama Kilidi (PIN)…", actions["pin_lock"])
-    _link(t_conn, "🗑 Mesaj Geçmişini Sil…", actions["clear_history"],
+    _section(t_conn, _tr("GÜVENLİK"))
+    _link(t_conn, _tr("🔑 Uygulama Kilidi (PIN)…"), actions["pin_lock"])
+    _link(t_conn, _tr("🗑 Mesaj Geçmişini Sil…"), actions["clear_history"],
           fg=A.RED, pady=(4, 0))
 
     # ═══════════════════════════════════════════════════════════════════
     # SEKME 6 — HAKKINDA
     # ═══════════════════════════════════════════════════════════════════
-    t3 = _scroll_tab("  Hakkında  ")
+    t3 = _scroll_tab(_tr("  Hakkında  "))
 
     # Logo / başlık
     logo_c = tk.Canvas(t3, width=64, height=64, bg=A.BG_CARD,
@@ -804,9 +810,9 @@ def show_settings(parent, cfg, state, actions, on_save):
     logo_c.create_text(32, 32, text="X", fill=A.FG_ME,
                        font=(A.FONT, 22, "bold"))
 
-    tk.Label(t3, text="XMPP İstemci", font=(A.FONT, 16, "bold"),
+    tk.Label(t3, text=_tr("XMPP İstemci"), font=(A.FONT, 16, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack()
-    tk.Label(t3, text="deneme.py — Modern Tkinter XMPP İstemcisi",
+    tk.Label(t3, text=_tr("deneme.py — Modern Tkinter XMPP İstemcisi"),
              font=(A.FONT, 9), fg=A.FG_DIM, bg=A.BG_CARD).pack(pady=(2, 16))
 
     # Bilgi kartları
@@ -821,7 +827,7 @@ def show_settings(parent, cfg, state, actions, on_save):
         tk.Label(row, text=val, font=(A.FONT, 8),
                  fg=A.FG, bg=A.BG_CARD).pack(side="left", padx=(8, 0))
 
-    _section(t3, "KÜTÜPHANELER")
+    _section(t3, _tr("KÜTÜPHANELER"))
     lib_f = tk.Frame(t3, bg=A.BG_CARD)
     lib_f.pack(fill="x")
     col = 0
@@ -832,30 +838,30 @@ def show_settings(parent, cfg, state, actions, on_save):
         col += 1
 
     # Dışa aktarma
-    _section(t3, "VERİ")
+    _section(t3, _tr("VERİ"))
     export_f = tk.Frame(t3, bg=A.BG_CARD)
     export_f.pack(fill="x")
-    _link(export_f, "📤 Sohbetleri Dışa Aktar", actions["export_chat"])
+    _link(export_f, _tr("📤 Sohbetleri Dışa Aktar"), actions["export_chat"])
 
-    exp_cfg = tk.Label(export_f, text="📋 Ayarları Kopyala",
+    exp_cfg = tk.Label(export_f, text=_tr("📋 Ayarları Kopyala"),
                        font=(A.FONT, 9), fg=A.ACCENT, bg=A.BG_CARD,
                        cursor="hand2")
     exp_cfg.pack(anchor="w", pady=(4, 0))
     exp_cfg.bind("<Button-1>", lambda _: (
         dlg.clipboard_clear(),
         dlg.clipboard_append(actions["config_json"]()),
-        exp_cfg.config(text="✓ Kopyalandı")))
+        exp_cfg.config(text=_tr("✓ Kopyalandı"))))
 
-    _link(export_f, "💾 Yedekleme / Geri Yükleme…", actions["backup"], pady=(4, 0))
+    _link(export_f, _tr("💾 Yedekleme / Geri Yükleme…"), actions["backup"], pady=(4, 0))
 
     # Kısayollar
-    _section(t3, "KLAVYE KISAYOLLARI")
-    _link(t3, "⌨ Kısayolları Göster…", actions["shortcuts"])
+    _section(t3, _tr("KLAVYE KISAYOLLARI"))
+    _link(t3, _tr("⌨ Kısayolları Göster…"), actions["shortcuts"])
 
     shortcuts_info = tk.Frame(t3, bg=A.BG_CARD)
     shortcuts_info.pack(fill="x", pady=(4, 0))
-    for key, desc in [("Ctrl+F", "Sohbette Ara"), ("Ctrl+K", "Hızlı Geçiş"),
-                      ("Ctrl+N", "Yeni Sohbet"), ("Ctrl+B", "Yedekleme")]:
+    for key, desc in [(_tr("Ctrl+F"), _tr("Sohbette Ara")), (_tr("Ctrl+K"), _tr("Hızlı Geçiş")),
+                      (_tr("Ctrl+N"), _tr("Yeni Sohbet")), (_tr("Ctrl+B"), _tr("Yedekleme"))]:
         row = tk.Frame(shortcuts_info, bg=A.BG_CARD)
         row.pack(fill="x", pady=1)
         tk.Label(row, text=key, font=("Courier", 7, "bold"),
@@ -899,12 +905,12 @@ def show_settings(parent, cfg, state, actions, on_save):
         })
         dlg.destroy()
 
-    save_btn = ttk.Button(btn_f, text="  Kaydet ve Kapat  ",
+    save_btn = ttk.Button(btn_f, text=_tr("  Kaydet ve Kapat  "),
                           command=_save)
     save_btn.pack(fill="x", ipady=6)
 
     # İptal butonu
-    cancel_btn = tk.Label(btn_f, text="İptal", font=(A.FONT, 8),
+    cancel_btn = tk.Label(btn_f, text=_tr("İptal"), font=(A.FONT, 8),
                           fg=A.FG_DIM, bg=A.BG_CARD, cursor="hand2")
     cancel_btn.pack(pady=(6, 0))
     cancel_btn.bind("<Button-1>", lambda _: dlg.destroy())

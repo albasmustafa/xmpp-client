@@ -2,6 +2,8 @@
 import re
 import unicodedata
 
+from xmppcore.i18n import tr as _tr
+
 
 def _fill_search_form(fields: dict, query: str) -> str | None:
     """XEP-0055 formunda sorguyu en uygun alana yerleştir.
@@ -204,7 +206,7 @@ def _reply_preview(text: str, limit: int = 140) -> str:
 
 def _forward_body(orig_from: str, orig_body: str) -> str:
     """İletilen mesajın gövdesi (gönderilen ve yerelde saklanan aynı metin)."""
-    return f"[İletildi — {orig_from}]\n{orig_body}"
+    return _tr("[İletildi — {}]\n{}").format(orig_from, orig_body)
 
 
 def _toggle_reaction_set(current, emoji: str) -> set:

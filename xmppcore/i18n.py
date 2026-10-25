@@ -1,193 +1,78 @@
-"""i18n dizeleri (Faz 1 yaprak modülü) — saf veri."""
+"""Arayüz dili (Faz 1 yaprak modülü).
+
+Gettext tarzı: Türkçe arayüz metninin kendisi anahtardır. `tr(metin)` dil
+İngilizceyken `locale_en.EN` kataloğundaki karşılığı, yoksa metnin kendisini
+döndürür; Türkçede metin aynen döner. Değişken içeren metinler şablonla
+çevrilir: `tr("{} mesaj").format(n)` — şablon kataloğun anahtarıdır.
+
+Modül düzeyindeki sabitler (menü listeleri, durum adları) içe aktarılırken
+değil kullanıldıkları yerde çevrilir: dil, ayarlar okunduktan sonra seçilir.
+"""
+from xmppcore.locale_en import EN
+
+LANGUAGES = {"tr": "Türkçe", "en": "English"}
+DEFAULT_LANGUAGE = "tr"
+
+_lang = DEFAULT_LANGUAGE
 
 
-# ── i18n — Çoklu dil desteği ─────────────────────────────────────────────────
-_STRINGS = {
-    "tr": {
-        "new_chat": "Yeni Sohbet", "contacts": "KİŞİLER", "rooms": "ODALAR",
-        "settings": "Ayarlar", "send": "Gönder", "search": "Ara",
-        "enter_jid": "Bir XMPP adresi girin", "jid_label": "JID",
-        "start_chat": "Sohbet Başlat", "subscribe": "Abonelik İste",
-        "user_search": "Kullanıcı Ara", "server": "Sunucu",
-        "search_placeholder": "İsim veya JID...", "cancel": "İptal",
-        "save": "Kaydet", "close": "Kapat", "delete": "Sil",
-        "edit": "Düzenle", "copy": "Kopyala", "forward": "İlet",
-        "reply": "Yanıtla", "pin": "Sabitle", "unpin": "Sabitlemeden Kaldır",
-        "react": "Tepki Ekle", "connected": "Bağlandı",
-        "connecting": "Bağlanıyor…", "disconnected": "Bağlantı kesildi",
-        "encryption_off": "Şifreleme Kapalı",
-        "omemo_on": "OMEMO şifreleme açıldı",
-        "pgp_on": "OpenPGP şifreleme açıldı",
-        "enc_off": "Şifreleme kapatıldı",
-        "today": "Bugün", "yesterday": "Dün",
-        "typing": "yazıyor", "online": "Çevrimiçi",
-        "offline": "Çevrimdışı", "away": "Uzakta", "busy": "Meşgul",
-        "block": "Engelle", "unblock": "Engeli Kaldır",
-        "export_chat": "Sohbeti Dışa Aktar", "theme": "Tema",
-        "font_size": "Yazı Boyutu", "language": "Dil",
-        "profile": "Profil", "location": "Konum Paylaş",
-        "voice_msg": "Sesli Mesaj", "call": "Ara",
-        "pin_msg": "📌 Sabitlendi", "status_msg": "Durum Mesajı",
-        "accounts": "Hesaplar", "add_account": "Hesap Ekle",
-        "disappearing": "Kaybolan Mesajlar", "fingerprints": "Parmak İzleri",
-        "blocked_list": "Engellenenler",
-        "select_chat": "Bir sohbet seçin",
-        "start_conversation": "Sohbete Başlayın",
-        "select_contact": "Bir kişi veya oda seçerek konuşmaya başlayın",
-        "join_room": "Odaya Katıl", "discover_rooms": "Oda Keşfet",
-        "create_room": "Oda Oluştur", "add_contact": "Kişi Ekle",
-        "message_placeholder": "Mesaj yazın...",
-        "participants": "KATILIMCILAR",
-        "bookmarks": "Yer İmleri", "msg_search": "Mesaj Ara",
-        "groups": "Gruplar", "advanced": "GELİŞMİŞ",
-        "sticker_gif": "Sticker/GIF",
-        "ai_assistant": "AI Asistanı",
-        "ft_title": "Dosya Transferi", "ft_http": "☁  Sunucuya Yükle (HTTP)",
-        "ft_p2p": "⚡  P2P Gönder (Jingle)",
-        "ft_offer_title": "Gelen Dosya Teklifi",
-        "ft_accept_save": "Kabul Et ve Kaydet", "ft_decline": "Reddet",
-        "ft_progress_title": "Dosya Transferi", "ft_cancel": "İptal",
-        "ft_open": "Aç", "ft_open_folder": "Klasörü Aç",
-        "ft_not_e2e": "P2P — uçtan uca şifreli değil",
-        "ft_download_dir": "İndirme klasörü",
-        "ft_auto_accept": "Gelen dosyaları otomatik kabul et",
-        "ft_block_size": "IBB blok boyutu",
-        "ft_warn_mb": "Büyük dosya uyarı eşiği (MB)",
-        "ft_received": "Dosya alındı", "ft_sent": "Dosya gönderildi",
-        "ft_online_check": "Kişi çevrimdışı görünüyor; P2P başarısız olabilir.",
-        "ft_large_warn": "{mb} MB üzeri dosyalarda P2P yavaş olabilir. Devam edilsin mi?",
-        "ft_http_fallback": "P2P başarısız oldu. Dosya sunucuya yüklenerek gönderilsin mi?",
-        "ft_p2p_plain": "Bu sohbet şifreli, ama P2P aktarım (Jingle/IBB) uçtan uca "
-                        "şifreli değil: dosya sunucu üzerinden şifresiz geçer. "
-                        "Yine de P2P ile gönderilsin mi?",
-        "ft_p2p_omemo_hint": "Şifreli göndermek için 📎 → Sunucuya Yükle'yi kullanın "
-                             "(OMEMO'lu sohbette dosya şifrelenir).",
-        "forward_plain_warn": "Bu mesaj şifreli içerik taşıyor ama seçtiğiniz sohbet "
-                              "şifresiz: içerik (şifreli dosyanın anahtarı dahil) "
-                              "sunucuya açık metin gider. Yine de iletilsin mi?",
-        "ft_pgp_plain": "Bu sohbet OpenPGP ile şifreli, ama OpenPGP dosya şifreleyemez: "
-                        "dosya sunucuya şifresiz yüklenir, bağlantıyı gören herkes "
-                        "açabilir. Yine de gönderilsin mi?",
-        "ft_timeout": "Dosya teklifi yanıtsız kaldı",
-        "ft_auto_saved": "otomatik kabul edildi",
-        "join_selected": "Seçilen Odaya Katıl", "add_bookmark": "Yer İmine Ekle",
-        "bookmark_added": "Yer imine eklendi",
-        "discover_selected": "Seçili Sunucudan Keşfet",
-        "server_address": "Sunucu adresi", "private_room": "özel",
-        "reconnect": "Yeniden Bağlan",
-        "log": "Log", "rest_api": "REST API",
-        "main_menu": "Ana Menü", "tools": "Araçlar",
-        "pinned_msgs": "Sabitlenmiş Mesajlar",
-        "no_pinned": "Sabitlenmiş mesaj yok",
-        "edit_msg": "Mesajı Düzenle", "new_text": "Yeni metin:",
-        "delete_msg": "Mesajı Sil",
-        "delete_confirm": "Bu mesajı silmek istediğinizden emin misiniz?",
-        "forwarded": "İletildi", "forward_title": "Mesajı İlet",
-        "forward_select": "İletilecek kişi/oda seçin:",
-        "filter": "Filtrele...", "existing_contacts": "Kişiler",
-        "notifications_title": "BİLDİRİMLER", "appearance": "GÖRÜNÜM",
-        "connection": "BAĞLANTI", "about": "Hakkında",
-        "encryption": "Şifreleme", "general": "Genel",
-        "save_close": "Kaydet ve Kapat",
-        "recording": "Kaydediliyor...", "mic": "Mikrofon",
-        "sidebar_search_placeholder": "Kişi veya oda ara...",
-        "filter_all": "Tümü", "filter_unread": "Okunmamış", "filter_pinned": "Sabitlenmiş",
-        "quick_switch": "Hızlı Geçiş",
-        "quick_switch_hint": "↑/↓ seç · Enter aç · Esc kapat",
-        "no_chats_found": "Eşleşen sohbet bulunamadı",
-    },
-    "en": {
-        "new_chat": "New Chat", "contacts": "CONTACTS", "rooms": "ROOMS",
-        "settings": "Settings", "send": "Send", "search": "Search",
-        "enter_jid": "Enter an XMPP address", "jid_label": "JID",
-        "start_chat": "Start Chat", "subscribe": "Subscribe",
-        "user_search": "Search Users", "server": "Server",
-        "search_placeholder": "Name or JID...", "cancel": "Cancel",
-        "save": "Save", "close": "Close", "delete": "Delete",
-        "edit": "Edit", "copy": "Copy", "forward": "Forward",
-        "reply": "Reply", "pin": "Pin", "unpin": "Unpin",
-        "react": "Add Reaction", "connected": "Connected",
-        "connecting": "Connecting…", "disconnected": "Disconnected",
-        "encryption_off": "Encryption Off",
-        "omemo_on": "OMEMO encryption enabled",
-        "pgp_on": "OpenPGP encryption enabled",
-        "enc_off": "Encryption disabled",
-        "today": "Today", "yesterday": "Yesterday",
-        "typing": "typing", "online": "Online",
-        "offline": "Offline", "away": "Away", "busy": "Busy",
-        "block": "Block", "unblock": "Unblock",
-        "export_chat": "Export Chat", "theme": "Theme",
-        "font_size": "Font Size", "language": "Language",
-        "profile": "Profile", "location": "Share Location",
-        "voice_msg": "Voice Message", "call": "Call",
-        "pin_msg": "📌 Pinned", "status_msg": "Status Message",
-        "accounts": "Accounts", "add_account": "Add Account",
-        "disappearing": "Disappearing Messages", "fingerprints": "Fingerprints",
-        "blocked_list": "Blocked Users",
-        "select_chat": "Select a chat",
-        "start_conversation": "Start a Conversation",
-        "select_contact": "Select a contact or room to start chatting",
-        "join_room": "Join Room", "discover_rooms": "Discover Rooms",
-        "create_room": "Create Room", "add_contact": "Add Contact",
-        "message_placeholder": "Type a message...",
-        "participants": "PARTICIPANTS",
-        "bookmarks": "Bookmarks", "msg_search": "Search Messages",
-        "groups": "Groups", "advanced": "ADVANCED",
-        "sticker_gif": "Sticker/GIF",
-        "ai_assistant": "AI Assistant",
-        "ft_title": "File Transfer", "ft_http": "☁  Upload to Server (HTTP)",
-        "ft_p2p": "⚡  Send P2P (Jingle)",
-        "ft_offer_title": "Incoming File Offer",
-        "ft_accept_save": "Accept and Save", "ft_decline": "Decline",
-        "ft_progress_title": "File Transfer", "ft_cancel": "Cancel",
-        "ft_open": "Open", "ft_open_folder": "Open Folder",
-        "ft_not_e2e": "P2P — not end-to-end encrypted",
-        "ft_download_dir": "Download folder",
-        "ft_auto_accept": "Automatically accept incoming files",
-        "ft_block_size": "IBB block size",
-        "ft_warn_mb": "Large file warning threshold (MB)",
-        "ft_received": "File received", "ft_sent": "File sent",
-        "ft_online_check": "Contact appears offline; P2P may fail.",
-        "ft_large_warn": "P2P may be slow for files over {mb} MB. Continue?",
-        "ft_http_fallback": "P2P failed. Send the file via server upload?",
-        "ft_p2p_plain": "This chat is encrypted, but P2P transfer (Jingle/IBB) is "
-                        "not end-to-end encrypted: the file passes through the "
-                        "server unencrypted. Send via P2P anyway?",
-        "ft_p2p_omemo_hint": "To send it encrypted, use 📎 → Upload to Server "
-                             "(files are encrypted in OMEMO chats).",
-        "forward_plain_warn": "This message carries encrypted content, but the chosen "
-                              "chat is unencrypted: the content (including the key of "
-                              "an encrypted file) reaches the server in plain text. "
-                              "Forward anyway?",
-        "ft_pgp_plain": "This chat uses OpenPGP, but OpenPGP cannot encrypt files: "
-                        "the file is uploaded unencrypted and anyone with the link "
-                        "can open it. Send anyway?",
-        "ft_timeout": "File offer timed out",
-        "ft_auto_saved": "accepted automatically",
-        "join_selected": "Join Selected Room", "add_bookmark": "Add Bookmark",
-        "bookmark_added": "Added to bookmarks",
-        "discover_selected": "Discover from Selected Server",
-        "server_address": "Server address", "private_room": "private",
-        "reconnect": "Reconnect",
-        "log": "Log", "rest_api": "REST API",
-        "main_menu": "Main Menu", "tools": "Tools",
-        "pinned_msgs": "Pinned Messages",
-        "no_pinned": "No pinned messages",
-        "edit_msg": "Edit Message", "new_text": "New text:",
-        "delete_msg": "Delete Message",
-        "delete_confirm": "Are you sure you want to delete this message?",
-        "forwarded": "Forwarded", "forward_title": "Forward Message",
-        "forward_select": "Select recipient:",
-        "filter": "Filter...", "existing_contacts": "Contacts",
-        "notifications_title": "NOTIFICATIONS", "appearance": "APPEARANCE",
-        "connection": "CONNECTION", "about": "About",
-        "encryption": "Encryption", "general": "General",
-        "save_close": "Save and Close",
-        "recording": "Recording...", "mic": "Microphone",
-        "sidebar_search_placeholder": "Search contacts or rooms...",
-        "filter_all": "All", "filter_unread": "Unread", "filter_pinned": "Pinned",
-        "quick_switch": "Quick Switch",
-        "quick_switch_hint": "↑/↓ select · Enter open · Esc close",
-        "no_chats_found": "No matching chats",
-    },
+def set_language(lang) -> str:
+    """Arayüz dilini seç; bilinmeyen değer Türkçeye düşer."""
+    global _lang
+    _lang = lang if lang in LANGUAGES else DEFAULT_LANGUAGE
+    return _lang
+
+
+def language() -> str:
+    return _lang
+
+
+def N_(text):
+    """Modül düzeyindeki görüntü metnini işaretle (çevirmez): değer
+    kullanıldığı yerde `tr()` ile çevrilir; katalog denetimi bu işareti okur."""
+    return text
+
+
+def tr(text):
+    """Arayüz metnini seçili dile çevir (bilinmeyen metin aynen döner)."""
+    if _lang == DEFAULT_LANGUAGE or not text:
+        return text
+    return EN.get(text, text)
+
+
+def tr_in(lang, text):
+    """Metni seçili dilden bağımsız olarak `lang` dilinde ver."""
+    if lang != "en" or not text:
+        return text
+    return EN.get(text, text)
+
+
+# Anahtarlı eski çağrılar (`t("copy")`): ui/chat görünümleri çevirmeni
+# parametre olarak alır (yalnız tkinter/collections sözleşmesi).
+KEYS = {
+    "ai_assistant": "AI Asistanı",
+    "copy": "Kopyala",
+    "delete": "Sil",
+    "discover_rooms": "Oda Keşfet",
+    "edit": "Düzenle",
+    "forward": "İlet",
+    "join_room": "Odaya Katıl",
+    "message_placeholder": "Mesaj yazın...",
+    "pin": "Sabitle",
+    "react": "Tepki Ekle",
+    "reply": "Yanıtla",
+    "select_chat": "Bir sohbet seçin",
+    "select_contact": "Bir kişi veya oda seçerek konuşmaya başlayın",
+    "start_chat": "Sohbet Başlat",
+    "start_conversation": "Sohbete Başlayın",
+    "sticker_gif": "Sticker/GIF",
+    "typing": "yazıyor",
+    "filter_all": "Tümü",
+    "filter_unread": "Okunmamış",
+    "filter_pinned": "Sabitlenmiş",
 }
+
+
+def t(key: str) -> str:
+    """Anahtarlı çeviri: anahtar → Türkçe metin → seçili dil."""
+    return tr(KEYS.get(key, key))

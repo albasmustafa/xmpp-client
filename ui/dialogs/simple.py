@@ -18,39 +18,44 @@ def _app():
     return _app_mod
 
 
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
+
 def show_shortcuts(parent):
     """Klavye kısayolları listesi penceresi (MainWindow._shortcuts_dialog)."""
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Klavye Kısayolları")
+    dlg.title(_tr("Klavye Kısayolları"))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("400x560")
     dlg.transient(parent)
     A._make_popover(dlg)
 
-    tk.Label(dlg, text="⌨ Klavye Kısayolları", font=(A.FONT, 12, "bold"),
+    tk.Label(dlg, text=_tr("⌨ Klavye Kısayolları"), font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 12))
 
     shortcuts = [
-        ("Ctrl+F", "Sohbette Ara"),
-        ("Ctrl+K", "Hızlı Geçiş (kişi/oda)"),
-        ("Ctrl+N", "Yeni Sohbet"),
+        (_tr("Ctrl+F"), _tr("Sohbette Ara")),
+        (_tr("Ctrl+K"), _tr("Hızlı Geçiş (kişi/oda)")),
+        (_tr("Ctrl+N"), _tr("Yeni Sohbet")),
         ("Ctrl+E", "Emoji Paneli"),
-        ("Ctrl+R", "Son mesaja yanıtla"),
-        ("Ctrl+Shift+E", "Son mesajımı düzenle"),
-        ("Ctrl+Shift+D", "Son mesajımı sil"),
-        ("Ctrl+Shift+M", "✨ Neler kaçırdım? (AI özeti)"),
-        ("Ctrl+Shift+H", "✨ Geçmişe sor (AI)"),
-        ("Ctrl+Shift+S", "✨ Sesle yaz (dikte)"),
-        ("Üzerine gel", "Eylem butonları (yanıtla/tepki/… )"),
-        ("Çift tık", "Mesajı yanıtla (alıntı)"),
-        ("Tepkiye tıkla", "Tepkini ekle / kaldır"),
-        ("Ctrl+B", "Yedekleme"),
-        ("Ctrl+,", "Ayarlar"),
-        ("Ctrl+?", "Bu menü"),
-        ("Escape", "Aramayı kapat"),
-        ("Enter", "Mesaj gönder"),
-        ("Ctrl+V", "Yapıştır (resim/metin)"),
+        (_tr("Ctrl+R"), _tr("Son mesaja yanıtla")),
+        (_tr("Ctrl+Shift+E"), _tr("Son mesajımı düzenle")),
+        (_tr("Ctrl+Shift+D"), _tr("Son mesajımı sil")),
+        (_tr("Ctrl+Shift+M"), _tr("✨ Neler kaçırdım? (AI özeti)")),
+        (_tr("Ctrl+Shift+H"), _tr("✨ Geçmişe sor (AI)")),
+        (_tr("Ctrl+Shift+S"), _tr("✨ Sesle yaz (dikte)")),
+        (_tr("Üzerine gel"), _tr("Eylem butonları (yanıtla/tepki/… )")),
+        (_tr("Çift tık"), _tr("Mesajı yanıtla (alıntı)")),
+        (_tr("Tepkiye tıkla"), _tr("Tepkini ekle / kaldır")),
+        (_tr("Ctrl+B"), _tr("Yedekleme")),
+        (_tr("Ctrl+,"), _tr("Ayarlar")),
+        (_tr("Ctrl+?"), _tr("Bu menü")),
+        (_tr("Escape"), _tr("Aramayı kapat")),
+        (_tr("Enter"), _tr("Mesaj gönder")),
+        (_tr("Ctrl+V"), _tr("Yapıştır (resim/metin)")),
     ]
 
     for key, desc in shortcuts:
@@ -62,7 +67,7 @@ def show_shortcuts(parent):
         tk.Label(row, text=desc, font=(A.FONT, 9),
                  fg=A.FG, bg=A.BG_CARD).pack(side="left", padx=(8, 0))
 
-    ttk.Button(dlg, text="Kapat",
+    ttk.Button(dlg, text=_tr("Kapat"),
                command=dlg.destroy).pack(pady=16)
 
 
@@ -76,12 +81,12 @@ def show_reaction_details(parent, reactions, emoji=None):
         return
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Tepkiler")
+    dlg.title(_tr("Tepkiler"))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("300x340")
     dlg.transient(parent)
     A._make_popover(dlg)
-    tk.Label(dlg, text="😊 Tepkiler", font=(A.FONT, 11, "bold"),
+    tk.Label(dlg, text=_tr("😊 Tepkiler"), font=(A.FONT, 11, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=14, pady=(14, 6), anchor="w")
     pairs = list(reactions.items()) if emoji is None else [
         (emoji, reactions.get(emoji, []))]
@@ -97,6 +102,6 @@ def show_reaction_details(parent, reactions, emoji=None):
                      fg=A.FG, bg=A.BG_CARD).pack(padx=26, anchor="w")
         shown += 1
     if shown == 0:
-        tk.Label(dlg, text="(tepki yok)", fg=A.FG_DIM, bg=A.BG_CARD
+        tk.Label(dlg, text=_tr("(tepki yok)"), fg=A.FG_DIM, bg=A.BG_CARD
                  ).pack(padx=16, pady=6)
-    ttk.Button(dlg, text="Kapat", command=dlg.destroy).pack(pady=14)
+    ttk.Button(dlg, text=_tr("Kapat"), command=dlg.destroy).pack(pady=14)

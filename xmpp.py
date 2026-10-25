@@ -62,6 +62,7 @@ from ui.chat import identity as _identity
 from ui.chat import media as _media_ui
 from ui.chat import reactions as _reactions_ui
 from ui.chat import render as _render
+from ui.chat import suggest as _suggest_ui
 from ui.chat import typing as _typing_ui
 from ui.chat.composer import ComposerView as _ComposerView
 from ui.chat.suggest import SuggestionBar as _SuggestionBar
@@ -91,6 +92,7 @@ except SystemExit as _missing:
 from xmppcore import aesgcm as _aesgcm
 from xmppcore import agent as _agent
 from xmppcore import ai as _ai
+from xmppcore import i18n as _i18n
 from xmppcore import questions as _questions
 from xmppcore import sensitive as _sensitive
 from xmppcore import tts as _tts
@@ -138,7 +140,9 @@ from xmppcore.helpers import (
     _strip_quoted_fallback,
 )
 from xmppcore.helpers import _stanza_is_encrypted as _stanza_is_encrypted
-from xmppcore.i18n import _STRINGS
+from xmppcore.i18n import N_
+from xmppcore.i18n import t as _t
+from xmppcore.i18n import tr as _tr
 from xmppcore.messages import MessagesMixin
 from xmppcore.muc import MucMixin
 from xmppcore.muc import _room_kind_ok as _muc_room_kind_ok
@@ -169,7 +173,15 @@ from xmppcore.storage import _db_load_reactions as _db_load_reactions
 from xmppcore.storage import _db_search_msgs as _db_search_msgs
 from xmppcore.storage import _get_db as _get_db
 from xmppcore.theme import _THEMES
+from xmppcore.theme import theme_label as _theme_label
 from xmppcore.transfers import TransferMixin
+
+# ui/chat görünümleri yalnız tkinter/collections içe aktarır: çevirmen buradan
+# takılır (dil `_i18n.set_language` ile seçilir, çağrı anında okunur)
+_TR_HOOKED = (_actions_ui, _audio_ui, _history_ui, _identity, _media_ui,
+              _reactions_ui, _suggest_ui)
+for _m in _TR_HOOKED:
+    _m._tr = _tr
 
 _db_conn: sqlite3.Connection | None = None
 
@@ -218,7 +230,7 @@ def _room_result_details(item: dict) -> str:
     if lang:
         bits.append(f"🌐 {lang}")
     if item.get("is_public") is False:
-        bits.append(f"🔒 {_t('private_room')}")
+        bits.append(f"🔒 {_tr('özel')}")
     desc = (item.get("description") or "").strip()
     line = " · ".join(bits)
     if desc and line:
@@ -319,8 +331,8 @@ def _descendants(w):
 def _form_warning(win):
     """Formun üstünde uyarı şeridi; kaldıran işlevi döndürür."""
     try:
-        bar = tk.Label(win, text="⚠ Değişiklikler kaybolacak — kapatmak için "
-                                 "yine dışarı tıkla",
+        bar = tk.Label(win, text=_tr("⚠ Değişiklikler kaybolacak — kapatmak için "
+                                     "yine dışarı tıkla"),
                        bg=AWAY, fg="#111111", font=(FONT, 9, "bold"),
                        padx=10, pady=6, anchor="w", justify="left",
                        wraplength=max(160, win.winfo_width() - 24))
@@ -684,11 +696,6 @@ def _desktop_notify(title: str, body: str, icon: str = "dialog-information"):
             pass
 
 # ── Bildirim sesi ────────────────────────────────────────────────────────────
-_current_lang = "tr"
-
-def _t(key: str) -> str:
-    """Çeviri fonksiyonu."""
-    return _STRINGS.get(_current_lang, _STRINGS["tr"]).get(key, key)
 
 
 def _sidebar_menu_spec(has_active_chat: bool) -> list[tuple]:
@@ -703,26 +710,26 @@ def _sidebar_menu_spec(has_active_chat: bool) -> list[tuple]:
     gerektirmediğinden doğrudan test edilebilir.
     """
     spec: list[tuple] = [
-        ("section", _t("contacts")),
-        ("item", f"🔍  {_t('user_search')}", "search_users"),
-        ("item", f"🏷  {_t('groups')}", "groups"),
+        ("section", _tr("KİŞİLER")),
+        ("item", f"🔍  {_tr('Kullanıcı Ara')}", "search_users"),
+        ("item", f"🏷  {_tr('Gruplar')}", "groups"),
         ("sep",),
-        ("section", _t("rooms")),
-        ("item", f"🧭  {_t('discover_rooms')}", "discover_rooms"),
-        ("item", f"📑  {_t('bookmarks')}", "bookmarks"),
+        ("section", _tr("ODALAR")),
+        ("item", f"🧭  {_tr('Oda Keşfet')}", "discover_rooms"),
+        ("item", f"📑  {_tr('Yer İmleri')}", "bookmarks"),
         ("sep",),
-        ("section", _t("advanced")),
+        ("section", _tr("GELİŞMİŞ")),
     ]
     if has_active_chat:
-        spec.append(("item", f"🎭  {_t('sticker_gif')}", "gif"))
+        spec.append(("item", f"🎭  {_tr('Sticker/GIF')}", "gif"))
     spec += [
-        ("item", f"🔎  {_t('msg_search')}", "msg_search"),
-        ("item", f"📋  {_t('log')}", "log"),
-        ("item", f"🌐  {_t('rest_api')}", "rest_api"),
-        ("item", f"🔄  {_t('reconnect')}", "reconnect"),
-        ("item", f"🎨  {_t('theme')}", "theme"),
+        ("item", f"🔎  {_tr('Mesaj Ara')}", "msg_search"),
+        ("item", f"📋  {_tr('Log')}", "log"),
+        ("item", f"🌐  {_tr('REST API')}", "rest_api"),
+        ("item", f"🔄  {_tr('Yeniden Bağlan')}", "reconnect"),
+        ("item", f"🎨  {_tr('Tema')}", "theme"),
         ("sep",),
-        ("item", f"⚙  {_t('settings')}", "settings"),
+        ("item", f"⚙  {_tr('Ayarlar')}", "settings"),
     ]
     return spec
 
@@ -738,43 +745,43 @@ def _chat_header_menu_spec(*, is_room: bool, compact: bool) -> list[tuple]:
     Sık kullanılanlar üst düzeyde; gerisi konu başlıklı alt menülerde.
     """
     chat = [
-        ("item", "⏱ Kaybolan Mesajlar", "disappearing"),
-        ("item", "📜 Daha Eski Mesajları Yükle (MAM)", "load_older"),
-        ("item", "⏰ Mesaj Zamanla", "schedule"),
-        ("item", "📤 Sohbeti Dışa Aktar", "export"),
-        ("item", "🗑 Geçmişi Sil", "clear_history"),
+        ("item", _tr("⏱ Kaybolan Mesajlar"), "disappearing"),
+        ("item", _tr("📜 Daha Eski Mesajları Yükle (MAM)"), "load_older"),
+        ("item", _tr("⏰ Mesaj Zamanla"), "schedule"),
+        ("item", _tr("📤 Sohbeti Dışa Aktar"), "export"),
+        ("item", _tr("🗑 Geçmişi Sil"), "clear_history"),
     ]
     if is_room:
-        chat += [("sep",), ("item", "🔧 Oda Yönetimi", "room_admin")]
+        chat += [("sep",), ("item", _tr("🔧 Oda Yönetimi"), "room_admin")]
     return [
-        ("item", "👤 Profil", "profile"),
-        ("item", "🔎 Mesaj Ara", "search"),
-        ("item", "📌 Sabitlenmiş Mesajlar", "pinned"),
+        ("item", _tr("👤 Profil"), "profile"),
+        ("item", _tr("🔎 Mesaj Ara"), "search"),
+        ("item", _tr("📌 Sabitlenmiş Mesajlar"), "pinned"),
         ("ai",),
         ("sep",),
-        ("menu", "💬 Sohbet", chat),
-        ("menu", "📤 Paylaşım", [
-            ("item", "📍 Konum Paylaş", "location"),
-            ("item", "📊 Anket Oluştur", "poll"),
-            ("item", "📖 Hikaye Paylaş", "story"),
-            ("item", "📢 Toplu Mesaj", "broadcast"),
+        ("menu", _tr("💬 Sohbet"), chat),
+        ("menu", _tr("📤 Paylaşım"), [
+            ("item", _tr("📍 Konum Paylaş"), "location"),
+            ("item", _tr("📊 Anket Oluştur"), "poll"),
+            ("item", _tr("📖 Hikaye Paylaş"), "story"),
+            ("item", _tr("📢 Toplu Mesaj"), "broadcast"),
         ]),
-        ("menu", "🔒 Güvenlik", [
-            ("item", "🔒 OMEMO Parmak İzleri", "omemo_fp"),
-            ("item", "🔐 OMEMO QR Doğrulama", "omemo_qr"),
-            ("item", "🚫 Engelli Kişiler", "blocking"),
+        ("menu", _tr("🔒 Güvenlik"), [
+            ("item", _tr("🔒 OMEMO Parmak İzleri"), "omemo_fp"),
+            ("item", _tr("🔐 OMEMO QR Doğrulama"), "omemo_qr"),
+            ("item", _tr("🚫 Engelli Kişiler"), "blocking"),
         ]),
-        ("menu", "🪟 Görünüm", [
-            ("item", "📺 Yeni Sekmede Aç", "tab"),
-            ("item", "📺 Bölünmüş Ekran", "split"),
-            ("item", "🖼 Arka Plan Değiştir", "wallpaper"),
-            ("item", "📐 Rahat Moda Geç" if compact else "📐 Kompakt Moda Geç",
+        ("menu", _tr("🪟 Görünüm"), [
+            ("item", _tr("📺 Yeni Sekmede Aç"), "tab"),
+            ("item", _tr("📺 Bölünmüş Ekran"), "split"),
+            ("item", _tr("🖼 Arka Plan Değiştir"), "wallpaper"),
+            ("item", _tr("📐 Rahat Moda Geç") if compact else _tr("📐 Kompakt Moda Geç"),
              "compact"),
         ]),
-        ("menu", "⚙ Diğer", [
-            ("item", "💬 Durum Mesajı", "status_msg"),
-            ("item", "💾 Yedekleme / Geri Yükleme", "backup"),
-            ("item", "⌨ Klavye Kısayolları", "shortcuts"),
+        ("menu", _tr("⚙ Diğer"), [
+            ("item", _tr("💬 Durum Mesajı"), "status_msg"),
+            ("item", _tr("💾 Yedekleme / Geri Yükleme"), "backup"),
+            ("item", _tr("⌨ Klavye Kısayolları"), "shortcuts"),
         ]),
     ]
 
@@ -805,12 +812,12 @@ def _apply_color_theme(theme_name: str):
 
 # ── Emoji paleti verileri ────────────────────────────────────────────────────
 _EMOJI_CATEGORIES = {
-    "Yüzler": "😀😃😄😁😆😅🤣😂🙂😊😇🥰😍🤩😘😗😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬",
-    "El": "👋🤚🖐✋🖖👌🤌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪",
-    "Kalp": "❤🧡💛💚💙💜🖤🤍🤎💔❣💕💞💓💗💖💘💝",
-    "Nesne": "🎁🎀🎉🎊🎈🎃🎄✨🎆🎇📱💻🖥🖨📷📹🎥📞☎📧📬📦🏷🔑🗝🔒🔓",
-    "Yiyecek": "🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍🥥🥝🍅🫒🥑🥦🥬🥒🌶🫑🌽🥕🫘🧄🧅🥔🍠🥐🥖🫓🥨🥯🧀🥚🍳🥓🥩🍗🍖🌭🍔🍟🍕🫔🌮🌯🫔🥗🥘🫕🥫🍝🍜🍲🍛🍣🍱🥟🦪🍤🍙🍚🍘🍥🥠🥮🍢🍡🍧🍨🍦🥧🧁🍰🎂🍮🍭🍬🍫🍿🍩🍪🌰🥜",
-    "Doğa": "🌍🌎🌏🌐🗺🌋🏔⛰🗻🏕🏖🏜🏝🌅🌄🌠🎑🏞🌉🌃🌆🌇🌌🌁⛅🌤🌥🌦🌧⛈🌩🌨❄☃🌬🌈🌊🔥",
+    N_("Yüzler"): "😀😃😄😁😆😅🤣😂🙂😊😇🥰😍🤩😘😗😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬",
+    N_("El"): "👋🤚🖐✋🖖👌🤌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪",
+    N_("Kalp"): "❤🧡💛💚💙💜🖤🤍🤎💔❣💕💞💓💗💖💘💝",
+    N_("Nesne"): "🎁🎀🎉🎊🎈🎃🎄✨🎆🎇📱💻🖥🖨📷📹🎥📞☎📧📬📦🏷🔑🗝🔒🔓",
+    N_("Yiyecek"): "🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍🥥🥝🍅🫒🥑🥦🥬🥒🌶🫑🌽🥕🫘🧄🧅🥔🍠🥐🥖🫓🥨🥯🧀🥚🍳🥓🥩🍗🍖🌭🍔🍟🍕🫔🌮🌯🫔🥗🥘🫕🥫🍝🍜🍲🍛🍣🍱🥟🦪🍤🍙🍚🍘🍥🥠🥮🍢🍡🍧🍨🍦🥧🧁🍰🎂🍮🍭🍬🍫🍿🍩🍪🌰🥜",
+    N_("Doğa"): "🌍🌎🌏🌐🗺🌋🏔⛰🗻🏕🏖🏜🏝🌅🌄🌠🎑🏞🌉🌃🌆🌇🌌🌁⛅🌤🌥🌦🌧⛈🌩🌨❄☃🌬🌈🌊🔥",
 }
 
 # ── URL Önizleme yardımcıları ────────────────────────────────────────────────
@@ -1054,7 +1061,7 @@ def _parse_msg_date(time_str):
 def _date_separator_label(day_key, today_key, msg_date):
     """Tarih ayırıcı etiketi: bugün → 'Bugün', aksi → mevcut intended format."""
     if day_key == today_key:
-        return _t("today")
+        return _tr("Bugün")
     return msg_date.strftime("%d %B %Y")
 
 
@@ -1513,7 +1520,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             except Exception as e:
                 self._omemo_reg_error = str(e)
                 self.gui_q.put(("sys_msg",
-                    f"⚠ OMEMO plugin kaydı başarısız: {e}"))
+                    _tr("⚠ OMEMO plugin kaydı başarısız: {}").format(e)))
 
     # ── Event handler kayıt ───────────────────────────────────────────────────
     def _register_handlers(self):
@@ -1587,15 +1594,15 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                 # Başarılı olduysa event zaten tetiklendi
             except asyncio.TimeoutError:
                 self.gui_q.put(("sys_msg",
-                    "⚠ OMEMO başlatma zaman aşımına uğradı. "
-                    "Sunucu PEP/PubSub desteklemeyebilir."))
+                    _tr("⚠ OMEMO başlatma zaman aşımına uğradı. "
+                        "Sunucu PEP/PubSub desteklemeyebilir.")))
             except Exception as e:
                 self.gui_q.put(("sys_msg",
-                    f"⚠ OMEMO başlatma hatası: {e}"))
+                    _tr("⚠ OMEMO başlatma hatası: {}").format(e)))
 
     def _on_omemo_ready(self, _):
         self.omemo_ready = True
-        self.gui_q.put(("sys_msg", "🔐 OMEMO şifreleme hazır"))
+        self.gui_q.put(("sys_msg", _tr("🔐 OMEMO şifreleme hazır")))
 
     async def _decrypt_and_deliver(self, msg, mtype, own_to=None):
         """OMEMO mesajını çöz ve GUI'ye ilet. `own_to` verilirse mesaj başka
@@ -1702,7 +1709,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                         break                       # kalıcı: retry yok
                     await asyncio.sleep(0.1 * attempt)   # bounded backoff
             self.gui_q.put(("sys_msg",
-                            f"⚠ OMEMO çözme hatası: {last_error}"))
+                            _tr("⚠ OMEMO çözme hatası: {}").format(last_error)))
         finally:
             if stanza_id and stanza_id in pending:
                 pending.discard(stanza_id)
@@ -1724,7 +1731,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                     if isinstance(plaintext, bytes):
                         plaintext = plaintext.decode("utf-8", errors="replace")
             if not plaintext:
-                self.gui_q.put(("sys_msg", "⚠ PGP mesajı çözülemedi (anahtar eksik?)"))
+                self.gui_q.put(("sys_msg", _tr("⚠ PGP mesajı çözülemedi (anahtar eksik?)")))
                 return
             mtype = msg["type"]
             if mtype == "groupchat":
@@ -1771,7 +1778,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                     "reply": self._reply_info(msg),
                 }))
         except Exception as e:
-            self.gui_q.put(("sys_msg", f"⚠ PGP çözme hatası: {e}"))
+            self.gui_q.put(("sys_msg", _tr("⚠ PGP çözme hatası: {}").format(e)))
 
     def _setup_own_pgp_key(self):
         """Kendi JID'imiz için GPG anahtarını bul ve ayarla."""
@@ -1785,7 +1792,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                 xep.set_keyid(jid=bare, keyid=pgp_map[bare])
                 # Presence imzalama filtresini geri ekle
                 self.add_filter('out', xep._sign_presence)
-                self.gui_q.put(("sys_msg", "🔑 PGP anahtar ayarlandı (config)"))
+                self.gui_q.put(("sys_msg", _tr("🔑 PGP anahtar ayarlandı (config)")))
                 return
             # 2) GPG secret key'lerden JID ile eşleşen
             for key in xep.gpg.list_keys(True):  # True = secret keys
@@ -1795,7 +1802,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                         xep.set_keyid(jid=bare, keyid=keyid)
                         self.add_filter('out', xep._sign_presence)
                         self.gui_q.put(("sys_msg",
-                            f"🔑 PGP anahtar otomatik eşleştirildi: {keyid[-8:]}"))
+                            _tr("🔑 PGP anahtar otomatik eşleştirildi: {}").format(keyid[-8:])))
                         return
             # 3) İlk secret key'i kullan (tek key varsa)
             secret_keys = xep.gpg.list_keys(True)
@@ -1804,7 +1811,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                 xep.set_keyid(jid=bare, keyid=keyid)
                 self.add_filter('out', xep._sign_presence)
                 self.gui_q.put(("sys_msg",
-                    f"🔑 PGP: tek secret key kullanılıyor: {keyid[-8:]}"))
+                    _tr("🔑 PGP: tek secret key kullanılıyor: {}").format(keyid[-8:])))
                 return
         except Exception:
             pass
@@ -1829,7 +1836,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             return []
 
     def _on_tcp_connected(self, _):
-        self.gui_q.put(("sys_msg", "Sunucuya bağlandı, oturum açılıyor…"))
+        self.gui_q.put(("sys_msg", _tr("Sunucuya bağlandı, oturum açılıyor…")))
 
     def _on_conn_fail(self, err):
         detail = str(err) if err else ""
@@ -1889,7 +1896,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
         # Otomatik yeniden bağlanmayı kapat: şifre yanlışsa denemek anlamsız.
         self._auth_failed = True
         self.gui_q.put(("auth_failed",
-            "Giriş başarısız: JID veya şifre yanlış."))
+            _tr("Giriş başarısız: JID veya şifre yanlış.")))
         self.disconnect()
 
     def _on_disconnect(self, _):
@@ -1903,7 +1910,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             return
         if not getattr(self, '_auth_failed', False):
             delay = getattr(self, '_reconnect_delay', 2)
-            self.gui_q.put(("sys_msg", f"⟳ {delay}s sonra yeniden bağlanılıyor…"))
+            self.gui_q.put(("sys_msg", _tr("⟳ {}s sonra yeniden bağlanılıyor…").format(delay)))
             self._reconnect_pending = True
             def _do_reconnect():
                 try:
@@ -1953,14 +1960,14 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
                 keyid = self._pgp_auto_keyid(to)
             if not keyid:
                 self.gui_q.put(("error",
-                    f"PGP: {to} için GPG anahtarı bulunamadı. "
-                    "Ayarlar → Şifreleme'den anahtar eşleştirin."))
+                    _tr("PGP: {} için GPG anahtarı bulunamadı. Ayarlar → Şifreleme'den "
+                        "anahtar eşleştirin.").format(to)))
                 return
             # Doğrudan gpg.encrypt ile şifrele (keyid = fingerprint/uid)
             enc = xep.gpg.encrypt(body, keyid)
             if not enc.ok:
                 self.gui_q.put(("error",
-                    f"PGP şifreleme başarısız: {enc.status}"))
+                    _tr("PGP şifreleme başarısız: {}").format(enc.status)))
                 return
             # Ham şifreli veriyi PGP stanza'ya yerleştir.
             # _extract_data slixmpp'in kendi yardımcısı; yoksa armoru ham kullan.
@@ -1970,7 +1977,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             except ImportError:
                 enc_data = enc.data
             if not enc_data:
-                self.gui_q.put(("error", "PGP: Şifreli veri çıkarılamadı"))
+                self.gui_q.put(("error", _tr("PGP: Şifreli veri çıkarılamadı")))
                 return
             msg = self.make_message(mto=to, mtype=mtype)
             _add_origin_id(msg, mid)
@@ -1983,7 +1990,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             enc_xml.text = enc_data
             msg.send()
         except Exception as e:
-            self.gui_q.put(("error", f"PGP gönderme hatası: {e}"))
+            self.gui_q.put(("error", _tr("PGP gönderme hatası: {}").format(e)))
 
     def _pgp_auto_keyid(self, jid):
         """JID için GPG anahtarını otomatik bulmaya çalış."""
@@ -2072,13 +2079,13 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             if not recipients:
                 if carries_key:
                     self.gui_q.put(("error",
-                        "OMEMO: Oda üyelerinin JID'leri alınamadı (oda anonim "
-                        "olabilir). Şifreli dosya bağlantısı şifresiz "
-                        "GÖNDERİLMEDİ."))
+                        _tr("OMEMO: Oda üyelerinin JID'leri alınamadı (oda anonim "
+                            "olabilir). Şifreli dosya bağlantısı şifresiz "
+                            "GÖNDERİLMEDİ.")))
                     return
                 self.gui_q.put(("error",
-                    "OMEMO: Oda üyelerinin JID'leri alınamadı "
-                    "(oda anonim olabilir). Düz metin gönderiliyor."))
+                    _tr("OMEMO: Oda üyelerinin JID'leri alınamadı "
+                        "(oda anonim olabilir). Düz metin gönderiliyor.")))
                 self.send_message(mto=to, mbody=body, mtype=mtype)
                 return
         else:
@@ -2100,26 +2107,26 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             err_str = str(e)
             if "device" in err_str.lower() or "bundle" in err_str.lower():
                 self.gui_q.put(("error",
-                    f"OMEMO: Alıcının cihaz bilgileri alınamadı.\n"
-                    f"Karşı tarafın OMEMO destekli bir istemci kullanması gerekiyor.\n"
-                    f"Detay: {err_str[:200]}"))
+                    _tr("OMEMO: Alıcının cihaz bilgileri alınamadı.\nKarşı tarafın OMEMO "
+                        "destekli bir istemci kullanması gerekiyor.\nDetay: {}")
+                    .format(err_str[:200])))
             else:
-                self.gui_q.put(("error", f"OMEMO şifreleme hatası: {err_str[:200]}"))
+                self.gui_q.put(("error", _tr("OMEMO şifreleme hatası: {}").format(err_str[:200])))
             return
 
         if errors:
             for err in errors:
                 self.gui_q.put(("sys_msg",
-                    f"⚠ OMEMO uyarı: {err}"))
+                    _tr("⚠ OMEMO uyarı: {}").format(err)))
 
         if encrypted is None:
             if carries_key:
                 self.gui_q.put(("error",
-                    "OMEMO şifreleme başarısız — şifreli dosya bağlantısı "
-                    "şifresiz GÖNDERİLMEDİ."))
+                    _tr("OMEMO şifreleme başarısız — şifreli dosya bağlantısı "
+                        "şifresiz GÖNDERİLMEDİ.")))
                 return
             self.gui_q.put(("error",
-                "OMEMO şifreleme başarısız — düz metin gönderiliyor"))
+                _tr("OMEMO şifreleme başarısız — düz metin gönderiliyor")))
             if mtype == "groupchat":
                 self.send_message(mto=to, mbody=body, mtype=mtype)
             else:
@@ -2254,11 +2261,11 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
 
             # Kendi cache'imizi güncelle
             _save_avatar_cache(self.boundjid.bare, photo_bytes)
-            self.gui_q.put(("sys_msg", "✓ Profil fotoğrafı güncellendi"))
+            self.gui_q.put(("sys_msg", _tr("✓ Profil fotoğrafı güncellendi")))
             if callback:
                 callback(True)
         except Exception as e:
-            self.gui_q.put(("sys_msg", f"⚠ Avatar yayınlanamadı: {e}"))
+            self.gui_q.put(("sys_msg", _tr("⚠ Avatar yayınlanamadı: {}").format(e)))
             if callback:
                 callback(False)
 
@@ -2276,9 +2283,9 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             # Roster.subscribe zaten 'subscribe' presence'ı gönderir;
             # ikinci kez göndermek çift isteğe yol açar.
             self.client_roster.subscribe(jid)
-            self.gui_q.put(("sys_msg", f"İstek gönderildi → {jid}"))
+            self.gui_q.put(("sys_msg", _tr("İstek gönderildi → {}").format(jid)))
         except Exception as e:
-            self.gui_q.put(("error", f"Kişi eklenemedi: {e}"))
+            self.gui_q.put(("error", _tr("Kişi eklenemedi: {}").format(e)))
 
     def remove_contact(self, jid):
         asyncio.run_coroutine_threadsafe(self._remove_contact(jid), self.loop)
@@ -2289,9 +2296,9 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             # subscription='remove' roster güncellemesi gönderir.
             self.client_roster.remove(jid)
             self.gui_q.put(("contact_removed", jid))
-            self.gui_q.put(("sys_msg", f"✓ Kişi kaldırıldı: {jid}"))
+            self.gui_q.put(("sys_msg", _tr("✓ Kişi kaldırıldı: {}").format(jid)))
         except Exception as e:
-            self.gui_q.put(("error", f"Kişi kaldırılamadı: {e}"))
+            self.gui_q.put(("error", _tr("Kişi kaldırılamadı: {}").format(e)))
 
     # ── Kullanıcı Arama (XEP-0055) ──────────────────────────────────────────
     def search_users(self, server, query):
@@ -2330,7 +2337,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             await _get_xep(self, "xep_0191").block(jid)
             self.gui_q.put(("sys_msg", f"🚫 {jid} engellendi"))
         except Exception as e:
-            self.gui_q.put(("error", f"Engelleme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Engelleme hatası: {}").format(e)))
 
     def unblock_contact(self, jid):
         asyncio.run_coroutine_threadsafe(self._unblock_contact(jid), self.loop)
@@ -2338,9 +2345,9 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
     async def _unblock_contact(self, jid):
         try:
             await _get_xep(self, "xep_0191").unblock(jid)
-            self.gui_q.put(("sys_msg", f"✓ {jid} engeli kaldırıldı"))
+            self.gui_q.put(("sys_msg", _tr("✓ {} engeli kaldırıldı").format(jid)))
         except Exception as e:
-            self.gui_q.put(("error", f"Engel kaldırma hatası: {e}"))
+            self.gui_q.put(("error", _tr("Engel kaldırma hatası: {}").format(e)))
 
     def get_blocked_list(self, callback):
         asyncio.run_coroutine_threadsafe(
@@ -2358,7 +2365,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             # Callback'i GUI thread'ine taşı (Tk güvenliği)
             self.gui_q.put(("blocked_list", {"items": items, "cb": callback}))
         except Exception as e:
-            self.gui_q.put(("error", f"Engel listesi hatası: {e}"))
+            self.gui_q.put(("error", _tr("Engel listesi hatası: {}").format(e)))
 
     # ── Durum Mesajı ──────────────────────────────────────────────────────────
     def set_status_message(self, status_text, show="chat"):
@@ -2379,9 +2386,9 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
         try:
             xep = _get_xep(self, "xep_0080")
             await xep.publish_location(lat=lat, lon=lon, description=description)
-            self.gui_q.put(("sys_msg", "📍 Konum paylaşıldı"))
+            self.gui_q.put(("sys_msg", _tr("📍 Konum paylaşıldı")))
         except Exception as e:
-            self.gui_q.put(("error", f"Konum paylaşma hatası: {e}"))
+            self.gui_q.put(("error", _tr("Konum paylaşma hatası: {}").format(e)))
 
     def publish_mood(self, mood, text=""):
         """Ruh hâli yayınla (XEP-0107); ağ işi döngü thread'inde."""
@@ -2392,7 +2399,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
         try:
             await _get_xep(self, "xep_0107").publish_mood(mood, text or None)
         except Exception as e:
-            self.gui_q.put(("error", f"Ruh hâli paylaşılamadı: {e}"))
+            self.gui_q.put(("error", _tr("Ruh hâli paylaşılamadı: {}").format(e)))
 
     def stop_location(self):
         asyncio.run_coroutine_threadsafe(self._stop_location(), self.loop)
@@ -2400,9 +2407,9 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
     async def _stop_location(self):
         try:
             await _get_xep(self, "xep_0080").stop()
-            self.gui_q.put(("sys_msg", "📍 Konum paylaşımı durduruldu"))
+            self.gui_q.put(("sys_msg", _tr("📍 Konum paylaşımı durduruldu")))
         except Exception as e:
-            self.gui_q.put(("error", f"Konum durdurma hatası: {e}"))
+            self.gui_q.put(("error", _tr("Konum durdurma hatası: {}").format(e)))
 
     # ── vCard Profil Bilgisi ──────────────────────────────────────────────────
     def get_vcard(self, jid, callback):
@@ -2524,7 +2531,7 @@ class LoginWindow:
         _apply_color_theme(_saved_theme)
 
         self.root = tk.Tk()
-        self.root.title("XMPP Giriş")
+        self.root.title(_tr("XMPP Giriş"))
         self.root.resizable(False, False)
         self.root.configure(bg=BG)
         self.root.geometry("520x620")
@@ -2552,10 +2559,10 @@ class LoginWindow:
         logo_c.create_text(40, 38, text="X", fill=FG_ME,
                            font=(FONT, 26, "bold"))
 
-        tk.Label(card, text="XMPP Connect",
+        tk.Label(card, text=_tr("XMPP Connect"),
                  font=(FONT, 18, "bold"),
                  fg=FG, bg=BG_CARD).pack(pady=(6, 2))
-        tk.Label(card, text="Hesabınıza giriş yapın",
+        tk.Label(card, text=_tr("Hesabınıza giriş yapın"),
                  font=(FONT, 9), fg=FG_DIM,
                  bg=BG_CARD).pack(pady=(0, 24))
 
@@ -2601,10 +2608,10 @@ class LoginWindow:
         self.srv_var  = tk.StringVar(value=saved_srv)
         self.port_var = tk.StringVar(value=str(saved_port))
 
-        jid_entry = _field(card, "📧", "JID", self.jid_var,
-                           placeholder="kullanici@sunucu.tld")
+        jid_entry = _field(card, "📧", _tr("JID"), self.jid_var,
+                           placeholder=_tr("kullanici@sunucu.tld"))
         self._jid_entry = jid_entry
-        pw_entry  = _field(card, "🔑", "Şifre", self.pw_var, show="•",
+        pw_entry  = _field(card, "🔑", _tr("Şifre"), self.pw_var, show="•",
                            placeholder="")
 
         # Seçenekler satırı
@@ -2618,7 +2625,7 @@ class LoginWindow:
         show_pw = tk.BooleanVar(value=False)
         def _toggle_pw():
             pw_entry.config(show="" if show_pw.get() else "•")
-        tk.Checkbutton(chk_row, text="Göster", variable=show_pw,
+        tk.Checkbutton(chk_row, text=_tr("Göster"), variable=show_pw,
                        command=_toggle_pw, **chk_kw).pack(side="left")
 
         # Gelişmiş toggle
@@ -2636,7 +2643,7 @@ class LoginWindow:
             self.root.update_idletasks()
             height = min(max(620, shadow.winfo_reqheight()), 690)
             self.root.geometry(f"520x{height}")
-        tk.Checkbutton(chk_row, text="Gelişmiş", variable=adv_var,
+        tk.Checkbutton(chk_row, text=_tr("Gelişmiş"), variable=adv_var,
                        command=_toggle_adv, **chk_kw).pack(side="right")
 
         # Şifremi hatırla (varsayılan açık: eski sürüm kutuyu boş açıp
@@ -2646,23 +2653,23 @@ class LoginWindow:
         self.remember_var = tk.BooleanVar(value=True)
         self.auto_login_var = tk.BooleanVar(
             value=_auto_login_enabled(cfg) if cfg.get("remember") else True)
-        auto_cb = tk.Checkbutton(chk_row, text="Otomatik giriş",
+        auto_cb = tk.Checkbutton(chk_row, text=_tr("Otomatik giriş"),
                                  variable=self.auto_login_var, **chk_kw)
 
         def _sync_auto():
             auto_cb.config(state="normal" if self.remember_var.get()
                            else "disabled")
-        tk.Checkbutton(chk_row, text="Şifremi hatırla",
+        tk.Checkbutton(chk_row, text=_tr("Şifremi hatırla"),
                        variable=self.remember_var, command=_sync_auto,
                        **chk_kw).pack(side="left", padx=(10, 0))
         auto_cb.pack(side="left", padx=(10, 0))
         _sync_auto()
 
         # Sunucu ve port yan yana (alt alta kart pencereden taşıyordu)
-        _field(self._adv_frame, "🖧", "Sunucu (boş = SRV)", self.srv_var,
+        _field(self._adv_frame, "🖧", _tr("Sunucu (boş = SRV)"), self.srv_var,
                side="left")
         tk.Frame(self._adv_frame, bg=BG_CARD, width=8).pack(side="left")
-        _field(self._adv_frame, "🔌", "Port", self.port_var, width=6,
+        _field(self._adv_frame, "🔌", _tr("Port"), self.port_var, width=6,
                side="left")
 
         # Bağlan butonu — Canvas rounded
@@ -2681,7 +2688,7 @@ class LoginWindow:
         # Alt bilgi
         info_f = tk.Frame(card, bg=BG_CARD)
         info_f.pack(fill="x", pady=(16, 0))
-        tk.Label(info_f, text="SRV otomatik  •  OMEMO & PGP destekli",
+        tk.Label(info_f, text=_tr("SRV otomatik  •  OMEMO & PGP destekli"),
                  fg=FG_DIM, bg=BG_CARD,
                  font=(FONT, 7)).pack()
 
@@ -2695,7 +2702,7 @@ class LoginWindow:
         h = 44
         color = ACCENT if hover else ACCENT2
         _rounded_rect(c, 0, 0, w, h, 10, fill=color, outline="")
-        c.create_text(w // 2, h // 2, text="Bağlan",
+        c.create_text(w // 2, h // 2, text=_tr("Bağlan"),
                       fill=FG_ME, font=(FONT, 11, "bold"))
         c.configure(cursor="hand2")
 
@@ -2710,11 +2717,11 @@ class LoginWindow:
         except ValueError:
             port = 5222
         if not jid or not pw:
-            messagebox.showwarning("Eksik Bilgi", "JID ve şifre gerekli.")
+            messagebox.showwarning(_tr("Eksik Bilgi"), _tr("JID ve şifre gerekli."))
             return
         if "@" not in jid:
-            messagebox.showwarning("Geçersiz JID",
-                                   "JID formatı: kullanıcı@sunucu.tld")
+            messagebox.showwarning(_tr("Geçersiz JID"),
+                                   _tr("JID formatı: kullanıcı@sunucu.tld"))
             return
 
         # Şifremi hatırla — giriş bilgilerini kaydet / sil; otomatik giriş seçimi
@@ -2740,6 +2747,11 @@ PRESENCE_COLOR = {
 # Asistanla tek sözlük: "Uzakta" away'dir (eskiden menüde xa'ydı)
 STATUS_OPTIONS = [(label, show) for show, label
                   in _agent.STATUS_LABELS.items()]
+
+
+def _status_options():
+    """STATUS_OPTIONS seçili dilde (etiketler kullanım anında çevrilir)."""
+    return [(_tr(label), show) for label, show in STATUS_OPTIONS]
 
 # Bilinen halka açık MUC konferans sunucuları
 _KNOWN_MUC_SERVERS = [
@@ -2870,7 +2882,7 @@ class MainWindow:
         _saved_theme = _load_config().get("theme", "koyu")
         _apply_color_theme(_saved_theme)
         self.root = tk.Tk()
-        self.root.title(f"XMPP — {jid}")
+        self.root.title(_tr("XMPP — {}").format(jid))
         geom = _parse_geometry(_init_cfg.get("win_geometry", ""),
                                self.root.winfo_screenwidth(),
                                self.root.winfo_screenheight())
@@ -2985,8 +2997,8 @@ class MainWindow:
                  fg=FG, bg=BG_PANEL).pack(anchor="w")
 
         # Durum: tıklanabilir label + popup menü (combobox yerine)
-        self.status_var = tk.StringVar(value=STATUS_OPTIONS[0][0])
-        self._status_label = tk.Label(info_f, text=f"● {STATUS_OPTIONS[0][0]}",
+        self.status_var = tk.StringVar(value=_status_options()[0][0])
+        self._status_label = tk.Label(info_f, text=f"● {_status_options()[0][0]}",
                                        font=(FONT, 8), fg=ONLINE,
                                        bg=BG_PANEL, cursor="hand2")
         self._status_label.pack(anchor="w")
@@ -3016,7 +3028,7 @@ class MainWindow:
                  fg=FG_DIM, bg=BG_HOVER).pack(side="left", padx=(8, 0))
         self._sidebar_search_var = tk.StringVar()
         self._sidebar_search = PlaceholderEntry(
-            search_inner, placeholder=_t("sidebar_search_placeholder"),
+            search_inner, placeholder=_tr("Kişi veya oda ara..."),
             textvariable=self._sidebar_search_var,
             font=(FONT, 9), style="Modern.TEntry")
         self._sidebar_search.pack(fill="x", ipady=5, padx=(4, 4), pady=2)
@@ -3039,7 +3051,7 @@ class MainWindow:
         # ── Kişiler ──
         ch = tk.Frame(sb, bg=BG_PANEL, padx=16)
         ch.grid(row=3, column=0, sticky="ew", pady=(10, 4))
-        tk.Label(ch, text=_t("contacts"), font=(FONT, 7, "bold"),
+        tk.Label(ch, text=_tr("KİŞİLER"), font=(FONT, 7, "bold"),
                  fg=FG_DIM, bg=BG_PANEL).pack(side="left")
         add_c = tk.Label(ch, text="+", font=(FONT, 12, "bold"),
                          fg=FG_DIM, bg=BG_PANEL, cursor="hand2")
@@ -3047,7 +3059,7 @@ class MainWindow:
         add_c.bind("<Button-1>", lambda _: self._add_contact_dialog())
         add_c.bind("<Enter>", lambda _: add_c.config(fg=ACCENT))
         add_c.bind("<Leave>", lambda _: add_c.config(fg=FG_DIM))
-        _add_tooltip(add_c, _t("add_contact"))
+        _add_tooltip(add_c, _tr("Kişi Ekle"))
 
         # Kişi grupları ikonu (araç çubuğundan buraya taşındı)
         grp_c = tk.Label(ch, text="🏷", font=(FONT, 9),
@@ -3056,7 +3068,7 @@ class MainWindow:
         grp_c.bind("<Button-1>", lambda _: self._contact_groups_dialog())
         grp_c.bind("<Enter>", lambda _: grp_c.config(fg=ACCENT))
         grp_c.bind("<Leave>", lambda _: grp_c.config(fg=FG_DIM))
-        _add_tooltip(grp_c, _t("groups"))
+        _add_tooltip(grp_c, _tr("Gruplar"))
 
         lbox_kw = dict(
             bg=BG_PANEL, fg=FG,
@@ -3067,7 +3079,7 @@ class MainWindow:
         # ── Asistan (AI; XMPP kişisi değildir — roster/stanza yolu yok) ──
         self._assistant_entry = _ui_sidebar.build_assistant_entry(
             sb, self._ai_assistant_open,
-            subtitle="Komut ver ya da soru sor · Ctrl+Shift+K")
+            subtitle=_tr("Komut ver ya da soru sor · Ctrl+Shift+K"))
         self._assistant_entry.grid(row=4, column=0, sticky="ew", padx=10,
                                    pady=(0, 4))
 
@@ -3085,16 +3097,16 @@ class MainWindow:
         # ── Odalar ──
         rh = tk.Frame(sb, bg=BG_PANEL, padx=16)
         rh.grid(row=7, column=0, sticky="ew", pady=(12, 4))
-        tk.Label(rh, text=_t("rooms"), font=(FONT, 7, "bold"),
+        tk.Label(rh, text=_tr("ODALAR"), font=(FONT, 7, "bold"),
                  fg=FG_DIM, bg=BG_PANEL).pack(side="left")
 
         room_btns = tk.Frame(rh, bg=BG_PANEL)
         room_btns.pack(side="right")
         for icon, tip, cmd in [
-            ("🧭", _t("discover_rooms"), self._search_rooms_dialog),
-            ("📑", _t("bookmarks"),      self._bookmarks_dialog),
-            ("✚",  _t("create_room"),    self._create_room_dialog),
-            ("+",  _t("join_room"),      self._join_room_dialog),
+            ("🧭", _tr("Oda Keşfet"), self._search_rooms_dialog),
+            ("📑", _tr("Yer İmleri"),      self._bookmarks_dialog),
+            ("✚",  _tr("Oda Oluştur"),    self._create_room_dialog),
+            ("+",  _tr("Odaya Katıl"),      self._join_room_dialog),
         ]:
             b = tk.Label(room_btns, text=icon, font=(FONT, 9),
                          fg=FG_DIM, bg=BG_PANEL, cursor="hand2",
@@ -3138,7 +3150,7 @@ class MainWindow:
                             lambda _: self._menu_btn.config(fg=ACCENT))
         self._menu_btn.bind("<Leave>",
                             lambda _: self._menu_btn.config(fg=FG_DIM))
-        _add_tooltip(self._menu_btn, _t("main_menu"))
+        _add_tooltip(self._menu_btn, _tr("Ana Menü"))
 
     def _draw_new_chat_btn(self, event=None, hover=False):
         c = self._new_chat_c
@@ -3146,7 +3158,7 @@ class MainWindow:
         w = c.winfo_width() or 220
         color = BG_HOVER if hover else BORDER
         _rounded_rect(c, 0, 0, w, 36, 8, fill=color, outline="")
-        c.create_text(w // 2, 18, text="＋  Yeni Sohbet",
+        c.create_text(w // 2, 18, text=_tr("＋  Yeni Sohbet"),
                       fill=ACCENT if hover else FG_DIM,
                       font=(FONT, 9, "bold"))
         c.configure(cursor="hand2")
@@ -3190,7 +3202,7 @@ class MainWindow:
     def _retry_connection(self, _=None):
         """Bağlantıyı hemen yeniden dene (kenar çubuğu menüsü)."""
         if getattr(self.bot, "_connected_ok", False):
-            self._show_toast("✓ Bağlantı", "Zaten bağlısınız")
+            self._show_toast(_tr("✓ Bağlantı"), _tr("Zaten bağlısınız"))
             return
         self._last_conn_error = ""
         try:
@@ -3200,13 +3212,13 @@ class MainWindow:
         try:
             self.bot.loop.call_soon_threadsafe(self.bot.connect)
         except Exception as e:
-            messagebox.showerror("Bağlantı",
-                                 f"Deneme başlatılamadı: {e}",
+            messagebox.showerror(_tr("Bağlantı"),
+                                 _tr("Deneme başlatılamadı: {}").format(e),
                                  parent=self.root)
             return
-        self._append("⟳ Yeniden bağlanılıyor…", "sys")
+        self._append(_tr("⟳ Yeniden bağlanılıyor…"), "sys")
         try:
-            self._status_label.config(text=_t("connecting"), fg=AWAY)
+            self._status_label.config(text=_tr("Bağlanıyor…"), fg=AWAY)
         except Exception:
             pass
 
@@ -3319,7 +3331,7 @@ class MainWindow:
         mp.columnconfigure(0, weight=1)
         mp.rowconfigure(1, weight=1)
 
-        self._members_label = tk.Label(mp, text=_t("participants"),
+        self._members_label = tk.Label(mp, text=_tr("KATILIMCILAR"),
                  font=(FONT, 7, "bold"),
                  fg=FG_DIM, bg=BG_PANEL)
         self._members_label.grid(
@@ -3397,7 +3409,7 @@ class MainWindow:
             url = m.group(1)
             if url not in img_urls and url not in audio_urls:
                 img_urls.append(url)
-        display_body = body
+        display_body = _ai.display_text(body)     # işaret metni seçili dilde
         if audio_urls:
             for url in audio_urls:
                 display_body = display_body.replace(url, "").strip()
@@ -3519,7 +3531,7 @@ class MainWindow:
         for url in aes_files:
             _media_ui.file_card(
                 bubble, _chat_theme(), _aesgcm.file_name(url),
-                "🔒 Şifreli dosya (OMEMO)", "⬇ İndir ve aç", "📂 Klasörde göster",
+                _tr("🔒 Şifreli dosya (OMEMO)"), _tr("⬇ İndir ve aç"), _tr("📂 Klasörde göster"),
                 lambda u=url: self._open_aesgcm_file(u),
                 lambda u=url: self._open_aesgcm_file(u, reveal=True))
 
@@ -3652,37 +3664,37 @@ class MainWindow:
 
         specs = []
         if reply_ref and not retracted:
-            specs.append(("⤴", "Alıntılanan mesaja git",
+            specs.append(("⤴", _tr("Alıntılanan mesaja git"),
                           lambda: self._jump_to_message(
                               (reply_ref or {}).get("id", "")), False))
         if mid and can_send and not retracted:
-            specs.append(("↩", "Yanıtla",
+            specs.append(("↩", _tr("Yanıtla"),
                           lambda: self._set_reply(mid, body, sender), False))
-            specs.append(("😊", "Tepki ekle",
+            specs.append(("😊", _tr("Tepki ekle"),
                           lambda: self._quick_reaction_popup(bar, mid), False))
         if mid and self._reactions.get(self._reaction_key(mid)):
-            specs.append(("👥", "Tepkileri gör",
+            specs.append(("👥", _tr("Tepkileri gör"),
                           lambda: self._reaction_details_dialog(mid), False))
         if not retracted and self._ai_message_items(row):
-            specs.append(("✨", "AI: çevir / yazıya dök / açıkla",
+            specs.append(("✨", _tr("AI: çevir / yazıya dök / açıkla"),
                           lambda: self._ai_message_menu(row, bar), False))
         if body and not retracted:
-            specs.append(("📋", "Kopyala",
+            specs.append(("📋", _tr("Kopyala"),
                           lambda: (self.root.clipboard_clear(),
                                    self.root.clipboard_append(body)), False))
         if body and can_send and not retracted:
-            specs.append(("➦", "İlet",
+            specs.append(("➦", _tr("İlet"),
                           lambda: self._forward_dialog(
                               body, sender,
                               encrypted=bool(getattr(row, "_encrypted",
                                                      False))), False))
-            specs.append(("📌", "Sabitle",
+            specs.append(("📌", _tr("Sabitle"),
                           lambda: self._pin_message(body, sender), False))
         if is_me and mid and can_send and not retracted:
-            specs.append(("✏", "Düzenle",
+            specs.append(("✏", _tr("Düzenle"),
                           lambda: self._edit_message_dialog(mid, body, mtype),
                           False))
-            specs.append(("🗑", "Sil",
+            specs.append(("🗑", _tr("Sil"),
                           lambda: self._retract_message(mid, mtype), True))
         _actions_ui.populate_action_bar(
             bar, _chat_theme(), specs, add_tooltip=_add_tooltip,
@@ -3725,9 +3737,9 @@ class MainWindow:
         except Exception:
             _log.warning("Şifreli dosya açılamadı: %s", name, exc_info=True)
             self._safe_after(0, self._show_toast,
-                             "⚠ Şifreli dosya açılamadı", name)
+                             _tr("⚠ Şifreli dosya açılamadı"), name)
             return
-        self._safe_after(0, self._show_toast, "📥 Şifreli dosya",
+        self._safe_after(0, self._show_toast, _tr("📥 Şifreli dosya"),
                          f"{os.path.basename(path)} kaydedildi")
         self._safe_after(0, _safe_open_url, folder if reveal else path)
 
@@ -3739,7 +3751,7 @@ class MainWindow:
             size_txt = ""
         _media_ui.file_card(
             parent, _chat_theme(), os.path.basename(path), size_txt,
-            _t("ft_open"), _t("ft_open_folder"),
+            _tr("Aç"), _tr("Klasörü Aç"),
             lambda: _safe_open_url(path),
             lambda: _safe_open_url(os.path.dirname(path) or "."))
 
@@ -4356,8 +4368,8 @@ class MainWindow:
         bubble'ın mevcut çocuklarına (gövde/zengin medya) dokunulmaz.
         Tık → sayfalı görüntüleyici.
         """
-        texts = {"image": "🔗 {n} görsel bağlantısı daha",
-                 "audio": "🎤 {n} ses bağlantısı daha"}
+        texts = {"image": _tr("🔗 {n} görsel bağlantısı daha"),
+                 "audio": _tr("🎤 {n} ses bağlantısı daha")}
         ctl = tk.Label(bubble, text=texts[kind].format(n=len(urls)),
                        fg=ACCENT, bg=bg_color, cursor="hand2",
                        font=(FONT, 8), anchor="w")
@@ -4376,12 +4388,12 @@ class MainWindow:
         """
         if getattr(self, "_closing", False):
             return
-        titles = {"image": "Görsel bağlantıları", "audio": "Ses bağlantıları"}
+        titles = {"image": _tr("Görsel bağlantıları"), "audio": _tr("Ses bağlantıları")}
         page_size = 30
         pages = max(1, (len(urls) + page_size - 1) // page_size)
         state = {"p": 0}
         top = tk.Toplevel(self.root)
-        top.title(f"{titles[kind]} — {len(urls)} bağlantı")
+        top.title(_tr("{} — {} bağlantı").format(titles[kind], len(urls)))
         top.configure(bg=BG)
         top.geometry("600x430")
         top.transient(self.root)
@@ -4399,7 +4411,7 @@ class MainWindow:
             lb.delete(0, "end")
             for u in urls[p * page_size:(p + 1) * page_size]:
                 lb.insert("end", u)
-            info.config(text=f"Sayfa {p + 1}/{pages}")
+            info.config(text=_tr("Sayfa {}/{}").format(p + 1, pages))
 
         def open_selected(_e=None):
             sel = lb.curselection()
@@ -4409,15 +4421,15 @@ class MainWindow:
         lb.bind("<Double-Button-1>", open_selected)
         nav = tk.Frame(top, bg=BG)
         nav.pack(fill="x", padx=12, pady=(0, 12))
-        tk.Button(nav, text="◀ Önceki", font=(FONT, 9), bg=BG_CARD, fg=FG,
+        tk.Button(nav, text=_tr("◀ Önceki"), font=(FONT, 9), bg=BG_CARD, fg=FG,
                   relief="flat", command=lambda: show(state["p"] - 1)
                   ).pack(side="left")
         info = tk.Label(nav, text="", bg=BG, fg=FG_DIM, font=(FONT, 9))
         info.pack(side="left", padx=10)
-        tk.Button(nav, text="Sonraki ▶", font=(FONT, 9), bg=BG_CARD, fg=FG,
+        tk.Button(nav, text=_tr("Sonraki ▶"), font=(FONT, 9), bg=BG_CARD, fg=FG,
                   relief="flat", command=lambda: show(state["p"] + 1)
                   ).pack(side="left")
-        tk.Button(nav, text="🔗 Tarayıcıda Aç", font=(FONT, 9), bg=BG_CARD,
+        tk.Button(nav, text=_tr("🔗 Tarayıcıda Aç"), font=(FONT, 9), bg=BG_CARD,
                   fg=ACCENT, relief="flat", command=open_selected
                   ).pack(side="right")
         show(0)
@@ -4631,7 +4643,7 @@ class MainWindow:
             self._scroll_to_row(row)
             self._flash_row(row)
             return
-        self._append("↪ Alıntılanan mesaj uygulamada bulunamadı", "sys")
+        self._append(_tr("↪ Alıntılanan mesaj uygulamada bulunamadı"), "sys")
 
     def _scroll_to_row(self, row):
         """Row'u görünür alana kaydır (ui/chat/identity)."""
@@ -4760,7 +4772,7 @@ class MainWindow:
     def _edit_message_dialog(self, mid, old_body, mtype):
         """Mesaj düzenleme diyaloğu (ui/dialogs)."""
         new_body = _ui_chat_actions.ask_edit_message(
-            self.root, _t("edit_msg"), _t("new_text"), old_body)
+            self.root, _tr("Mesajı Düzenle"), _tr("Yeni metin:"), old_body)
         if new_body and new_body != old_body:
             self.bot.send_correction(self.active, new_body, mid, mtype)
             # Fire-and-forget gönderim; yerel durum iyimser güncellenir
@@ -4769,8 +4781,8 @@ class MainWindow:
 
     def _retract_message(self, mid, mtype):
         """Mesajı geri çek."""
-        if messagebox.askyesno(_t("delete_msg"),
-                               _t("delete_confirm"),
+        if messagebox.askyesno(_tr("Mesajı Sil"),
+                               _tr("Bu mesajı silmek istediğinizden emin misiniz?"),
                                parent=self.root):
             self.bot.retract_message(self.active, mid, mtype)
             # Fire-and-forget gönderim; yerel durum iyimser güncellenir.
@@ -4780,7 +4792,7 @@ class MainWindow:
     def _set_reply(self, mid, body, sender):
         """Yanıt modunu aç — reply bar'ı göster."""
         if not mid:
-            self._append("↩ Bu mesaj yanıtlanamıyor (kimlik yok)", "sys")
+            self._append(_tr("↩ Bu mesaj yanıtlanamıyor (kimlik yok)"), "sys")
             return
         if self.active in self.rooms and sender and sender != "Ben":
             reply_jid = f"{self.active}/{sender}"
@@ -4812,7 +4824,10 @@ class MainWindow:
         if enc == "none":
             sensitive = src_encrypted or _aesgcm.URL_RE.search(body or "")
             if sensitive and not messagebox.askyesno(
-                    _t("forward"), _t("forward_plain_warn"),
+                    _tr("İlet"),
+                    _tr("Bu mesaj şifreli içerik taşıyor ama seçtiğiniz "
+                        "sohbet şifresiz: içerik (şifreli dosyanın anahtarı "
+                        "dahil) sunucuya açık metin gider. Yine de iletilsin mi?"),
                     icon="warning", default="no", parent=self.root):
                 return
         if not self._leak_guard_ok(to, text, enc):
@@ -4861,7 +4876,7 @@ class MainWindow:
         if not pins:
             return
         pop = tk.Toplevel(self.root)
-        pop.title("Sabitlenmiş Mesajlar")
+        pop.title(_tr("Sabitlenmiş Mesajlar"))
         pop.configure(bg=BG_CARD)
         pop.geometry("380x300")
         pop.transient(self.root)
@@ -4941,7 +4956,7 @@ class MainWindow:
                 if item[0] == "sep":
                     menu.add_separator()
                 elif item[0] == "ai":
-                    menu.add_cascade(label=f"✨ {_t('ai_assistant')}",
+                    menu.add_cascade(label=f"✨ {_tr('AI Asistanı')}",
                                      menu=self._ai_build_chat_menu(menu))
                 elif item[0] == "menu":
                     sub = new_menu(menu)
@@ -4981,14 +4996,14 @@ class MainWindow:
             return False
         except _ai.AIPrivacyError as e:
             ok = messagebox.askyesno(
-                "Şifreli Sohbet",
-                f"{e}\n\nYalnız bu istek için içerik Claude'a (bulut) "
-                "gönderilsin mi?\nHayır derseniz hiçbir şey gönderilmez.",
+                _tr("Şifreli Sohbet"),
+                _tr("{}\n\nYalnız bu istek için içerik Claude'a (bulut) gönderilsin "
+                    "mi?\nHayır derseniz hiçbir şey gönderilmez.").format(e),
                 parent=self.root)
             return True if ok else None
         except _ai.AIError as e:
-            if messagebox.askyesno("AI Asistanı",
-                                   f"{e}\n\nAI Ayarları açılsın mı?",
+            if messagebox.askyesno(_tr("AI Asistanı"),
+                                   _tr("{}\n\nAI Ayarları açılsın mı?").format(e),
                                    parent=self.root):
                 self._ai_settings_dialog()
             return None
@@ -5014,7 +5029,7 @@ class MainWindow:
                 except Exception as e:
                     _log.error("AI işi başarısız", exc_info=True)
                     self._safe_after(0, on_error,
-                                     _ai.AIError(f"Beklenmeyen hata: {e}"))
+                                     _ai.AIError(_tr("Beklenmeyen hata: {}").format(e)))
                     return
             self._safe_after(0, on_done, result)
 
@@ -5053,12 +5068,11 @@ class MainWindow:
             return ("all", False)
         except _ai.AIPrivacyError as e:
             ans = messagebox.askyesnocancel(
-                "Şifreli Sohbet",
-                f"{e}\n\n{n_total} kaynağın {n_sensitive} tanesi şifreli.\n\n"
-                "Evet: şifreli içerik de yalnız bu istek için Claude'a "
-                "(bulut) gönderilsin.\nHayır: şifreli içerik çıkarılsın, "
-                "yalnız kalanı gönderilsin.\nİptal: hiçbir şey "
-                "gönderilmesin.", parent=self.root)
+                _tr("Şifreli Sohbet"),
+                _tr("{}\n\n{} kaynağın {} tanesi şifreli.\n\nEvet: şifreli içerik de "
+                    "yalnız bu istek için Claude'a (bulut) gönderilsin.\nHayır: "
+                    "şifreli içerik çıkarılsın, yalnız kalanı gönderilsin.\nİptal: "
+                    "hiçbir şey gönderilmesin.").format(e, n_total, n_sensitive), parent=self.root)
             if ans is None:
                 return None
             return ("all", True) if ans else ("plain", False)
@@ -5172,43 +5186,43 @@ class MainWindow:
         geçmişe sor gibi sonuçlar asistanın içinde açılır
         (`_ai_assistant_run`); düzenlenebilir listeler kendi penceresinde."""
         run = self._ai_assistant_run
-        menu.add_command(label="✨ Asistan…", accelerator="Ctrl+Shift+K",
+        menu.add_command(label=_tr("✨ Asistan…"), accelerator="Ctrl+Shift+K",
                          command=self._ai_assistant_open)
         unread = (getattr(self, "_ai_unread_at_open", None) or {}).get(jid, 0)
         if unread:
             menu.add_command(
-                label=f"📬 Okunmamışları özetle ({unread})",
+                label=_tr("📬 Okunmamışları özetle ({})").format(unread),
                 command=lambda: run("summarize_unread", jid))
         this = self._ai_new_menu(menu)
-        this.add_command(label="📝 Sohbeti özetle",
+        this.add_command(label=_tr("📝 Sohbeti özetle"),
                          command=lambda: run("summarize_chat", jid))
-        this.add_command(label="📅 Görev ve etkinlikleri çıkar",
+        this.add_command(label=_tr("📅 Görev ve etkinlikleri çıkar"),
                          command=lambda: self._ai_extract_actions(jid))
-        menu.add_cascade(label="💬 Bu sohbet", menu=this)
+        menu.add_cascade(label=_tr("💬 Bu sohbet"), menu=this)
         every = self._ai_new_menu(menu)
-        every.add_command(label="📥 Neler kaçırdım?",
+        every.add_command(label=_tr("📥 Neler kaçırdım?"),
                           accelerator="Ctrl+Shift+M",
                           command=lambda: run("missed"))
-        every.add_command(label="❓ Yanıt bekleyen sorular",
+        every.add_command(label=_tr("❓ Yanıt bekleyen sorular"),
                           accelerator="Ctrl+Shift+Q",
                           command=lambda: run("pending_questions"))
-        every.add_command(label="✍ Yanıt taslakları",
+        every.add_command(label=_tr("✍ Yanıt taslakları"),
                           accelerator="Ctrl+Shift+R",
                           command=self._ai_drafts_window)
-        every.add_command(label="🔎 Geçmişe sor…", accelerator="Ctrl+Shift+H",
+        every.add_command(label=_tr("🔎 Geçmişe sor…"), accelerator="Ctrl+Shift+H",
                           command=lambda: run("ask_history"))
-        every.add_command(label="🧠 Anlamsal arama…",
+        every.add_command(label=_tr("🧠 Anlamsal arama…"),
                           command=self._ai_semantic_search_dialog)
-        menu.add_cascade(label="🗂 Tüm sohbetler", menu=every)
+        menu.add_cascade(label=_tr("🗂 Tüm sohbetler"), menu=every)
         menu.add_separator()
-        menu.add_command(label="⚙ AI Ayarları…",
+        menu.add_command(label=_tr("⚙ AI Ayarları…"),
                          command=self._ai_settings_dialog)
 
     def _ai_build_chat_menu(self, parent):
         """⋮ başlık menüsündeki ✨ alt menüsü."""
         sub = self._ai_new_menu(parent)
         jid = self.active
-        sub.add_command(label="💡 Yanıt öner",
+        sub.add_command(label=_tr("💡 Yanıt öner"),
                         command=lambda: self._ai_assistant_run(
                             "suggest_replies", jid))
         sub.add_separator()
@@ -5222,31 +5236,31 @@ class MainWindow:
             return
         jid = self.active
         menu = self._ai_new_menu(self.root)
-        menu.add_command(label="✨ Asistan (bu sohbet)…",
+        menu.add_command(label=_tr("✨ Asistan (bu sohbet)…"),
                          accelerator="Ctrl+Shift+K",
                          command=self._ai_assistant_open)
-        menu.add_command(label="💡 Yanıt öner",
+        menu.add_command(label=_tr("💡 Yanıt öner"),
                          command=lambda: self._ai_assistant_run(
                              "suggest_replies", jid))
         dictating = (getattr(self, "_recording", False)
                      and getattr(self, "_rec_mode", "voice") == "dictate")
-        menu.add_command(label=("⏹ Dikteyi bitir" if dictating
-                                else "🎙 Sesle yaz (dikte)"),
+        menu.add_command(label=(_tr("⏹ Dikteyi bitir") if dictating
+                                else _tr("🎙 Sesle yaz (dikte)")),
                          accelerator="Ctrl+Shift+S", command=self._ai_dictate)
         if self._ai_speaking():
-            menu.add_command(label="⏹ Sesli okumayı durdur",
+            menu.add_command(label=_tr("⏹ Sesli okumayı durdur"),
                              command=self._ai_speak_stop)
         rewrite = self._ai_new_menu(menu)
         for mode, (label, _instr) in _ai.REWRITE_MODES.items():
-            rewrite.add_command(label=label,
+            rewrite.add_command(label=_tr(label),
                                 command=lambda m=mode: self._ai_rewrite(m))
-        menu.add_cascade(label="✍ Taslağı düzenle", menu=rewrite)
+        menu.add_cascade(label=_tr("✍ Taslağı düzenle"), menu=rewrite)
         undo = getattr(self, "_ai_undo", None)
         if undo and undo[0] == self.active:
-            menu.add_command(label="↶ AI değişikliğini geri al",
+            menu.add_command(label=_tr("↶ AI değişikliğini geri al"),
                              command=self._ai_undo_rewrite)
         menu.add_separator()
-        menu.add_command(label="⚙ AI Ayarları…",
+        menu.add_command(label=_tr("⚙ AI Ayarları…"),
                          command=self._ai_settings_dialog)
         if event is not None:
             x, y = event.x_root, event.y_root
@@ -5333,8 +5347,8 @@ class MainWindow:
         conv = _ai.Conversation(_ai.with_followups(system, lang),
                                 effort="low", sensitive=sensitive)
         win, cancel = self._ai_open_window(
-            "🌐 Çeviri", _ai.provider_label(settings), conv,
-            ask_hint="Örn: Bu ifade ne anlama geliyor?")
+            _tr("🌐 Çeviri"), _ai.provider_label(settings), conv,
+            ask_hint=_tr("Örn: Bu ifade ne anlama geliyor?"))
         self._ai_turn(win, conv, settings, user, allow, cancel)
 
     @staticmethod
@@ -5353,12 +5367,12 @@ class MainWindow:
             self._ai_gate(settings, False)
             return
         model = settings["whisper_model"]
-        win = _ui_ai.ResultWindow(self.root, "🎙 Ses kaydının metni",
-                                  f"🖥 Yerel (faster-whisper) · {model}")
-        win.set_busy("Yazıya dökülüyor… (ilk kullanımda model indirilir)")
+        win = _ui_ai.ResultWindow(self.root, _tr("🎙 Ses kaydının metni"),
+                                  _tr("🖥 Yerel (faster-whisper) · {}").format(model))
+        win.set_busy(_tr("Yazıya dökülüyor… (ilk kullanımda model indirilir)"))
 
         def done(text):
-            win.set_text(text)
+            win.set_text(_ai.display_text(text))
             self._ai_stt_done(src[1], text)     # balonda da göster
 
         self._ai_submit(self._ai_stt_job(src, model, self.active or ""),
@@ -5384,7 +5398,7 @@ class MainWindow:
                     tmp.write(raw)
                     tmp.close()
                     if not self._remember_temp(tmp.name):
-                        raise _ai.AIError("Uygulama kapanıyor.")
+                        raise _ai.AIError(_tr("Uygulama kapanıyor."))
                     text = _ai.transcribe_file(tmp.name, model)
                 finally:
                     try:
@@ -5435,6 +5449,7 @@ class MainWindow:
 
     def _ai_show_transcript(self, row, text):
         """Dökümü satırın balonuna yaz; varsa güncelle (GUI thread)."""
+        text = _ai.display_text(text)
         try:
             if not row.winfo_exists():
                 return
@@ -5524,15 +5539,15 @@ class MainWindow:
         """Yerel bileşen eksik: otomatik modu bu oturum için kapat."""
         self._ai_auto_stt = False
         _log.warning("Otomatik ses→metin durduruldu: %s", message)
-        self._show_toast("🎙 Otomatik ses→metin durdu",
-                         "faster-whisper/model yok — AI Ayarları → Test Et")
+        self._show_toast(_tr("🎙 Otomatik ses→metin durdu"),
+                         _tr("faster-whisper/model yok — AI Ayarları → Test Et"))
 
     def _ai_load_image(self, src) -> bytes:
         kind, ref = src
         if kind == "url":
             return _ai.fetch_url(ref, _NET_IMG_FULL_MAX)
         if os.path.getsize(ref) > _NET_IMG_FULL_MAX:
-            raise _ai.AIError("Görsel çok büyük.")
+            raise _ai.AIError(_tr("Görsel çok büyük."))
         with open(ref, "rb") as f:
             return f.read()
 
@@ -5543,7 +5558,7 @@ class MainWindow:
         question = None
         if ask:
             question = simpledialog.askstring(
-                "Görsele Soru Sor", "Görsel hakkında ne sormak istiyorsunuz?",
+                _tr("Görsele Soru Sor"), _tr("Görsel hakkında ne sormak istiyorsunuz?"),
                 parent=self.root)
             if not question or not question.strip():
                 return
@@ -5559,7 +5574,7 @@ class MainWindow:
         key = None if question else self._ai_cache_key(
             "img", provider_model, src[1])
         jid = self.active or ""
-        title = f"❓ {question}" if question else "🖼 Görsel açıklaması"
+        title = f"❓ {question}" if question else _tr("🖼 Görsel açıklaması")
         lang = settings["target_language"]
         system, user = _ai.image_request(lang, question)
         conv = _ai.Conversation(_ai.with_followups(system, lang),
@@ -5577,7 +5592,7 @@ class MainWindow:
             title[:80], _ai.provider_label(settings, vision=True), conv,
             on_ask=lambda q: self._ai_followup(win, conv, q, cancel,
                                                images=load_images),
-            ask_hint="Örn: Arka planda ne yazıyor?")
+            ask_hint=_tr("Örn: Arka planda ne yazıyor?"))
         sink = _ai.StreamSink(
             lambda chunk: self._safe_after(0, win.append_text, chunk), cancel)
 
@@ -5621,18 +5636,18 @@ class MainWindow:
         transcript, count = _ai.build_transcript(
             entries, max_chars=_ai.transcript_budget(settings))
         if not count:
-            self._ai_notice("Özet", "Özetlenecek mesaj yok.", inline)
+            self._ai_notice(_tr("Özet"), _tr("Özetlenecek mesaj yok."), inline)
             return
         short = jid.split("@")[0]
-        title = (f"📝 {short} — okunmamış {unread} mesajın özeti" if unread
-                 else f"📝 {short} — sohbet özeti")
+        title = (_tr("📝 {} — okunmamış {} mesajın özeti").format(short, unread) if unread
+                 else _tr("📝 {} — sohbet özeti").format(short))
         lang = settings["target_language"]
         system, user = _ai.summary_request(transcript, lang, unread)
         conv = _ai.Conversation(_ai.with_followups(system, lang),
                                 effort="medium", sensitive=sensitive)
         win, cancel = self._ai_open_window(
-            title, f"{_ai.provider_label(settings)} · son {count} mesaj", conv,
-            ask_hint="Örn: Benden ne isteniyor? Saat kaçta buluşuyoruz?",
+            title, _tr("{} · son {} mesaj").format(_ai.provider_label(settings), count), conv,
+            ask_hint=_tr("Örn: Benden ne isteniyor? Saat kaçta buluşuyoruz?"),
             inline=inline)
         self._ai_turn(win, conv, settings, user, allow, cancel)
 
@@ -5642,8 +5657,8 @@ class MainWindow:
                   (getattr(self, "_unread_counts", None) or {}).items()
                   if n > 0}
         if not counts:
-            self._ai_notice("Neler kaçırdım?",
-                            "Okunmamış mesaj yok — her şey okunmuş. 🎉",
+            self._ai_notice(_tr("Neler kaçırdım?"),
+                            _tr("Okunmamış mesaj yok — her şey okunmuş. 🎉"),
                             inline)
             return
         settings = self._ai_settings()
@@ -5663,9 +5678,9 @@ class MainWindow:
             [(label, part, n) for _j, label, part, n, _s in chats],
             _ai.transcript_budget(settings))
         if not included:
-            self._ai_notice("Neler kaçırdım?",
-                            "Okunmamışlar arasında özetlenecek metin "
-                            "mesajı yok.", inline)
+            self._ai_notice(_tr("Neler kaçırdım?"),
+                            _tr("Okunmamışlar arasında özetlenecek metin "
+                                "mesajı yok."), inline)
             return
         shown = [chats[i] for i in included]
         lang = settings["target_language"]
@@ -5676,12 +5691,12 @@ class MainWindow:
                                 sensitive=any(c[4] for c in shown))
         total = sum(c[3] for c in shown)
         win, cancel = self._ai_open_window(
-            "📥 Neler kaçırdım?",
-            f"{_ai.provider_label(settings)} · {len(shown)} sohbet, "
-            f"{total} okunmamış mesaj", conv,
-            ask_hint="Örn: Bana kim soru sordu?", inline=inline)
+            _tr("📥 Neler kaçırdım?"),
+            _tr("{} · {} sohbet, {} okunmamış mesaj")
+            .format(_ai.provider_label(settings), len(shown), total), conv,
+            ask_hint=_tr("Örn: Bana kim soru sordu?"), inline=inline)
         win.set_sources([(f"💬 {c[1]} ({c[3]})", c[0]) for c in shown],
-                        self._ai_open_chat, title="Sohbete git")
+                        self._ai_open_chat, title=_tr("Sohbete git"))
         self._ai_turn(win, conv, settings, user, allow, cancel)
 
     # — Asistan (ajan): doğal dil komutu → onaylı istemci eylemi —
@@ -5690,11 +5705,11 @@ class MainWindow:
     # zaman kartla onaylanır; gönderim normal giriş kutusu yolundan geçer
     # (hassas veri uyarısı, şifreleme modu, kayıt — hepsi aynen).
     _AGENT_EXAMPLES = (
-        "Ali'ye yarın 10'da toplantı olduğunu yaz",
-        "Yarın 09:00'da faturayı ödemeyi hatırlat",
-        "Geçmişe sor: Ali'nin verdiği adres neydi?",
-        "Ayşe ile sohbeti özetle",
-        "Durumumu meşgul yap",
+        N_("Ali'ye yarın 10'da toplantı olduğunu yaz"),
+        N_("Yarın 09:00'da faturayı ödemeyi hatırlat"),
+        N_("Geçmişe sor: Ali'nin verdiği adres neydi?"),
+        N_("Ayşe ile sohbeti özetle"),
+        N_("Durumumu meşgul yap"),
     )
     _AGENT_LOG_CAP = 200
 
@@ -5707,7 +5722,7 @@ class MainWindow:
         win = _ui_ai.AssistantWindow(
             self.root, self._ai_assistant_subtitle(settings),
             self._ai_agent_submit, on_clear=self._ai_assistant_clear,
-            on_speak=self._ai_speak_text, examples=self._AGENT_EXAMPLES,
+            on_speak=self._ai_speak_text, examples=[_tr(e) for e in self._AGENT_EXAMPLES],
             on_quick=self._ai_agent_quick)
         self._ai_assistant_win = win
         for role, text in getattr(self, "_ai_agent_log", ()):
@@ -5755,10 +5770,10 @@ class MainWindow:
                                  or {}).values() if n > 0)
         drafts = sum(1 for e in self._ai_drafts_get().values()
                      if e["options"] or e["external"])
-        context = (f"💬 Bağlam: {label} — \"bu sohbet\" ya da ad yazmadan "
-                   "verilen komutlar bu sohbete" if label
-                   else "Açık sohbet yok — komutlarda kişi ya da oda adını "
-                        "yazın")
+        context = (_tr("💬 Bağlam: {} — \"bu sohbet\" ya da ad yazmadan verilen "
+                       "komutlar bu sohbete").format(label) if label
+                   else _tr("Açık sohbet yok — komutlarda kişi ya da oda adını "
+                            "yazın"))
         groups = _agent.quick_action_groups(label, unread, missed, drafts)
         shown = getattr(self, "_ai_quick_shown", None)
         if shown is not None and shown[0] is win and shown[1:] == (
@@ -5788,13 +5803,13 @@ class MainWindow:
         """Menü/kısayol girişi: asistanı açar, eylemi onun içinde çalıştırır
         (tek merkez). Dönüş "break" (Tk kısayolu)."""
         self._ai_assistant_open()
-        self._ai_agent_quick(key, _agent.ACTION_LABELS[key], jid)
+        self._ai_agent_quick(key, _tr(_agent.ACTION_LABELS[key]), jid)
         return "break"
 
     @staticmethod
     def _ai_assistant_subtitle(settings) -> str:
-        return (f"{_ai.provider_label(settings)} · kişi listeniz modele "
-                "gönderilmez; gönderme ve değişiklikler onayınızla yapılır")
+        return (_tr("{} · kişi listeniz modele gönderilmez; gönderme ve "
+                    "değişiklikler onayınızla yapılır").format(_ai.provider_label(settings)))
 
     def _ai_assistant_clear(self):
         self._ai_agent_log = []
@@ -5838,7 +5853,7 @@ class MainWindow:
             has_context=bool(self._ai_agent_context()))
         history, user = conv.request(_agent.user_prompt(text),
                                      _ai.conversation_budget(settings))
-        win.set_busy("Düşünüyor…")
+        win.set_busy(_tr("Düşünüyor…"))
 
         def job():
             return _agent.parse_plan(_ai.chat(
@@ -5909,12 +5924,12 @@ class MainWindow:
             self._ai_agent_run(win, plan, "")   # kişi isteğe bağlı
             return
         if not hits:
-            win.add_note(f"“{plan['target']}” adında bir kişi ya da oda "
-                         "bulunamadı.", error=True)
+            win.add_note(_tr("“{}” adında bir kişi ya da oda bulunamadı.")
+                         .format(plan['target']), error=True)
             return
         if len(hits) > 1:
             win.add_choices(
-                f"“{plan['target']}” birden çok kişiyle eşleşti",
+                _tr("“{}” birden çok kişiyle eşleşti").format(plan['target']),
                 [(f"{label} ({jid})", jid) for jid, label in hits],
                 lambda jid: self._ai_agent_run(win, plan, jid))
             return
@@ -5926,7 +5941,7 @@ class MainWindow:
             msg, ok = self._ai_agent_execute(plan, jid)
             if msg:
                 win.add_note(msg, error=not ok)
-            return (msg or "✓ Seçildi", ok)
+            return (msg or _tr("✓ Seçildi"), ok)
         label = self._ai_chat_label(jid) if jid else ""
         if plan["action"] == "join_room":
             try:
@@ -5939,9 +5954,9 @@ class MainWindow:
             label = self._ai_status_option(plan["status"])[0]
         title, detail = _agent.describe(plan, label, jid)
         win.add_card(title, detail, [
-            ("✓ Onayla", lambda: self._ai_agent_execute(plan, jid)),
-            ("✗ İptal", lambda: ("İptal edildi.", False))])
-        return ("✓ Seçildi", True)
+            (_tr("✓ Onayla"), lambda: self._ai_agent_execute(plan, jid)),
+            (_tr("✗ İptal"), lambda: (_tr("İptal edildi."), False))])
+        return (_tr("✓ Seçildi"), True)
 
     def _ai_agent_execute(self, plan, jid):
         """Eylemi mevcut yollarla yürüt → (mesaj, başarılı mı)."""
@@ -5949,11 +5964,11 @@ class MainWindow:
         label = self._ai_chat_label(jid) if jid else ""
         if action == "open_chat":
             self._ai_open_chat(jid)
-            return (f"✓ {label} sohbeti açıldı.", True)
+            return (_tr("✓ {} sohbeti açıldı.").format(label), True)
         if action == "draft_message":
             self._ai_offer_text(jid, plan["text"])
-            return ("✓ Taslak giriş kutusuna kondu — kontrol edip siz "
-                    "gönderin.", True)
+            return (_tr("✓ Taslak giriş kutusuna kondu — kontrol edip siz "
+                        "gönderin."), True)
         if action == "send_message":
             return self._ai_agent_send(jid, plan["text"])
         if action == "remind":
@@ -5962,18 +5977,18 @@ class MainWindow:
             return (msg, ok)
         if action == "join_room":
             if not self.bot:
-                return ("⚠ Sunucuya bağlı değilsiniz.", False)
+                return (_tr("⚠ Sunucuya bağlı değilsiniz."), False)
             nick = self.jid.split("@")[0]
             room = self._join_room_normalized(jid, nick)
             if not room:
-                return ("⚠ Oda adresi geçersiz.", False)
-            return (f"✓ {room} odasına katılma isteği gönderildi.", True)
+                return (_tr("⚠ Oda adresi geçersiz."), False)
+            return (_tr("✓ {} odasına katılma isteği gönderildi.").format(room), True)
         if action == "set_status":
             if not self.bot:
-                return ("⚠ Sunucuya bağlı değilsiniz.", False)
+                return (_tr("⚠ Sunucuya bağlı değilsiniz."), False)
             label, color = self._ai_status_option(plan["status"])
             self._set_status(label, plan["status"], color)
-            return (f"✓ Durum: {label}", True)
+            return (_tr("✓ Durum: {}").format(label), True)
         inline = {          # sonuç asistanın içinde kart olarak akar
             "summarize_chat": lambda: self._ai_summarize(jid, inline=True),
             "summarize_unread": lambda: self._ai_summarize(
@@ -5995,13 +6010,13 @@ class MainWindow:
         }
         if action in openers:
             openers[action]()
-            return ("✓ İlgili pencere açıldı.", True)
-        return ("⚠ Bu eylem desteklenmiyor.", False)
+            return (_tr("✓ İlgili pencere açıldı."), True)
+        return (_tr("⚠ Bu eylem desteklenmiyor."), False)
 
     @staticmethod
     def _ai_status_option(show):
         """STATUS_OPTIONS etiketi + durum menüsündeki renk."""
-        label = next((lbl for lbl, s in STATUS_OPTIONS if s == show), show)
+        label = next((lbl for lbl, s in _status_options() if s == show), show)
         color = {"online": ONLINE, "away": AWAY}.get(show, RED)
         return label, color
 
@@ -6012,9 +6027,9 @@ class MainWindow:
         yüklenir; hassas veri uyarısında vazgeçilirse hiçbir şey gitmez.
         """
         if not self.bot:
-            return ("⚠ Sunucuya bağlı değilsiniz.", False)
+            return (_tr("⚠ Sunucuya bağlı değilsiniz."), False)
         if text.startswith("/") and not text.startswith("//"):
-            return ("⚠ “/” ile başlayan metin komut sayılır; gönderilmedi.",
+            return (_tr("⚠ “/” ile başlayan metin komut sayılır; gönderilmedi."),
                     False)
         prev_active = self.active
         prev_text = self._ai_composer_text()
@@ -6029,8 +6044,8 @@ class MainWindow:
             self._composer.clear_text()     # gönderilmeyen ajan metni kalmaz
         label = self._ai_chat_label(jid)
         if sent:
-            return (f"✓ {label} kişisine gönderildi.", True)
-        return ("Gönderilmedi (uyarıda vazgeçildi).", False)
+            return (_tr("✓ {} kişisine gönderildi.").format(label), True)
+        return (_tr("Gönderilmedi (uyarıda vazgeçildi)."), False)
 
     # — Yanıt taslakları: uzaktayken hazırlananlar + harici (MCP/REST) —
     # Hiçbir taslak kendiliğinden gönderilmez: "Kullan" metni giriş
@@ -6110,7 +6125,7 @@ class MainWindow:
         transcript, count = _ai.build_transcript(
             entries, max_chars=min(8000, _ai.transcript_budget(settings)))
         if not count:
-            entry.update(state="error", error="Sohbette metin mesajı yok.")
+            entry.update(state="error", error=_tr("Sohbette metin mesajı yok."))
             self._ai_drafts_refresh()
             return
         system, user = _ai.suggest_request(transcript)
@@ -6129,7 +6144,7 @@ class MainWindow:
             if options:
                 entry.update(options=options, state="ready", error="")
             else:
-                entry.update(state="error", error="Model öneri üretemedi.")
+                entry.update(state="error", error=_tr("Model öneri üretemedi."))
             self._ai_drafts_refresh()
 
         def fail(e):
@@ -6155,16 +6170,15 @@ class MainWindow:
             return
         entry = self._ai_draft_entry(jid)
         if entry is None:
-            self._show_toast("📝 Taslak alınamadı",
-                             "Taslak kutusu dolu — önce birkaçını kaldırın")
+            self._show_toast(_tr("📝 Taslak alınamadı"),
+                             _tr("Taslak kutusu dolu — önce birkaçını kaldırın"))
             return
         entry["external"] = (entry["external"] + texts)[
             -self._DRAFT_EXTERNAL_MAX:]
         entry["external_source"] = source
         self._ai_drafts_refresh()
-        self._show_toast("📝 Yeni yanıt taslağı",
-                         f"{source}: {self._ai_chat_label(jid)}"
-                         " — Ctrl+Shift+R")
+        self._show_toast(_tr("📝 Yeni yanıt taslağı"),
+                         _tr("{}: {} — Ctrl+Shift+R").format(source, self._ai_chat_label(jid)))
 
     def _ai_drafts_forget(self, jid):
         drafts = getattr(self, "_ai_drafts", None)
@@ -6178,14 +6192,14 @@ class MainWindow:
         drafts = getattr(self, "_ai_drafts", None) or {}
         n = sum(1 for e in drafts.values() if e["away"])
         if n and not getattr(self, "_closing", False):
-            self._show_toast("📝 Uzaktayken gelenler",
-                             f"{n} sohbet için yanıt taslağı — Ctrl+Shift+R")
+            self._show_toast(_tr("📝 Uzaktayken gelenler"),
+                             _tr("{} sohbet için yanıt taslağı — Ctrl+Shift+R").format(n))
 
     def _ai_drafts_view(self):
         out = []
         for e in self._ai_drafts_get().values():
             sources = [e["external_source"] if e["external"] else "",
-                       "🌙 Uzaktayken" if e["away"] else ""]
+                       _tr("🌙 Uzaktayken") if e["away"] else ""]
             out.append({
                 "jid": e["jid"], "label": self._ai_chat_label(e["jid"]),
                 "source": " · ".join(s for s in sources if s),
@@ -6361,7 +6375,7 @@ class MainWindow:
             steps = _tts.plan_speech(text, settings, wav)
         except _ai.AIError as e:
             os.unlink(wav)
-            messagebox.showinfo("🔊 Sesli okuma", str(e), parent=self.root)
+            messagebox.showinfo(_tr("🔊 Sesli okuma"), str(e), parent=self.root)
             return
         if not self._remember_temp(wav):
             os.unlink(wav)
@@ -6413,7 +6427,7 @@ class MainWindow:
             self._forget_temp(wav)
 
     def _ai_speak_failed(self, what):
-        self._show_toast("🔊 Sesli okuma başarısız", f"{what} çalışmadı")
+        self._show_toast(_tr("🔊 Sesli okuma başarısız"), _tr("{} çalışmadı").format(what))
 
     def _ai_speak_stop(self):
         with self._ai_tts_lock():
@@ -6450,7 +6464,7 @@ class MainWindow:
         if not findings or not self._ai_settings()["leak_guard"]:
             return True
         return messagebox.askyesno(
-            "⚠ Hassas bilgi",
+            _tr("⚠ Hassas bilgi"),
             _sensitive.warning_text(findings, room=target in self.rooms),
             icon="warning", default="no", parent=parent or self.root)
 
@@ -6484,9 +6498,9 @@ class MainWindow:
         assistant = self._ai_inline_target() if inline else None
         if assistant is not None:
             res = assistant.add_result(
-                "❓ Yanıt bekleyen sorular", "Tespit bu bilgisayarda "
-                "yapılır; hiçbir içerik dışarı gönderilmez.")
-            res.set_busy("Taranıyor…")
+                _tr("❓ Yanıt bekleyen sorular"), _tr("Tespit bu bilgisayarda "
+                                                     "yapılır; hiçbir içerik dışarı gönderilmez."))
+            res.set_busy(_tr("Taranıyor…"))
             self._questions_scan(
                 lambda entries: res.set_questions(
                     view(entries), on_open, self._questions_remind,
@@ -6520,9 +6534,9 @@ class MainWindow:
             waiting = _questions.waiting_longer_than(
                 entries, datetime.now(), self._QUESTION_NUDGE_SECS)
             if waiting and not getattr(self, "_closing", False):
-                self._show_toast("❓ Yanıt bekleyen sorular",
-                                 f"{len(waiting)} sohbette soru yanıt "
-                                 "bekliyor — Ctrl+Shift+Q")
+                self._show_toast(_tr("❓ Yanıt bekleyen sorular"),
+                                 _tr("{} sohbette soru yanıt bekliyor — Ctrl+Shift+Q")
+                                 .format(len(waiting)))
 
         self._questions_scan(done)
 
@@ -6542,19 +6556,19 @@ class MainWindow:
         transcript, count = _ai.build_transcript(
             entries, max_chars=_ai.transcript_budget(settings))
         if not count:
-            messagebox.showinfo("Görevler ve Etkinlikler",
-                                "Bu sohbette henüz mesaj yok.",
+            messagebox.showinfo(_tr("Görevler ve Etkinlikler"),
+                                _tr("Bu sohbette henüz mesaj yok."),
                                 parent=self.root)
             return
         label = self._ai_chat_label(jid)
         system, user = _ai.actions_request(transcript, datetime.now(),
                                            settings["target_language"])
         win = _ui_ai.ActionsWindow(
-            self.root, f"📅 {label} — görevler ve etkinlikler",
-            f"{_ai.provider_label(settings)} · son {count} mesaj",
+            self.root, _tr("📅 {} — görevler ve etkinlikler").format(label),
+            _tr("{} · son {} mesaj").format(_ai.provider_label(settings), count),
             on_export=lambda items: self._ai_export_ics(items, label),
             on_remind=lambda items: self._ai_add_reminders(items, jid))
-        win.set_busy("Sohbet inceleniyor…")
+        win.set_busy(_tr("Sohbet inceleniyor…"))
         self._ai_submit(
             lambda: _ai.parse_actions(_ai.chat(
                 settings, system, user, effort="medium", sensitive=sensitive,
@@ -6567,23 +6581,22 @@ class MainWindow:
         if errors:
             return (False, f"⚠ {errors[0]}")
         if not valid:
-            return (False, "Kaydedilecek öğe yok.")
+            return (False, _tr("Kaydedilecek öğe yok."))
         from tkinter import filedialog
         safe = re.sub(r"[^\w.-]+", "_", label).strip("_") or "sohbet"
         path = filedialog.asksaveasfilename(
-            parent=self.root, title="Takvim dosyasını kaydet",
+            parent=self.root, title=_tr("Takvim dosyasını kaydet"),
             defaultextension=".ics", initialfile=f"{safe}-gorevler.ics",
-            filetypes=[("iCalendar", "*.ics"), ("Tüm dosyalar", "*")])
+            filetypes=[("iCalendar", "*.ics"), (_tr("Tüm dosyalar"), "*")])
         if not path:
             return None
         try:
             with open(path, "w", encoding="utf-8", newline="") as f:
                 f.write(_ai.build_ics(valid))
         except OSError as e:
-            return (False, f"⚠ Dosya yazılamadı: {e}")
-        return (True, f"✓ {len(valid)} öğe kaydedildi: "
-                      f"{os.path.basename(path)} — takvim uygulamanızla "
-                      "açabilirsiniz.")
+            return (False, _tr("⚠ Dosya yazılamadı: {}").format(e))
+        return (True, _tr("✓ {} öğe kaydedildi: {} — takvim uygulamanızla "
+                          "açabilirsiniz.").format(len(valid), os.path.basename(path)))
 
     def _ai_add_reminders(self, items, jid):
         """Tarih+saati ileride olan öğelere uygulama içi hatırlatıcı."""
@@ -6594,19 +6607,18 @@ class MainWindow:
         new = [r for r in (_ai.reminder_from_action(i, jid, now)
                            for i in valid) if r]
         if not new:
-            return (False, "Hatırlatıcı için seçili öğelerde ileri bir "
-                           "tarih ve saat olmalı.")
+            return (False, _tr("Hatırlatıcı için seçili öğelerde ileri bir "
+                               "tarih ve saat olmalı."))
         cfg = _load_config()
         stored = cfg.get(_ai.REMINDER_KEY)
         cfg[_ai.REMINDER_KEY] = (stored if isinstance(stored, list)
                                  else []) + new
         _save_config(cfg)
         self._ai_arm_reminders()
-        msg = f"⏰ {len(new)} hatırlatıcı kuruldu."
+        msg = _tr("⏰ {} hatırlatıcı kuruldu.").format(len(new))
         skipped = len(valid) - len(new)
         if skipped:
-            msg += (f" {skipped} öğede ileri tarih/saat olmadığı için "
-                    "kurulmadı.")
+            msg += (_tr(" {} öğede ileri tarih/saat olmadığı için kurulmadı.").format(skipped))
         return (True, msg)
 
     def _ai_arm_reminders(self):
@@ -6644,14 +6656,14 @@ class MainWindow:
             when = _ai.reminder_time(r)
             text = r["title"] + (f" — {r['location']}"
                                  if r.get("location") else "")
-            _desktop_notify("⏰ Hatırlatıcı", text)
+            _desktop_notify(_tr("⏰ Hatırlatıcı"), text)
             line = f"• {when:%d.%m %H:%M}  {text}"
             if r.get("jid"):
                 line += f"  ({self._ai_chat_label(r['jid'])})"
             if (now - when).total_seconds() > 300:
-                line += "  — zamanı geçti"
+                line += _tr("  — zamanı geçti")
             lines.append(line)
-        messagebox.showinfo("⏰ Hatırlatıcı", "\n".join(lines),
+        messagebox.showinfo(_tr("⏰ Hatırlatıcı"), "\n".join(lines),
                             parent=self.root)
 
     def _ai_composer_text(self) -> str:
@@ -6697,13 +6709,13 @@ class MainWindow:
         transcript, count = _ai.build_transcript(
             entries, max_chars=min(8000, _ai.transcript_budget(settings)))
         if not count:
-            self._ai_notice("Yanıt Öner", "Bu sohbette henüz mesaj yok.",
+            self._ai_notice(_tr("Yanıt Öner"), _tr("Bu sohbette henüz mesaj yok."),
                             inline)
             return
         subtitle = _ai.provider_label(settings)
         if inline:
             subtitle = f"{self._ai_chat_label(jid)} · {subtitle}"
-        win = self._ai_result_window("💡 Yanıt önerileri", subtitle, inline)
+        win = self._ai_result_window(_tr("💡 Yanıt önerileri"), subtitle, inline)
         system, user = _ai.suggest_request(transcript)
 
         def _done(text):
@@ -6730,8 +6742,8 @@ class MainWindow:
         if not jid:
             return
         if not text:
-            messagebox.showinfo("AI Asistanı",
-                                "Önce giriş kutusuna bir mesaj yazın.",
+            messagebox.showinfo(_tr("AI Asistanı"),
+                                _tr("Önce giriş kutusuna bir mesaj yazın."),
                                 parent=self.root)
             return
         settings = self._ai_settings()
@@ -6750,13 +6762,13 @@ class MainWindow:
                 self._ai_set_composer_text(result)
                 return
             # Bu arada sohbet/metin değişti: üzerine yazma, ayrı göster.
-            win = _ui_ai.ResultWindow(self.root, _ai.REWRITE_MODES[mode][0],
+            win = _ui_ai.ResultWindow(self.root, _tr(_ai.REWRITE_MODES[mode][0]),
                                       _ai.provider_label(settings))
             win.set_text(result)
 
         def _fail(e):
             self._ai_composer_busy(False)
-            messagebox.showerror("AI Asistanı", str(e), parent=self.root)
+            messagebox.showerror(_tr("AI Asistanı"), str(e), parent=self.root)
 
         self._ai_submit(
             lambda: _ai.chat(settings, system, user, effort="low",
@@ -6785,16 +6797,16 @@ class MainWindow:
             return
         if not _HAS_PYAUDIO:
             messagebox.showwarning(
-                "Sesle Yaz", "Mikrofon için PyAudio gerekli:\n"
-                "  .venv-xmpp/bin/python -m pip install pyaudio",
+                _tr("Sesle Yaz"), _tr("Mikrofon için PyAudio gerekli:\n"
+                                      "  .venv-xmpp/bin/python -m pip install pyaudio"),
                 parent=self.root)
             return
         import importlib.util
         if importlib.util.find_spec("faster_whisper") is None:
             messagebox.showwarning(
-                "Sesle Yaz", "Ses→metin için faster-whisper gerekli (yerel "
-                "çalışır):\n  .venv-xmpp/bin/python -m pip install "
-                "faster-whisper", parent=self.root)
+                _tr("Sesle Yaz"), _tr("Ses→metin için faster-whisper gerekli (yerel "
+                                      "çalışır):\n  .venv-xmpp/bin/python -m pip install "
+                                      "faster-whisper"), parent=self.root)
             return
         self._start_recording(mode="dictate")
 
@@ -6816,7 +6828,7 @@ class MainWindow:
                     wf.setframerate(self._VOICE_RATE)
                     wf.writeframes(processed)
                 if not self._remember_temp(path):
-                    raise _ai.AICancelled("Uygulama kapanıyor.")
+                    raise _ai.AICancelled(_tr("Uygulama kapanıyor."))
                 return _ai.transcribe_file(path, model)
             finally:
                 if path is not None:
@@ -6830,7 +6842,7 @@ class MainWindow:
             self._ai_composer_busy(False)
             text = (text or "").strip()
             if not text or text == _ai.NO_SPEECH:
-                messagebox.showinfo("Sesle Yaz", "Konuşma algılanmadı.",
+                messagebox.showinfo(_tr("Sesle Yaz"), _tr("Konuşma algılanmadı."),
                                     parent=self.root)
                 return
             if self.active == target:
@@ -6839,15 +6851,15 @@ class MainWindow:
                 return
             # Bu arada sohbet değişti: başka taslağa yazma, ayrı göster.
             win = _ui_ai.ResultWindow(
-                self.root, "🎙 Dikte", f"🖥 Yerel (faster-whisper) · {model}",
-                actions=[("✍ Taslağa koy",
+                self.root, _tr("🎙 Dikte"), _tr("🖥 Yerel (faster-whisper) · {}").format(model),
+                actions=[(_tr("✍ Taslağa koy"),
                           lambda t: self._ai_offer_text(target, t))])
-            win.set_text(text, status="✓ Sohbet değiştiği için burada "
-                                      "gösteriliyor")
+            win.set_text(text, status=_tr("✓ Sohbet değiştiği için burada "
+                                          "gösteriliyor"))
 
         def fail(e):
             self._ai_composer_busy(False)
-            messagebox.showerror("Sesle Yaz", str(e), parent=self.root)
+            messagebox.showerror(_tr("Sesle Yaz"), str(e), parent=self.root)
 
         self._ai_submit(job, done, fail)
 
@@ -6860,7 +6872,7 @@ class MainWindow:
         model = settings["embed_model"]
         win = _ui_ai.SemanticSearchWindow(
             self.root,
-            f"🖥 Yerel gömme · {model} — mesajlar bilgisayardan çıkmaz",
+            _tr("🖥 Yerel gömme · {} — mesajlar bilgisayardan çıkmaz").format(model),
             on_search=lambda q: self._ai_semantic_search(win, settings, q),
             on_open=self._ai_open_search_hit)
         self._ai_index_messages(win, settings)
@@ -6868,7 +6880,7 @@ class MainWindow:
     def _ai_index_messages(self, win, settings):
         """Gömmesi olmayan mesajları arka planda (artımlı) indeksle."""
         if getattr(self, "_ai_indexing", False):
-            win.set_status("⏳ İndeksleme zaten sürüyor…")
+            win.set_status(_tr("⏳ İndeksleme zaten sürüyor…"))
             return
         self._ai_indexing = True
 
@@ -6876,19 +6888,19 @@ class MainWindow:
             return self._ai_index_pending(
                 settings, lambda done, total: self._safe_after(
                     0, win.set_status,
-                    f"⏳ Mesajlar indeksleniyor: {done}/{total} (arama "
-                    "şimdiden çalışır)"))
+                    _tr("⏳ Mesajlar indeksleniyor: {}/{} (arama şimdiden çalışır)")
+                    .format(done, total)))
 
         def _done(n):
             self._ai_indexing = False
-            win.set_status(f"✓ {n} yeni mesaj indekslendi." if n
-                           else "✓ İndeks güncel.")
+            win.set_status(_tr("✓ {} yeni mesaj indekslendi.").format(n) if n
+                           else _tr("✓ İndeks güncel."))
 
         def _fail(e):
             self._ai_indexing = False
             win.set_status(f"⚠ {e}", error=True)
 
-        win.set_status("⏳ İndeks kontrol ediliyor…")
+        win.set_status(_tr("⏳ İndeks kontrol ediliyor…"))
         self._ai_submit(job, _done, _fail)
 
     def _ai_index_pending(self, settings, progress=None, cancel=None):
@@ -6904,13 +6916,13 @@ class MainWindow:
         seen = set()
         while not getattr(self, "_closing", False):
             if cancel is not None and cancel.is_set():
-                raise _ai.AICancelled("İptal edildi.")
+                raise _ai.AICancelled(_tr("İptal edildi."))
             batch = _db_ai_pending(model, 32, skip)
             if not batch:
                 break
             ids = {r[0] for r in batch}
             if ids <= seen:
-                raise _ai.AIError("Gömmeler veritabanına yazılamadı.")
+                raise _ai.AIError(_tr("Gömmeler veritabanına yazılamadı."))
             seen |= ids
             items, texts, targets = [], [], []
             for msg_id, jid, sender, body in batch:
@@ -6936,7 +6948,7 @@ class MainWindow:
         after = 0
         while True:
             if cancel is not None and cancel.is_set():
-                raise _ai.AICancelled("İptal edildi.")
+                raise _ai.AICancelled(_tr("İptal edildi."))
             chunk = _db_ai_embedding_chunk(model, after, 500)
             if not chunk:
                 return
@@ -6945,7 +6957,7 @@ class MainWindow:
 
     def _ai_semantic_search(self, win, settings, query):
         model = settings["embed_model"]
-        win.set_status("⏳ Aranıyor…")
+        win.set_status(_tr("⏳ Aranıyor…"))
 
         def job():
             qvec = _ai.ollama_embed(
@@ -6963,8 +6975,8 @@ class MainWindow:
                 results.append((f"{score:4.0%}  [{short}] {sender or '?'} "
                                 f"({ts}): {preview[:90]}", (jid, mid)))
             win.set_results(results)
-            win.set_status(f"{len(results)} sonuç — açmak için çift tıklayın"
-                           if results else "Eşleşen mesaj bulunamadı.")
+            win.set_status(_tr("{} sonuç — açmak için çift tıklayın").format(len(results))
+                           if results else _tr("Eşleşen mesaj bulunamadı."))
 
         self._ai_submit(job, _done,
                         lambda e: win.set_status(f"⚠ {e}", error=True))
@@ -6994,14 +7006,14 @@ class MainWindow:
             effort="low", pin_first=False, cache=False)
         state = {"previous": ""}
         win, cancel = self._ai_open_window(
-            "🔎 Geçmişe sor",
-            f"{_ai.provider_label(settings)} · arama yerel "
-            f"({settings['embed_model']})", conv,
+            _tr("🔎 Geçmişe sor"),
+            _tr("{} · arama yerel ({})")
+            .format(_ai.provider_label(settings), settings['embed_model']), conv,
             on_ask=lambda q: self._ai_rag_turn(win, conv, q, cancel, state),
-            ask_hint="Örn: Ali'nin verdiği adres neydi?", ask_ready=True,
+            ask_hint=_tr("Örn: Ali'nin verdiği adres neydi?"), ask_ready=True,
             inline=inline)
-        win.set_status("Sorunuzu aşağıya yazın: ilgili mesajlar bu "
-                       "bilgisayarda bulunur, yanıt kaynaklarıyla gelir.")
+        win.set_status(_tr("Sorunuzu aşağıya yazın: ilgili mesajlar bu "
+                           "bilgisayarda bulunur, yanıt kaynaklarıyla gelir."))
         win.focus_ask()
         if question:                    # asistandan gelen soru hemen sorulur
             if isinstance(win, _ui_ai.InlineResult):
@@ -7022,11 +7034,11 @@ class MainWindow:
             self._ai_indexing = True
         win.begin_question(question)
         win.set_sources([], None)          # önceki turun kaynakları eskidi
-        win.set_busy("İlgili mesajlar aranıyor…")
+        win.set_busy(_tr("İlgili mesajlar aranıyor…"))
 
         def progress(done, total):
             self._safe_after(0, win.set_busy,
-                             f"Mesajlar indeksleniyor: {done}/{total}…")
+                             _tr("Mesajlar indeksleniyor: {}/{}…").format(done, total))
 
         def job():
             try:
@@ -7068,22 +7080,22 @@ class MainWindow:
             return bool(row[7]) or modes.get(row[1], "none") not in ("",
                                                                       "none")
         if not rows:
-            win.set_answer("Bu soruyla ilgili bir mesaj bulunamadı. Farklı "
-                           "kelimelerle sormayı deneyin.",
-                           status="Eşleşme yok")
+            win.set_answer(_tr("Bu soruyla ilgili bir mesaj bulunamadı. Farklı "
+                               "kelimelerle sormayı deneyin."),
+                           status=_tr("Eşleşme yok"))
             return
         if conv.sensitive:
             # Önceki yanıtlar şifreli içerikten türedi: süzülemez, sorulur.
             allow = self._ai_gate(settings, True)
             mode = "all"
             if allow is None:
-                win.set_error("Gönderilmedi.")
+                win.set_error(_tr("Gönderilmedi."))
                 return
         else:
             gate = self._ai_gate_mixed(settings, sum(map(secret, rows)),
                                        len(rows))
             if gate is None:
-                win.set_error("İptal edildi — hiçbir şey gönderilmedi.")
+                win.set_error(_tr("İptal edildi — hiçbir şey gönderilmedi."))
                 return
             mode, allow = gate
         if mode == "plain":
@@ -7093,9 +7105,9 @@ class MainWindow:
             rows, {msg_id: i for i, msg_id in enumerate(ids)}, labels,
             max_chars=_ai.transcript_budget(settings))
         if not sources:
-            win.set_answer("Eşleşen mesajlar gönderilebilecek metin "
-                           "içermiyor (yalnız medya ya da şifreli içerik).",
-                           status="Eşleşme yok")
+            win.set_answer(_tr("Eşleşen mesajlar gönderilebilecek metin "
+                               "içermiyor (yalnız medya ya da şifreli içerik)."),
+                           status=_tr("Eşleşme yok"))
             return
         # Yalnız gerçekten gönderilen satırlar (bütçe kesmiş olabilir).
         sensitive = any(s["encrypted"] or modes.get(s["jid"], "none")
@@ -7110,10 +7122,10 @@ class MainWindow:
                 [(f"[{s['n']}] {s['label']} · {s['who']} ({s['ts']}): "
                   f"{s['text'][:70]}", (s["jid"], s["mid"])) for s in picked],
                 self._ai_open_search_hit,
-                title="Kaynaklar" if cited else "İlgili mesajlar")
+                title=_tr("Kaynaklar") if cited else _tr("İlgili mesajlar"))
             state["previous"] = question
 
-        win.set_busy("Yanıt hazırlanıyor…")
+        win.set_busy(_tr("Yanıt hazırlanıyor…"))
         self._ai_turn(win, conv, settings, _ai.rag_user(context, question),
                       allow, cancel, sensitive=conv.sensitive or sensitive,
                       history_text=question,
@@ -7139,7 +7151,7 @@ class MainWindow:
 
             def job():
                 if s["provider"] == _ai.PROVIDER_OFF:
-                    return "AI kapalı — test edilecek sağlayıcı yok."
+                    return _tr("AI kapalı — test edilecek sağlayıcı yok.")
                 lines = []
                 try:
                     have = _ai.ollama_models(s)
@@ -7152,8 +7164,8 @@ class MainWindow:
                     missing = [m for m in dict.fromkeys(wanted)
                                if m not in names]
                     lines.append(
-                        "✓ Ollama çalışıyor; modeller hazır." if not missing
-                        else "✗ Ollama çalışıyor ama eksik model var: "
+                        _tr("✓ Ollama çalışıyor; modeller hazır.") if not missing
+                        else _tr("✗ Ollama çalışıyor ama eksik model var: ")
                         + ", ".join(f"ollama pull {m}" for m in missing))
                 except _ai.AIError as e:
                     lines.append(f"✗ {e}")
@@ -7161,23 +7173,22 @@ class MainWindow:
                     try:
                         _ai.claude_chat(s, "Reply with the single word OK.",
                                         "ping", effort="low")
-                        lines.append(f"✓ Claude erişilebilir "
-                                     f"({s['claude_model']}).")
+                        lines.append(_tr("✓ Claude erişilebilir ({}).").format(s['claude_model']))
                     except _ai.AIError as e:
                         lines.append(f"✗ Claude: {e}")
                 try:
                     import faster_whisper  # noqa: F401
-                    lines.append("✓ faster-whisper kurulu (ses→metin).")
+                    lines.append(_tr("✓ faster-whisper kurulu (ses→metin)."))
                 except ImportError:
-                    lines.append("✗ Ses→metin için: .venv-xmpp/bin/python "
-                                 "-m pip install faster-whisper")
+                    lines.append(_tr("✗ Ses→metin için: .venv-xmpp/bin/python "
+                                     "-m pip install faster-whisper"))
                 lines.append(_tts.describe_engines(s))
                 if s["mcp_enabled"]:
                     lines.append(
-                        "✓ MCP erişimi açık; REST API çalışıyor (taslak "
-                        "bırakılabilir)." if getattr(self, "_api_server", None)
-                        else "ℹ MCP erişimi açık; taslak bırakmak için "
-                             "REST API'yi de açın.")
+                        _tr("✓ MCP erişimi açık; REST API çalışıyor (taslak "
+                            "bırakılabilir).") if getattr(self, "_api_server", None)
+                        else _tr("ℹ MCP erişimi açık; taslak bırakmak için "
+                                 "REST API'yi de açın."))
                 return "\n".join(lines)
 
             self._ai_submit(job, lambda msg: report(msg, "✗" not in msg),
@@ -7236,13 +7247,13 @@ class MainWindow:
     def _blocking_dialog(self):
         """Engelli kişiler listesi ve yönetimi."""
         pop = tk.Toplevel(self.root)
-        pop.title("Engelli Kişiler")
+        pop.title(_tr("Engelli Kişiler"))
         pop.configure(bg=BG_CARD)
         pop.geometry("360x400")
         pop.transient(self.root)
         _make_popover(pop)
 
-        tk.Label(pop, text="Engelli Kişiler", fg=FG, bg=BG_CARD,
+        tk.Label(pop, text=_tr("Engelli Kişiler"), fg=FG, bg=BG_CARD,
                  font=(FONT, 12, "bold")).pack(padx=16, pady=(16, 8), anchor="w")
 
         lb = tk.Listbox(pop, bg=BG_PANEL, fg=FG, selectbackground=SEL_BG,
@@ -7276,16 +7287,16 @@ class MainWindow:
             blocked_jids.pop(sel[0])
 
         def _block_new():
-            jid = simpledialog.askstring("Engelle", "JID:", parent=pop)
-            jid = jid and self._jid_or_warn(jid, "Engelle", parent=pop)
+            jid = simpledialog.askstring(_tr("Engelle"), _tr("JID:"), parent=pop)
+            jid = jid and self._jid_or_warn(jid, _tr("Engelle"), parent=pop)
             if jid:
                 self.bot.block_contact(jid)
                 blocked_jids.append(jid)
                 lb.insert("end", f"  🚫 {jid}")
 
-        ttk.Button(btn_f, text="Engeli Kaldır", command=_unblock).pack(
+        ttk.Button(btn_f, text=_tr("Engeli Kaldır"), command=_unblock).pack(
             side="left", padx=(0, 8))
-        ttk.Button(btn_f, text="Yeni Engelle", command=_block_new).pack(
+        ttk.Button(btn_f, text=_tr("Yeni Engelle"), command=_block_new).pack(
             side="left")
 
     # ── Durum mesajı diyaloğu ─────────────────────────────────────────────────
@@ -7317,7 +7328,7 @@ class MainWindow:
         if not jid or not self.bot:
             return
         pop = tk.Toplevel(self.root)
-        pop.title(f"Profil — {jid}")
+        pop.title(_tr("Profil — {}").format(jid))
         pop.configure(bg=BG_CARD)
         pop.geometry("340x320")
         pop.transient(self.root)
@@ -7334,7 +7345,7 @@ class MainWindow:
 
         info_f = tk.Frame(pop, bg=BG_CARD)
         info_f.pack(fill="x", padx=24, pady=(16, 0))
-        tk.Label(info_f, text="vCard bilgileri yükleniyor…",
+        tk.Label(info_f, text=_tr("vCard bilgileri yükleniyor…"),
                  fg=FG_DIM, bg=BG_CARD, font=(FONT, 8)).pack(anchor="w")
 
         def _show_vcard(vcard):
@@ -7343,12 +7354,12 @@ class MainWindow:
             for w in info_f.winfo_children():
                 w.destroy()
             if vcard is None:
-                tk.Label(info_f, text="vCard bulunamadı",
+                tk.Label(info_f, text=_tr("vCard bulunamadı"),
                          fg=FG_DIM, bg=BG_CARD, font=(FONT, 8)).pack(anchor="w")
                 return
             # Anahtarlar XMPPBot._get_vcard'ın ürettiği info sözlüğüyle eşleşir
-            fields = [("Ad", "fn"), ("Takma Ad", "nickname"), ("E-posta", "email"),
-                      ("Web", "url"), ("Doğum", "bday")]
+            fields = [(_tr("Ad"), "fn"), (_tr("Takma Ad"), "nickname"), (_tr("E-posta"), "email"),
+                      (_tr("Web"), "url"), (_tr("Doğum"), "bday")]
             shown = 0
             for label, key in fields:
                 val = str(vcard.get(key) or "")
@@ -7362,17 +7373,17 @@ class MainWindow:
                     tk.Label(row, text=val, fg=FG, bg=BG_CARD,
                              font=(FONT, 9)).pack(side="left", padx=(8, 0))
             if not shown:
-                tk.Label(info_f, text="vCard boş",
+                tk.Label(info_f, text=_tr("vCard boş"),
                          fg=FG_DIM, bg=BG_CARD, font=(FONT, 8)).pack(anchor="w")
 
         self.bot.get_vcard(jid, _show_vcard)
 
         btn_f = tk.Frame(pop, bg=BG_CARD)
         btn_f.pack(pady=(16, 16))
-        ttk.Button(btn_f, text="Mesaj Gönder",
+        ttk.Button(btn_f, text=_tr("Mesaj Gönder"),
                    command=lambda: (self._load_chat(jid), pop.destroy())).pack(
                        side="left", padx=4)
-        ttk.Button(btn_f, text="Engelle",
+        ttk.Button(btn_f, text=_tr("Engelle"),
                    command=lambda: (self.bot.block_contact(jid),
                                     pop.destroy())).pack(side="left", padx=4)
 
@@ -7397,20 +7408,20 @@ class MainWindow:
         if not jid or not self.bot:
             return
         pop = tk.Toplevel(self.root)
-        pop.title(f"OMEMO Parmak İzleri — {jid}")
+        pop.title(_tr("OMEMO Parmak İzleri — {}").format(jid))
         pop.configure(bg=BG_CARD)
         pop.geometry("440x350")
         pop.transient(self.root)
         _make_popover(pop)
 
-        tk.Label(pop, text="OMEMO Parmak İzleri", fg=FG, bg=BG_CARD,
+        tk.Label(pop, text=_tr("OMEMO Parmak İzleri"), fg=FG, bg=BG_CARD,
                  font=(FONT, 12, "bold")).pack(padx=16, pady=(16, 4), anchor="w")
         tk.Label(pop, text=jid, fg=FG_DIM, bg=BG_CARD,
                  font=(FONT, 9)).pack(padx=16, anchor="w")
 
         info_f = tk.Frame(pop, bg=BG_CARD)
         info_f.pack(fill="both", expand=True, padx=16, pady=12)
-        tk.Label(info_f, text="Yükleniyor…",
+        tk.Label(info_f, text=_tr("Yükleniyor…"),
                  fg=FG_DIM, bg=BG_CARD, font=(FONT, 8)).pack(anchor="w")
 
         def _show(data):
@@ -7419,13 +7430,13 @@ class MainWindow:
             for w in info_f.winfo_children():
                 w.destroy()
             if data is None or "error" in (data or {}):
-                err = (data or {}).get("error", "Bilgi alınamadı")
-                tk.Label(info_f, text=f"Hata: {err}",
+                err = (data or {}).get("error", _tr("Bilgi alınamadı"))
+                tk.Label(info_f, text=_tr("Hata: {}").format(err),
                          fg=RED, bg=BG_CARD, font=(FONT, 9)).pack(anchor="w")
                 return
             devices = data.get("devices", [])
             if not devices:
-                tk.Label(info_f, text="Cihaz bulunamadı",
+                tk.Label(info_f, text=_tr("Cihaz bulunamadı"),
                          fg=FG_DIM, bg=BG_CARD, font=(FONT, 9)).pack(anchor="w")
                 return
             for dev in devices:
@@ -7433,7 +7444,7 @@ class MainWindow:
                 df.pack(fill="x", pady=3)
                 active = "aktif" if dev.get("active") else "pasif"
                 ac = ACCENT_G if dev.get("active") else FG_DIM
-                tk.Label(df, text=f"Cihaz: {dev.get('device_id', '?')}  ({active})",
+                tk.Label(df, text=_tr("Cihaz: {}  ({})").format(dev.get('device_id', '?'), active),
                          fg=ac, bg=BG_HOVER, font=(FONT, 8, "bold")).pack(anchor="w")
                 fp = dev.get("fingerprint", "?")
                 fp_var = tk.StringVar(value=fp)
@@ -7563,14 +7574,14 @@ class MainWindow:
         from tkinter import filedialog
         history = self.chats.get(self.active, [])
         if not history:
-            messagebox.showinfo("Dışa Aktar", "Sohbet geçmişi boş.", parent=self.root)
+            messagebox.showinfo(_tr("Dışa Aktar"), _tr("Sohbet geçmişi boş."), parent=self.root)
             return
 
         path = filedialog.asksaveasfilename(
             parent=self.root,
-            title="Sohbet Dışa Aktar",
+            title=_tr("Sohbet Dışa Aktar"),
             defaultextension=".txt",
-            filetypes=[("Metin", "*.txt"), ("JSON", "*.json"), ("Tümü", "*.*")],
+            filetypes=[(_tr("Metin"), "*.txt"), ("JSON", "*.json"), (_tr("Tümü"), "*.*")],
             initialfile=f"chat_{self.active.replace('@', '_').replace('.', '_')}")
         if not path:
             return
@@ -7591,8 +7602,8 @@ class MainWindow:
                     json.dump(data, f, ensure_ascii=False, indent=2)
             else:
                 with open(path, "w", encoding="utf-8") as f:
-                    f.write(f"Sohbet: {self.active}\n")
-                    f.write(f"Dışa aktarma: {datetime.now().isoformat()}\n")
+                    f.write(_tr("Sohbet: {}\n").format(self.active))
+                    f.write(_tr("Dışa aktarma: {}\n").format(datetime.now().isoformat()))
                     f.write("=" * 60 + "\n\n")
                     for entry in history:
                         sender = entry[0] if len(entry) > 0 else ""
@@ -7600,11 +7611,11 @@ class MainWindow:
                         ts = entry[3] if len(entry) > 3 else ""
                         f.write(f"[{ts}] {sender}: {body}\n")
 
-            messagebox.showinfo("Dışa Aktar",
-                f"Sohbet başarıyla dışa aktarıldı:\n{path}",
+            messagebox.showinfo(_tr("Dışa Aktar"),
+                _tr("Sohbet başarıyla dışa aktarıldı:\n{}").format(path),
                 parent=self.root)
         except Exception as e:
-            messagebox.showerror("Hata", f"Dışa aktarma hatası: {e}",
+            messagebox.showerror(_tr("Hata"), _tr("Dışa aktarma hatası: {}").format(e),
                                  parent=self.root)
 
     # ── Ses mesajı ─────────────────────────────────────────────────────────────
@@ -7623,8 +7634,8 @@ class MainWindow:
         if not self.active or not self.bot:
             return
         if not _HAS_PYAUDIO:
-            messagebox.showwarning("Ses Mesajı",
-                "PyAudio yüklü değil.\npip install pyaudio",
+            messagebox.showwarning(_tr("Ses Mesajı"),
+                _tr("PyAudio yüklü değil.\npip install pyaudio"),
                 parent=self.root)
             return
 
@@ -7671,14 +7682,14 @@ class MainWindow:
         self._rec_level_canvas.pack(side="left", padx=(12, 0))
 
         # İptal butonu
-        cancel_btn = tk.Label(inner, text="✕ İptal", font=(FONT, 9),
+        cancel_btn = tk.Label(inner, text=_tr("✕ İptal"), font=(FONT, 9),
                                fg=RED, bg=BG_CARD, cursor="hand2")
         cancel_btn.pack(side="right", padx=(10, 0))
         cancel_btn.bind("<Button-1>", lambda _: self._stop_recording(send=False))
 
         # Gönder (dikte modunda: yazıya dök) butonu
-        send_btn = tk.Label(inner, text=("✍ Yazıya dök" if mode == "dictate"
-                                         else "▶ Gönder"),
+        send_btn = tk.Label(inner, text=(_tr("✍ Yazıya dök") if mode == "dictate"
+                                         else _tr("▶ Gönder")),
                             font=(FONT, 9, "bold"),
                             fg=ACCENT_G, bg=BG_CARD, cursor="hand2")
         send_btn.pack(side="right", padx=(10, 0))
@@ -7712,7 +7723,7 @@ class MainWindow:
             except Exception as e:
                 self._recording = False
                 self._safe_after(0, lambda err=str(e): messagebox.showerror(
-                    "Hata", f"Ses kaydı hatası: {err}", parent=self.root))
+                    _tr("Hata"), _tr("Ses kaydı hatası: {}").format(err), parent=self.root))
             finally:
                 # Okuma/aygıt hatasında da PortAudio serbest bırakılmalı
                 for close in ((stream.stop_stream if stream else None),
@@ -7848,7 +7859,7 @@ class MainWindow:
                     pass
             if not getattr(self, "_closing", False):
                 self._safe_after(0, lambda err=str(e): messagebox.showerror(
-                    "Hata", f"Ses mesajı gönderilemedi: {err}",
+                    _tr("Hata"), _tr("Ses mesajı gönderilemedi: {}").format(err),
                     parent=self.root))
 
     def _on_recording_ready(self, wav_path, target):
@@ -8156,7 +8167,7 @@ class MainWindow:
             self._refresh_contacts()
             total = sum(self._unread_counts.values())
             badge = f" [{total}]" if total > 0 else ""
-            self.root.title(f"XMPP — {self.jid}{badge}")
+            self.root.title(_tr("XMPP — {}{}").format(self.jid, badge))
         # Asistanın bağlamı değişti; sayaç sıfırlandıktan sonra (açılan
         # sohbet "Neler kaçırdım?" sayısında kalmasın)
         self._ai_assistant_refresh()
@@ -8685,7 +8696,7 @@ class MainWindow:
 
     def _kick_member(self, room, nick):
         reason = simpledialog.askstring(
-            "Kick", f"{nick} atılsın mı?\nSebep (opsiyonel):",
+            _tr("Kick"), _tr("{} atılsın mı?\nSebep (opsiyonel):").format(nick),
             parent=self.root)
         if reason is None:  # İptal
             return
@@ -8694,7 +8705,7 @@ class MainWindow:
     def _ban_member(self, room, nick):
         # Ban için JID gerekli — muc presence'tan almayı dene
         reason = simpledialog.askstring(
-            "Ban", f"{nick} yasaklansın mı?\nSebep (opsiyonel):",
+            _tr("Ban"), _tr("{} yasaklansın mı?\nSebep (opsiyonel):").format(nick),
             parent=self.root)
         if reason is None:
             return
@@ -8709,7 +8720,7 @@ class MainWindow:
             pass
         # JID bulunamazsa kullanıcıdan iste
         jid_str = simpledialog.askstring(
-            "Ban", f"{nick} için JID girin:",
+            _tr("Ban"), _tr("{} için JID girin:").format(nick),
             parent=self.root)
         if jid_str:
             self.bot.ban_user(room, jid_str, reason)
@@ -8724,7 +8735,7 @@ class MainWindow:
         except Exception:
             pass
         jid_str = simpledialog.askstring(
-            "Yetki Değiştir", f"{nick} için JID girin:",
+            _tr("Yetki Değiştir"), _tr("{} için JID girin:").format(nick),
             parent=self.root)
         if jid_str:
             self.bot.set_user_affiliation(room, jid_str, affiliation)
@@ -8745,8 +8756,8 @@ class MainWindow:
             event.x_root, event.y_root)
 
     def _remove_contact(self, jid):
-        if messagebox.askyesno("Kişiyi Kaldır",
-                               f"{jid} kaldırılsın mı?",
+        if messagebox.askyesno(_tr("Kişiyi Kaldır"),
+                               _tr("{} kaldırılsın mı?").format(jid),
                                parent=self.root):
             self.bot.remove_contact(jid)
 
@@ -8781,7 +8792,7 @@ class MainWindow:
     def _change_room_subject(self, room):
         current = self._room_subjects.get(room, "")
         new_subj = simpledialog.askstring(
-            "Oda Konusu", "Yeni konu:",
+            _tr("Oda Konusu"), _tr("Yeni konu:"),
             initialvalue=current, parent=self.root)
         if new_subj is not None:
             self.bot.set_room_subject(room, new_subj)
@@ -8790,17 +8801,17 @@ class MainWindow:
         target = _ui_rooms.ask_invite(self.root, room)
         if target:
             jid, reason = target
-            jid = self._jid_or_warn(jid, "Davet")
+            jid = self._jid_or_warn(jid, _tr("Davet"))
             if jid:
                 self.bot.invite_to_room(room, jid, reason)
 
     def _destroy_room_confirm(self, room):
         if messagebox.askyesno(
-            "Odayı Sil",
-            f"{room} kalıcı olarak silinecek.\nEmin misiniz?",
+            _tr("Odayı Sil"),
+            _tr("{} kalıcı olarak silinecek.\nEmin misiniz?").format(room),
             parent=self.root):
             reason = simpledialog.askstring(
-                "Odayı Sil", "Sebep (opsiyonel):",
+                _tr("Odayı Sil"), _tr("Sebep (opsiyonel):"),
                 parent=self.root) or ""
             self.bot.destroy_room(room, reason)
 
@@ -8832,7 +8843,7 @@ class MainWindow:
             self._update_enc_btn()
 
         menu.add_command(
-            label=f"{'● ' if current == 'none' else '  '}🔓  Şifreleme Kapalı",
+            label=_tr("{}🔓  Şifreleme Kapalı").format('● ' if current == 'none' else '  '),
             command=lambda: _set("none"))
         menu.add_separator()
 
@@ -8840,9 +8851,9 @@ class MainWindow:
         omemo_ok = HAS_OMEMO and self.bot.omemo_ready
         omemo_label = f"{'● ' if current == 'omemo' else '  '}🔒  OMEMO"
         if not HAS_OMEMO:
-            omemo_label += "  (kütüphane yüklü değil)"
+            omemo_label += _tr("  (kütüphane yüklü değil)")
         elif not self.bot.omemo_ready:
-            omemo_label += "  (başlatılıyor…)"
+            omemo_label += _tr("  (başlatılıyor…)")
         menu.add_command(label=omemo_label,
                          command=lambda: _set("omemo") if omemo_ok else None,
                          foreground=FG if omemo_ok else FG_DIM)
@@ -8851,7 +8862,7 @@ class MainWindow:
         pgp_ok = self.bot.pgp_available()
         pgp_label = f"{'● ' if current == 'pgp' else '  '}🔑  OpenPGP"
         if not pgp_ok:
-            pgp_label += "  (GPG anahtarı yok)"
+            pgp_label += _tr("  (GPG anahtarı yok)")
         menu.add_command(label=pgp_label,
                          command=lambda: _set("pgp") if pgp_ok else None,
                          foreground=FG if pgp_ok else FG_DIM)
@@ -8869,19 +8880,19 @@ class MainWindow:
             pass
         if mode == "omemo":
             self._enc_btn.config(text="🔒", fg=ACCENT_G)
-            self._enc_badge.config(text="🔒 OMEMO", fg=ACCENT_G, bg="#1a3a1a")
+            self._enc_badge.config(text=_tr("🔒 OMEMO"), fg=ACCENT_G, bg="#1a3a1a")
             if not silent:
-                self._append("🔒 OMEMO şifreleme açıldı", "sys")
+                self._append(_tr("🔒 OMEMO şifreleme açıldı"), "sys")
         elif mode == "pgp":
             self._enc_btn.config(text="🔑", fg=ACCENT_G)
-            self._enc_badge.config(text="🔑 PGP", fg=ACCENT_G, bg="#1a3a1a")
+            self._enc_badge.config(text=_tr("🔑 PGP"), fg=ACCENT_G, bg="#1a3a1a")
             if not silent:
-                self._append("🔑 OpenPGP şifreleme açıldı", "sys")
+                self._append(_tr("🔑 OpenPGP şifreleme açıldı"), "sys")
         else:
             self._enc_btn.config(text="🔓", fg=FG_DIM)
             self._enc_badge.config(text="", bg=BG_CARD)
             if not silent:
-                self._append("🔓 Şifreleme kapatıldı", "sys")
+                self._append(_tr("🔓 Şifreleme kapatıldı"), "sys")
         # Sohbet başına şifreleme modunu kaydet
         if self.active:
             self._chat_enc_modes[self.active] = mode
@@ -8992,7 +9003,7 @@ class MainWindow:
         if not self.active:
             return
         pop = tk.Toplevel(self.root)
-        pop.title("Tepki seç" if reaction_mid else "Emoji")
+        pop.title(_tr("Tepki seç") if reaction_mid else _tr("Emoji"))
         pop.configure(bg=BG_CARD)
         pop.geometry("340x320")
         pop.transient(self.root)
@@ -9003,7 +9014,7 @@ class MainWindow:
 
         for cat_name, emojis in _EMOJI_CATEGORIES.items():
             tab = tk.Frame(nb, bg=BG_CARD)
-            nb.add(tab, text=cat_name)
+            nb.add(tab, text=_tr(cat_name))
             # Scrollable emoji grid
             canvas = tk.Canvas(tab, bg=BG_CARD, highlightthickness=0)
             canvas.pack(fill="both", expand=True)
@@ -9046,15 +9057,15 @@ class MainWindow:
         menu = tk.Menu(self.root, tearoff=0, bg=BG_CARD, fg=FG,
                        activebackground=SEL_BG, activeforeground=SEL_FG,
                        font=(FONT, 9))
-        menu.add_command(label=_t("ft_http"), command=self._send_file_http)
+        menu.add_command(label=_tr("☁  Sunucuya Yükle (HTTP)"), command=self._send_file_http)
         if self.active not in self.rooms:
-            menu.add_command(label=_t("ft_p2p"), command=self._send_file_p2p)
+            menu.add_command(label=_tr("⚡  P2P Gönder (Jingle)"), command=self._send_file_p2p)
         # grab kalır (X11): dışarı tıklayınca kapanır
         menu.tk_popup(self.root.winfo_pointerx(), self.root.winfo_pointery())
 
     def _ask_send_path(self):
         from tkinter import filedialog
-        return filedialog.askopenfilename(title="Dosya Seç", parent=self.root)
+        return filedialog.askopenfilename(title=_tr("Dosya Seç"), parent=self.root)
 
     def _file_encryption(self, target):
         """Dosya şifrelemesi sohbetinkini izler: OMEMO → aesgcm:// (XEP-0454).
@@ -9066,8 +9077,12 @@ class MainWindow:
         dosya gitmez (kullanıcı sohbeti şifreli sanıyor)."""
         if self._chat_encryption(target) != "pgp":
             return True
-        return messagebox.askyesno(_t("ft_title"), _t("ft_pgp_plain"),
-                                   parent=self.root)
+        return messagebox.askyesno(
+            _tr("Dosya Transferi"),
+            _tr("Bu sohbet OpenPGP ile şifreli, ama OpenPGP dosya "
+                "şifreleyemez: dosya sunucuya şifresiz yüklenir, "
+                "bağlantıyı gören herkes açabilir. Yine de gönderilsin mi?"),
+            parent=self.root)
 
     def _upload_file_path(self, path, target=None):
         target = target or self.active
@@ -9075,8 +9090,8 @@ class MainWindow:
             return
         encrypt = self._file_encryption(target) == "omemo"
         if self.active == target:
-            self._append(f"{'🔒' if encrypt else '📎'} Yükleniyor: "
-                         f"{os.path.basename(path)}…", "sys")
+            self._append(_tr("{} Yükleniyor: {}…")
+                         .format('🔒' if encrypt else '📎', os.path.basename(path)), "sys")
         self.bot.upload_file(path, target, encrypt=encrypt)
 
     def _send_file_http(self):
@@ -9089,10 +9104,13 @@ class MainWindow:
         # şifresiz geçer. Şifreli sohbette dosya seçilmeden önce sorulur.
         enc = self._chat_encryption(self.active)
         if enc != "none":
-            warn = _t("ft_p2p_plain")
+            warn = _tr("Bu sohbet şifreli, ama P2P aktarım (Jingle/IBB) uçtan uca "
+                       "şifreli değil: dosya sunucu üzerinden şifresiz geçer. "
+                       "Yine de P2P ile gönderilsin mi?")
             if enc == "omemo":
-                warn += "\n\n" + _t("ft_p2p_omemo_hint")
-            if not messagebox.askyesno(_t("ft_title"), warn, icon="warning",
+                warn += "\n\n" + _tr("Şifreli göndermek için 📎 → Sunucuya Yükle'yi kullanın "
+                                     "(OMEMO'lu sohbette dosya şifrelenir).")
+            if not messagebox.askyesno(_tr("Dosya Transferi"), warn, icon="warning",
                                        default="no", parent=self.root):
                 return
         path = self._ask_send_path()
@@ -9102,17 +9120,20 @@ class MainWindow:
         try:
             size = os.path.getsize(path)
         except OSError as e:
-            messagebox.showerror("Hata", str(e), parent=self.root)
+            messagebox.showerror(_tr("Hata"), str(e), parent=self.root)
             return
         if size > self._ft_warn_mb * 1024 * 1024:
             if not messagebox.askyesno(
-                    _t("ft_title"),
-                    _t("ft_large_warn").format(mb=self._ft_warn_mb),
+                    _tr("Dosya Transferi"),
+                    _tr("{mb} MB üzeri dosyalarda P2P yavaş olabilir. Devam edilsin mi?")
+                    .format(mb=self._ft_warn_mb),
                     parent=self.root):
                 return
         if self.presence.get(self.active, "offline") in ("offline", "unavailable"):
-            if not messagebox.askyesno(_t("ft_title"), _t("ft_online_check"),
-                                       parent=self.root):
+            if not messagebox.askyesno(
+                    _tr("Dosya Transferi"),
+                    _tr("Kişi çevrimdışı görünüyor; P2P başarısız olabilir."),
+                    parent=self.root):
                 return
         self._ft_pending_out[(self.active, name)] = path
         self._append(f"⚡ P2P: {name}", "sys")
@@ -9127,12 +9148,12 @@ class MainWindow:
         if self._ft_auto_accept:
             os.makedirs(self._download_dir, exist_ok=True)
             target = jingle_ft.unique_download_path(self._download_dir, name)
-            self._append(f"📥 {name} — {_t('ft_auto_saved')}", "sys")
+            self._append(f"📥 {name} — {_tr('otomatik kabul edildi')}", "sys")
             self.bot.jingle_accept(sid, target)
             return
 
         dlg = tk.Toplevel(self.root)
-        dlg.title(_t("ft_offer_title"))
+        dlg.title(_tr("Gelen Dosya Teklifi"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("400x320")
         dlg.transient(self.root)
@@ -9146,9 +9167,9 @@ class MainWindow:
                  font=(FONT, 8), fg=FG_DIM, bg=BG_CARD).pack(pady=(4, 0))
         hash_short = data.get("hash_short", "")
         if hash_short:
-            tk.Label(dlg, text=f"sha-256: {hash_short}…", font=(FONT, 7),
+            tk.Label(dlg, text=_tr("sha-256: {}…").format(hash_short), font=(FONT, 7),
                      fg=FG_DIM, bg=BG_CARD).pack(pady=(2, 0))
-        tk.Label(dlg, text=_t("ft_not_e2e"), font=(FONT, 7), fg=RED,
+        tk.Label(dlg, text=_tr("P2P — uçtan uca şifreli değil"), font=(FONT, 7), fg=RED,
                  bg=BG_CARD).pack(pady=(8, 0))
 
         state = {"decided": False}
@@ -9165,7 +9186,7 @@ class MainWindow:
         def _accept():
             from tkinter import filedialog
             path = filedialog.asksaveasfilename(
-                parent=dlg, title=_t("ft_accept_save"),
+                parent=dlg, title=_tr("Kabul Et ve Kaydet"),
                 initialdir=self._download_dir, initialfile=name)
             if not path or not _mark_done():
                 return
@@ -9183,20 +9204,20 @@ class MainWindow:
                 state["decided"] = True
                 dlg.destroy()
                 self.bot.jingle_decline(sid)
-                self._append(f"⏱ {name} — {_t('ft_timeout')}", "sys")
+                self._append(f"⏱ {name} — {_tr('Dosya teklifi yanıtsız kaldı')}", "sys")
 
         state["timer"] = _after_alive(dlg, 60000, _timeout)
         dlg.protocol("WM_DELETE_WINDOW", _decline)
-        ttk.Button(btns, text=f"  {_t('ft_accept_save')}  ",
+        ttk.Button(btns, text=f"  {_tr('Kabul Et ve Kaydet')}  ",
                    command=_accept).pack(side="left", expand=True, fill="x",
                                          padx=(0, 6))
-        ttk.Button(btns, text=f"  {_t('ft_decline')}  ", style="Danger.TButton",
+        ttk.Button(btns, text=f"  {_tr('Reddet')}  ", style="Danger.TButton",
                    command=_decline).pack(side="left", expand=True, fill="x")
 
     def _ft_error(self, data):
         sid = data.get("sid", "")
-        msg = str(data.get("error", "")) or "bilinmeyen hata"
-        self._append(f"❌ Dosya transferi: {msg}", "sys")
+        msg = str(data.get("error", "")) or _tr("bilinmeyen hata")
+        self._append(_tr("❌ Dosya transferi: {}").format(msg), "sys")
         win = self._ft_progress_wins.pop(sid, None)
         if win is not None:
             try:
@@ -9211,8 +9232,11 @@ class MainWindow:
             return
         target = peer or self.active
         if path and os.path.isfile(path) and target:
-            if messagebox.askyesno(_t("ft_title"), _t("ft_http_fallback"),
-                                   parent=self.root):
+            if messagebox.askyesno(
+                    _tr("Dosya Transferi"),
+                    _tr("P2P başarısız oldu. Dosya sunucuya yüklenerek "
+                        "gönderilsin mi?"),
+                    parent=self.root):
                 self._upload_file_path(path, target)
 
     def _ft_update_progress(self, data):
@@ -9241,12 +9265,13 @@ class MainWindow:
 
     def _make_ft_progress_window(self, sid, data):
         win = tk.Toplevel(self.root)
-        win.title(_t("ft_progress_title"))
+        win.title(_tr("Dosya Transferi"))
         win.configure(bg=BG_CARD)
         win.geometry("400x180")
         win.transient(self.root)
         win.attributes("-topmost", True)
-        direction = _t("ft_sent") if data.get("direction") == "out" else _t("ft_received")
+        direction = (_tr("Dosya gönderildi") if data.get("direction") == "out"
+                     else _tr("Dosya alındı"))
         tk.Label(win, text=f"{direction}: {data.get('name', '')}",
                  font=(FONT, 10, "bold"), fg=FG, bg=BG_CARD,
                  wraplength=360).pack(padx=16, pady=(16, 8))
@@ -9263,7 +9288,7 @@ class MainWindow:
             win.destroy()
 
         win.protocol("WM_DELETE_WINDOW", _cancel)
-        ttk.Button(win, text=_t("ft_cancel"), style="Small.TButton",
+        ttk.Button(win, text=_tr("İptal"), style="Small.TButton",
                    command=_cancel).pack(pady=(10, 12))
         self._ft_progress_wins[sid] = state
         return state
@@ -9299,15 +9324,15 @@ class MainWindow:
                         body, t, sender=s, is_me=(t == "me"),
                         local_path=p))
         if direction == "in":
-            self._append(f"📥 {_t('ft_received')}: {name}", "sys")
-            _desktop_notify(_t("ft_received"), name)
+            self._append(f"📥 {_tr('Dosya alındı')}: {name}", "sys")
+            _desktop_notify(_tr("Dosya alındı"), name)
             if self._sound_enabled:
                 self._play_notification_sound()
 
     # ── Mesaj Arama ──────────────────────────────────────────────────────────
     def _search_messages_dialog(self):
         dlg = tk.Toplevel(self.root)
-        dlg.title("Mesaj Arama")
+        dlg.title(_tr("Mesaj Arama"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("460x400")
         dlg.transient(self.root)
@@ -9316,13 +9341,13 @@ class MainWindow:
         # Arama çubuğu
         top = tk.Frame(dlg, bg=BG_CARD, padx=16, pady=12)
         top.pack(fill="x")
-        tk.Label(top, text="🔍  Mesajlarda Ara", font=(FONT, 11, "bold"),
+        tk.Label(top, text=_tr("🔍  Mesajlarda Ara"), font=(FONT, 11, "bold"),
                  fg=FG, bg=BG_CARD).pack(anchor="w")
 
         search_var = tk.StringVar()
         sb = tk.Frame(top, bg=BORDER, padx=1, pady=1)
         sb.pack(fill="x", pady=(8, 0))
-        se = PlaceholderEntry(sb, placeholder="Aranacak metin...",
+        se = PlaceholderEntry(sb, placeholder=_tr("Aranacak metin..."),
                               textvariable=search_var,
                               font=(FONT, 10), style="Modern.TEntry")
         se.pack(fill="x", ipady=7, padx=2, pady=2)
@@ -9396,8 +9421,8 @@ class MainWindow:
         _save_config(cfg)
         _apply_color_theme(theme_name)
         self._refresh_theme()
-        messagebox.showinfo("Tema",
-                            "Tema uygulandı. Bazı öğeler yeniden başlatmada yenilenir.",
+        messagebox.showinfo(_tr("Tema"),
+                            _tr("Tema uygulandı. Bazı öğeler yeniden başlatmada yenilenir."),
                             parent=self.root)
 
     # ── MAM Geçmiş Yükleme ──────────────────────────────────────────────────
@@ -9626,8 +9651,7 @@ class MainWindow:
         """HTTP arama worker'ı (thread); sonuç _safe_after ile GUI'ye."""
         keywords = [w for w in query.split()
                     if len(w) >= self._ROOM_SEARCH_MIN_KEYWORD]
-        too_short = (f"En az {self._ROOM_SEARCH_MIN_KEYWORD} harfli "
-                     "bir kelime girin")
+        too_short = (_tr("En az {} harfli bir kelime girin").format(self._ROOM_SEARCH_MIN_KEYWORD))
         if not keywords:
             on_error(too_short)
             return
@@ -9670,7 +9694,7 @@ class MainWindow:
         try:
             room = _normalize_room_jid(room, self._muc_service())
         except ValueError as e:
-            messagebox.showerror("Odaya Katıl", str(e), parent=self.root)
+            messagebox.showerror(_tr("Odaya Katıl"), str(e), parent=self.root)
             return None
         self.my_nick[room] = nick
         self.bot.join_room(room, nick)
@@ -9715,7 +9739,7 @@ class MainWindow:
         try:
             room_jid = _normalize_room_jid(room_jid, self._muc_service())
         except ValueError as e:
-            messagebox.showerror("Oda Oluştur", str(e), parent=self.root)
+            messagebox.showerror(_tr("Oda Oluştur"), str(e), parent=self.root)
             return
         self.my_nick[room_jid] = nick
         self.bot.create_room(room_jid, nick, kind, name)
@@ -9726,10 +9750,10 @@ class MainWindow:
         if room not in getattr(self, "rooms", ()):
             self.my_nick.pop(room, None)
         messagebox.showwarning(
-            "Oda Oluştur",
-            f"{room} adresinde zaten bir oda var.\n\n"
-            "Lütfen başka bir ad seçin. Oda sizinse odalar bölümündeki "
-            "+ (Odaya Katıl) düğmesiyle girebilirsiniz.", parent=self.root)
+            _tr("Oda Oluştur"),
+            _tr("{} adresinde zaten bir oda var.\n\nLütfen başka bir ad seçin. Oda "
+                "sizinse odalar bölümündeki + (Odaya Katıl) düğmesiyle "
+                "girebilirsiniz.").format(room), parent=self.root)
 
     def _jid_or_warn(self, raw, title, parent=None):
         """Yazılan kişi JID'ini normalize et; geçersizse nedenini göster → None."""
@@ -9744,12 +9768,12 @@ class MainWindow:
         room, kind = data["room"], data["kind"]
         if not _muc_room_kind_ok(kind, data.get("missing", ())):
             self._append(
-                "⚠ Sunucu şifreli oda ayarlarını (yalnız üyeler / gerçek JID'ler) "
-                "desteklemiyor; OMEMO bu odada çalışmaz. Oda normal ayarlarla "
-                "açıldı.", "sys")
+                _tr("⚠ Sunucu şifreli oda ayarlarını (yalnız üyeler / gerçek JID'ler) "
+                    "desteklemiyor; OMEMO bu odada çalışmaz. Oda normal ayarlarla "
+                    "açıldı."), "sys")
             return
         if kind != "encrypted":
-            self._append("🌐 Oda hazır: adresi bilen herkes katılabilir.", "sys")
+            self._append(_tr("🌐 Oda hazır: adresi bilen herkes katılabilir."), "sys")
             return
         self._encrypted_rooms.add(room)
         cfg = _load_config()
@@ -9761,8 +9785,8 @@ class MainWindow:
             self._encryption_mode.set("omemo")
             self._update_enc_btn(silent=True)
         self._append(
-            "🔒 Şifreli oda hazır: mesajlar OMEMO ile şifrelenir; yalnız davet "
-            "ettikleriniz katılabilir (odaya sağ tık → 📨 Davet Gönder).", "sys")
+            _tr("🔒 Şifreli oda hazır: mesajlar OMEMO ile şifrelenir; yalnız davet "
+                "ettikleriniz katılabilir (odaya sağ tık → 📨 Davet Gönder)."), "sys")
 
     def _chat_encryption(self, target):
         """Sohbet açılınca şifreleme: açık seçim > şifreli oda > varsayılan.
@@ -9850,17 +9874,17 @@ class MainWindow:
 
         server = self.jid.split("@")[1] if "@" in self.jid else "—"
         about = [
-            ("Hesap", self.jid),
-            ("Sunucu", server),
-            ("OMEMO", f"{'🟢 Aktif' if omemo_ok else '🔴 Pasif'}"),
-            ("PGP", f"{'🟢 Aktif' if pgp_ok else '⚫ Pasif'}"),
-            ("PyAudio", f"{'🟢 Yüklü' if _HAS_PYAUDIO else '⚫ Yok'}"),
-            ("Kişi Sayısı", str(len(self._contacts))),
-            ("Aktif Odalar", str(len(self.rooms))),
-            ("Ayar Dosyası", _CONFIG_PATH),
+            (_tr("Hesap"), self.jid),
+            (_tr("Sunucu"), server),
+            ("OMEMO", f"{_tr('🟢 Aktif') if omemo_ok else _tr('🔴 Pasif')}"),
+            ("PGP", f"{_tr('🟢 Aktif') if pgp_ok else _tr('⚫ Pasif')}"),
+            (_tr("PyAudio"), f"{_tr('🟢 Yüklü') if _HAS_PYAUDIO else _tr('⚫ Yok')}"),
+            (_tr("Kişi Sayısı"), str(len(self._contacts))),
+            (_tr("Aktif Odalar"), str(len(self.rooms))),
+            (_tr("Ayar Dosyası"), _CONFIG_PATH),
         ]
         if HAS_OMEMO:
-            about.append(("OMEMO Veri", str(_OMEMO_DIR)))
+            about.append((_tr("OMEMO Veri"), str(_OMEMO_DIR)))
 
         libs = []
         for name, check in [("slixmpp", True), ("slixmpp-omemo", HAS_OMEMO),
@@ -9892,7 +9916,7 @@ class MainWindow:
             "photo_refs": self._photo_refs,
             "compact_mode": self._compact_mode,
             "wallpaper": self._chat_wallpaper,
-            "current_lang": _current_lang,
+            "current_lang": _i18n.language(),
             "tray_active": bool(self._tray_icon),
             "has_omemo": HAS_OMEMO,
             "omemo_ok": omemo_ok,
@@ -9957,8 +9981,8 @@ class MainWindow:
                 if not ok:
                     self._restore_avatar(self.jid, old_data)
                     messagebox.showerror(
-                        "Hata",
-                        "Fotoğraf yayınlanamadı; eski fotoğraf korundu.",
+                        _tr("Hata"),
+                        _tr("Fotoğraf yayınlanamadı; eski fotoğraf korundu."),
                         parent=parent)
             self._safe_after(0, _ui)
 
@@ -10053,9 +10077,13 @@ class MainWindow:
         # Font uygula
         self._apply_font_settings(family=v["font_family"], size=v["font_size"])
 
-        # Dil güncelle
-        global _current_lang
-        _current_lang = v["language"]
+        # Dil: kurulu pencereler yeniden kurulmadığından yeni dil yeniden
+        # başlatınca uygulanır (yarı Türkçe yarı İngilizce arayüz olmasın)
+        if v["language"] != _i18n.language():
+            self._show_toast(
+                _i18n.tr_in(v["language"], "🌐 Dil"),
+                _i18n.tr_in(v["language"],
+                            "Yeni dil uygulama yeniden başlatılınca geçerli olur."))
 
         # Durum mesajını uygula
         self._status_text, self._status_show = (v["status_text"],
@@ -10067,7 +10095,6 @@ class MainWindow:
     # ── Kayıtlı tercihler (açılışta) ─────────────────────────────────────────
     def _load_saved_prefs(self, cfg):
         """Ayarlar'da kaydedilen tercihleri yükle (_build'den önce: dil)."""
-        global _current_lang
         self._notify_enabled = bool(cfg.get("notifications", True))
         self._sound_enabled = bool(cfg.get("sounds", True))
         self._default_encryption = cfg.get("default_encryption", "none")
@@ -10078,8 +10105,7 @@ class MainWindow:
         self._encrypted_rooms = set(cfg.get("encrypted_rooms", []))
         self._status_text = cfg.get("status_text", "") or ""
         self._status_show = cfg.get("presence_show", "chat") or "chat"
-        if cfg.get("language") in _STRINGS:
-            _current_lang = cfg["language"]
+        _i18n.set_language(cfg.get("language"))
 
     def _restore_font_prefs(self, cfg):
         """Kaydedilmiş yazı tipini uygula; hiç kaydedilmediyse dokunma."""
@@ -10107,7 +10133,7 @@ class MainWindow:
         if auto_away and not busy:
             self._auto_away = True
             self.bot.set_presence("away", status=text)
-            self._status_label.config(text="● Uzakta (oto)", fg=AWAY)
+            self._status_label.config(text=_tr("● Uzakta (oto)"), fg=AWAY)
             return
         if not text and not busy:
             return
@@ -10268,7 +10294,7 @@ class MainWindow:
             if self.bot and getattr(self, "_auto_away", False):
                 self.bot.set_presence(
                     "online", status=getattr(self, "_status_text", ""))
-                self._status_label.config(text=f"● {STATUS_OPTIONS[0][0]}", fg=ONLINE)
+                self._status_label.config(text=f"● {_status_options()[0][0]}", fg=ONLINE)
             self._auto_away = False
             self._ai_away_returned()
 
@@ -10288,7 +10314,7 @@ class MainWindow:
                     self._auto_away = True
                     self.bot.set_presence(
                         "away", status=getattr(self, "_status_text", ""))
-                    self._status_label.config(text="● Uzakta (oto)", fg=AWAY)
+                    self._status_label.config(text=_tr("● Uzakta (oto)"), fg=AWAY)
         if not getattr(self, "_closing", False):
             self._idle_check_id = self._after(30000, self._check_idle)
 
@@ -10376,10 +10402,10 @@ class MainWindow:
             d.ellipse((8, 8, 56, 56), fill=ACCENT)
             d.text((22, 18), "X", fill="white")
             menu = pystray.Menu(
-                pystray.MenuItem("Göster", lambda: self._safe_after(0, self._tray_show)),
-                pystray.MenuItem("Çıkış", lambda: self._safe_after(0, self._quit)),
+                pystray.MenuItem(_tr("Göster"), lambda: self._safe_after(0, self._tray_show)),
+                pystray.MenuItem(_tr("Çıkış"), lambda: self._safe_after(0, self._quit)),
             )
-            self._tray_icon = pystray.Icon("xmpp", img, "XMPP İstemci", menu)
+            self._tray_icon = pystray.Icon("xmpp", img, _tr("XMPP İstemci"), menu)
             threading.Thread(target=self._tray_icon.run, daemon=True).start()
         except ImportError:
             self._tray_icon = None
@@ -10423,11 +10449,11 @@ class MainWindow:
         if self._last_ping_ms < 0:
             self._ping_label.config(text="📶 ✕", fg=RED)
         elif self._last_ping_ms < 100:
-            self._ping_label.config(text=f"📶 {self._last_ping_ms}ms", fg=ONLINE)
+            self._ping_label.config(text=_tr("📶 {}ms").format(self._last_ping_ms), fg=ONLINE)
         elif self._last_ping_ms < 300:
-            self._ping_label.config(text=f"📶 {self._last_ping_ms}ms", fg=AWAY)
+            self._ping_label.config(text=_tr("📶 {}ms").format(self._last_ping_ms), fg=AWAY)
         else:
-            self._ping_label.config(text=f"📶 {self._last_ping_ms}ms", fg=RED)
+            self._ping_label.config(text=_tr("📶 {}ms").format(self._last_ping_ms), fg=RED)
 
     # ── Mesaj arama (Ctrl+F) ─────────────────────────────────────────────────
     def _toggle_search_bar(self, event=None):
@@ -10487,7 +10513,7 @@ class MainWindow:
                             child.config(highlightthickness=0)
                 except Exception:
                     pass
-        self._search_count_lbl.config(text=f"{count} sonuç")
+        self._search_count_lbl.config(text=_tr("{} sonuç").format(count))
         # İlk eşleşmeye kaydır
         if first_match:
             self.chat_canvas.yview_moveto(0)
@@ -10531,7 +10557,7 @@ class MainWindow:
         if not self.active:
             return
         pop = tk.Toplevel(self.root)
-        pop.title("GIF / Sticker")
+        pop.title(_tr("GIF / Sticker"))
         pop.configure(bg=BG_CARD)
         pop.geometry("400x360")
         pop.transient(self.root)
@@ -10539,7 +10565,7 @@ class MainWindow:
 
         top_f = tk.Frame(pop, bg=BG_CARD, padx=12, pady=8)
         top_f.pack(fill="x")
-        tk.Label(top_f, text="🎭 GIF Ara", font=(FONT, 11, "bold"),
+        tk.Label(top_f, text=_tr("🎭 GIF Ara"), font=(FONT, 11, "bold"),
                  fg=FG, bg=BG_CARD).pack(anchor="w")
 
         search_var = tk.StringVar()
@@ -10589,8 +10615,8 @@ class MainWindow:
         # Durum / ipucu satırı
         status_lbl = tk.Label(
             pop,
-            text="💡 Üstteki kutuya yazıp Enter'a basın "
-                 "(ilk aramada Tenor API anahtarı sorulur)",
+            text=_tr("💡 Üstteki kutuya yazıp Enter'a basın "
+                     "(ilk aramada Tenor API anahtarı sorulur)"),
             font=(FONT, 7), fg=FG_DIM, bg=BG_CARD, wraplength=380)
         status_lbl.pack(pady=(0, 8))
 
@@ -10609,8 +10635,8 @@ class MainWindow:
             return (_decode_pw(stored) if stored.startswith("fernet:")
                     else stored) or None
         key = simpledialog.askstring(
-            "GIF Araması",
-            "Tenor API anahtarı (Google Cloud Console → Tenor API):",
+            _tr("GIF Araması"),
+            _tr("Tenor API anahtarı (Google Cloud Console → Tenor API):"),
             parent=parent or self.root)
         key = (key or "").strip()
         if not key:
@@ -10628,10 +10654,10 @@ class MainWindow:
         key = self._gif_api_key(parent=status_lbl)
         if not key:
             status_lbl.config(
-                text="⚠ GIF araması için Tenor API anahtarı gerekli",
+                text=_tr("⚠ GIF araması için Tenor API anahtarı gerekli"),
                 fg=AWAY)
             return
-        status_lbl.config(text="⏳ Aranıyor…", fg=FG_DIM)
+        status_lbl.config(text=_tr("⏳ Aranıyor…"), fg=FG_DIM)
 
         def _fetch():
             try:
@@ -10649,7 +10675,7 @@ class MainWindow:
                     0, self._show_gif_results, results, grid_f, status_lbl)
             except Exception as e:
                 self._safe_after(0, lambda err=str(e): status_lbl.config(
-                    text=f"Hata: {err}", fg=RED))
+                    text=_tr("Hata: {}").format(err), fg=RED))
 
         threading.Thread(target=_fetch, daemon=True).start()
 
@@ -10657,10 +10683,10 @@ class MainWindow:
         for w in grid_f.winfo_children():
             w.destroy()
         if not results:
-            status_lbl.config(text="Sonuç bulunamadı", fg=FG_DIM)
+            status_lbl.config(text=_tr("Sonuç bulunamadı"), fg=FG_DIM)
             return
         status_lbl.config(
-            text=f"{len(results)} GIF — tıklayınca gönderilir", fg=ACCENT_G)
+            text=_tr("{} GIF — tıklayınca gönderilir").format(len(results)), fg=ACCENT_G)
         for i, g in enumerate(results):
             lbl = tk.Label(grid_f, text="🎞", font=(FONT, 14), fg=FG,
                            bg=BG_HOVER, cursor="hand2", padx=8, pady=8,
@@ -10700,20 +10726,20 @@ class MainWindow:
     def _backup_dialog(self):
         from tkinter import filedialog
         dlg = tk.Toplevel(self.root)
-        dlg.title("Yedekleme / Geri Yükleme")
+        dlg.title(_tr("Yedekleme / Geri Yükleme"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("380x200")
         dlg.transient(self.root)
         _make_popover(dlg)
 
-        tk.Label(dlg, text="💾 Sohbet Yedekleme", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("💾 Sohbet Yedekleme"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
 
         def _export_all():
             path = filedialog.asksaveasfilename(
                 parent=dlg, defaultextension=".json",
                 filetypes=[("JSON", "*.json")],
-                title="Yedek Kaydet")
+                title=_tr("Yedek Kaydet"))
             if not path:
                 return
             import json as _json
@@ -10725,12 +10751,12 @@ class MainWindow:
             }
             with open(path, "w", encoding="utf-8") as f:
                 _json.dump(backup, f, ensure_ascii=False, indent=2)
-            messagebox.showinfo("Yedek", f"Yedeklendi: {path}", parent=dlg)
+            messagebox.showinfo(_tr("Yedek"), _tr("Yedeklendi: {}").format(path), parent=dlg)
 
         def _import_backup():
             path = filedialog.askopenfilename(
                 parent=dlg, filetypes=[("JSON", "*.json")],
-                title="Yedek Yükle")
+                title=_tr("Yedek Yükle"))
             if not path:
                 return
             import json as _json
@@ -10744,18 +10770,19 @@ class MainWindow:
                 for p in pinned:
                     if p not in self._pinned_chats:
                         self._pinned_chats.append(p)
-                messagebox.showinfo("Yedek", f"Geri yüklendi: {len(chats)} sohbet",
+                messagebox.showinfo(_tr("Yedek"), _tr("Geri yüklendi: {} sohbet")
+                                                  .format(len(chats)),
                                      parent=dlg)
                 if self.active:
                     self._load_chat(self.active)
             except Exception as e:
-                messagebox.showerror("Hata", str(e), parent=dlg)
+                messagebox.showerror(_tr("Hata"), str(e), parent=dlg)
 
         btn_f = tk.Frame(dlg, bg=BG_CARD, padx=16)
         btn_f.pack(fill="x", pady=8)
-        ttk.Button(btn_f, text="📤 Yedekle (JSON)",
+        ttk.Button(btn_f, text=_tr("📤 Yedekle (JSON)"),
                    command=_export_all).pack(fill="x", ipady=4, pady=4)
-        ttk.Button(btn_f, text="📥 Geri Yükle",
+        ttk.Button(btn_f, text=_tr("📥 Geri Yükle"),
                    command=_import_backup).pack(fill="x", ipady=4)
 
     # ── QR ile OMEMO doğrulama ───────────────────────────────────────────────
@@ -10763,16 +10790,16 @@ class MainWindow:
         if not self.bot:
             return
         dlg = tk.Toplevel(self.root)
-        dlg.title("OMEMO QR Doğrulama")
+        dlg.title(_tr("OMEMO QR Doğrulama"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("340x400")
         dlg.transient(self.root)
         _make_popover(dlg)
 
-        tk.Label(dlg, text="🔐 OMEMO Parmak İzi", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("🔐 OMEMO Parmak İzi"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
 
-        fp_var = tk.StringVar(value="Yükleniyor…")
+        fp_var = tk.StringVar(value=_tr("Yükleniyor…"))
         tk.Label(dlg, textvariable=fp_var, font=("Courier", 9),
                  fg=ACCENT, bg=BG_CARD, wraplength=300).pack(padx=16, pady=8)
 
@@ -10784,7 +10811,7 @@ class MainWindow:
             if not dlg.winfo_exists():
                 return
             if not info or info.get("error"):
-                fp_var.set("(OMEMO hazır değil)")
+                fp_var.set(_tr("(OMEMO hazır değil)"))
                 return
             fp = info.get("fingerprint", "")
             state["fp"] = fp
@@ -10801,7 +10828,7 @@ class MainWindow:
                 qr_lbl.pack()
                 self._photo_refs.append(photo)
             except ImportError:
-                tk.Label(qr_holder, text="QR için: pip install qrcode",
+                tk.Label(qr_holder, text=_tr("QR için: pip install qrcode"),
                          font=(FONT, 8), fg=FG_DIM,
                          bg=BG_CARD).pack(pady=16)
 
@@ -10814,28 +10841,28 @@ class MainWindow:
                 return
             self.root.clipboard_clear()
             self.root.clipboard_append(state["fp"].replace(" ", ""))
-            messagebox.showinfo("Kopyalandı", "Parmak izi panoya kopyalandı",
+            messagebox.showinfo(_tr("Kopyalandı"), _tr("Parmak izi panoya kopyalandı"),
                                  parent=dlg)
-        ttk.Button(dlg, text="📋 Kopyala", command=_copy).pack(pady=8)
+        ttk.Button(dlg, text=_tr("📋 Kopyala"), command=_copy).pack(pady=8)
 
     # ── Sohbet arka plan özelleştirme ────────────────────────────────────────
     def _wallpaper_dialog(self):
         from tkinter import colorchooser, filedialog
         dlg = tk.Toplevel(self.root)
-        dlg.title("Sohbet Arka Planı")
+        dlg.title(_tr("Sohbet Arka Planı"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("340x260")
         dlg.transient(self.root)
         _make_popover(dlg)
 
-        tk.Label(dlg, text="🖼 Sohbet Arka Planı", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("🖼 Sohbet Arka Planı"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
 
         def _choose_image():
             path = filedialog.askopenfilename(
                 parent=dlg,
-                filetypes=[("Resim", "*.png *.jpg *.jpeg *.gif *.bmp")],
-                title="Arka Plan Seç")
+                filetypes=[(_tr("Resim"), _tr("*.png *.jpg *.jpeg *.gif *.bmp"))],
+                title=_tr("Arka Plan Seç"))
             if path:
                 self._chat_wallpaper = path
                 self._apply_wallpaper()
@@ -10845,7 +10872,7 @@ class MainWindow:
                 dlg.destroy()
 
         def _choose_color():
-            result = colorchooser.askcolor(parent=dlg, title="Arka Plan Rengi")
+            result = colorchooser.askcolor(parent=dlg, title=_tr("Arka Plan Rengi"))
             if result and result[1]:
                 self._chat_wallpaper = result[1]
                 self._apply_wallpaper()
@@ -10864,11 +10891,11 @@ class MainWindow:
 
         btn_f = tk.Frame(dlg, bg=BG_CARD, padx=16)
         btn_f.pack(fill="x", pady=8)
-        ttk.Button(btn_f, text="🖼 Resim Seç",
+        ttk.Button(btn_f, text=_tr("🖼 Resim Seç"),
                    command=_choose_image).pack(fill="x", ipady=4, pady=4)
-        ttk.Button(btn_f, text="🎨 Renk Seç",
+        ttk.Button(btn_f, text=_tr("🎨 Renk Seç"),
                    command=_choose_color).pack(fill="x", ipady=4, pady=4)
-        ttk.Button(btn_f, text="↩ Varsayılana Dön",
+        ttk.Button(btn_f, text=_tr("↩ Varsayılana Dön"),
                    command=_reset).pack(fill="x", ipady=4)
 
     def _apply_wallpaper(self):
@@ -10912,7 +10939,7 @@ class MainWindow:
         """Ctrl+R — son gelen mesaja yanıt başlat."""
         row = self._last_message_row(False)
         if row is None:
-            self._append("↩ Yanıtlanacak mesaj yok", "sys")
+            self._append(_tr("↩ Yanıtlanacak mesaj yok"), "sys")
             return
         self._set_reply(row._mid, getattr(row, "_body", ""),
                         getattr(row, "_sender", ""))
@@ -10921,7 +10948,7 @@ class MainWindow:
         """Ctrl+Shift+E — son mesajımı düzenle."""
         row = self._last_message_row(True)
         if row is None or not getattr(row, "_mid", ""):
-            self._append("✏ Düzenlenecek mesajım yok", "sys")
+            self._append(_tr("✏ Düzenlenecek mesajım yok"), "sys")
             return
         mtype = "groupchat" if self.active in self.rooms else "chat"
         self._edit_message_dialog(row._mid, getattr(row, "_body", ""), mtype)
@@ -10930,7 +10957,7 @@ class MainWindow:
         """Ctrl+Shift+D — son mesajımı geri çek."""
         row = self._last_message_row(True)
         if row is None or not getattr(row, "_mid", ""):
-            self._append("🗑 Silinecek mesajım yok", "sys")
+            self._append(_tr("🗑 Silinecek mesajım yok"), "sys")
             return
         mtype = "groupchat" if self.active in self.rooms else "chat"
         self._retract_message(row._mid, mtype)
@@ -11286,30 +11313,30 @@ class MainWindow:
         if not self.active:
             return
         pop = tk.Toplevel(self.root)
-        pop.title("Mesaj Zamanla")
+        pop.title(_tr("Mesaj Zamanla"))
         pop.configure(bg=BG_CARD)
         pop.geometry("340x280")
         pop.transient(self.root)
         _make_popover(pop, form=True)
 
-        tk.Label(pop, text="⏰ Mesaj Zamanla", font=(FONT, 12, "bold"),
+        tk.Label(pop, text=_tr("⏰ Mesaj Zamanla"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
 
         # Mesaj
-        tk.Label(pop, text="Mesaj:", font=(FONT, 9),
+        tk.Label(pop, text=_tr("Mesaj:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16)
         msg_var = tk.StringVar()
         ttk.Entry(pop, textvariable=msg_var, font=(FONT, 10)).pack(
             fill="x", padx=16, ipady=5, pady=(0, 8))
 
         # Süre (dakika)
-        tk.Label(pop, text="Kaç dakika sonra gönderilsin:", font=(FONT, 9),
+        tk.Label(pop, text=_tr("Kaç dakika sonra gönderilsin:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16)
         delay_var = tk.IntVar(value=5)
         delay_f = tk.Frame(pop, bg=BG_CARD)
         delay_f.pack(fill="x", padx=16)
-        for val, txt in [(1, "1 dk"), (5, "5 dk"), (15, "15 dk"),
-                         (30, "30 dk"), (60, "1 saat")]:
+        for val, txt in [(1, _tr("1 dk")), (5, _tr("5 dk")), (15, _tr("15 dk")),
+                         (30, _tr("30 dk")), (60, _tr("1 saat"))]:
             tk.Radiobutton(delay_f, text=txt, variable=delay_var, value=val,
                           bg=BG_CARD, fg=FG, selectcolor=BG_HOVER,
                           font=(FONT, 8)).pack(side="left", padx=(0, 6))
@@ -11317,7 +11344,7 @@ class MainWindow:
         # Özel dakika
         custom_f = tk.Frame(pop, bg=BG_CARD)
         custom_f.pack(fill="x", padx=16, pady=(4, 0))
-        tk.Label(custom_f, text="Özel (dk):", font=(FONT, 8),
+        tk.Label(custom_f, text=_tr("Özel (dk):"), font=(FONT, 8),
                  fg=FG_DIM, bg=BG_CARD).pack(side="left")
         custom_var = tk.StringVar()
         ttk.Entry(custom_f, textvariable=custom_var, width=6,
@@ -11336,7 +11363,7 @@ class MainWindow:
             if self._schedule_send(target, body, mins, parent=pop):
                 pop.destroy()
 
-        ttk.Button(pop, text="⏰ Zamanla", command=_schedule).pack(
+        ttk.Button(pop, text=_tr("⏰ Zamanla"), command=_schedule).pack(
             fill="x", padx=16, ipady=4, pady=12)
 
     def _schedule_send(self, target, body, mins, parent=None) -> bool:
@@ -11347,7 +11374,7 @@ class MainWindow:
         if not self._leak_guard_ok(target, body, enc, parent=parent):
             return False
         short = body if len(body) <= 40 else body[:40] + "…"
-        self._append(f"⏰ Zamanlanmış mesaj ({mins} dk sonra): {short}", "sys")
+        self._append(_tr("⏰ Zamanlanmış mesaj ({} dk sonra): {}").format(mins, short), "sys")
 
         def _send_scheduled():
             if not self.bot:
@@ -11392,7 +11419,7 @@ class MainWindow:
         def _invite(jid):
             if not self.bot:
                 return False
-            jid = self._jid_or_warn(jid, "Davet")
+            jid = self._jid_or_warn(jid, _tr("Davet"))
             if not jid:
                 return False
             self.bot.invite_to_room(room, jid)
@@ -11406,22 +11433,22 @@ class MainWindow:
     # ── Toplu mesaj (broadcast) ──────────────────────────────────────────────
     def _broadcast_dialog(self):
         dlg = tk.Toplevel(self.root)
-        dlg.title("Toplu Mesaj")
+        dlg.title(_tr("Toplu Mesaj"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("420x400")
         dlg.transient(self.root)
         _make_popover(dlg, form=True)
 
-        tk.Label(dlg, text="📢 Toplu Mesaj Gönder", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("📢 Toplu Mesaj Gönder"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
 
-        tk.Label(dlg, text="Mesaj:", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Mesaj:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16)
         msg_var = tk.StringVar()
         ttk.Entry(dlg, textvariable=msg_var, font=(FONT, 10)).pack(
             fill="x", padx=16, ipady=5, pady=(0, 8))
 
-        tk.Label(dlg, text="Alıcıları seçin:", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Alıcıları seçin:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16)
 
         lb = tk.Listbox(dlg, bg=BG_PANEL, fg=FG, selectbackground=SEL_BG,
@@ -11432,11 +11459,12 @@ class MainWindow:
         for j in jids:
             lb.insert("end", f"  {self._contacts[j] or j}")
 
-        count_lbl = tk.Label(dlg, text="0 kişi seçildi", font=(FONT, 8),
+        count_lbl = tk.Label(dlg, text=_tr("0 kişi seçildi"), font=(FONT, 8),
                               fg=FG_DIM, bg=BG_CARD)
         count_lbl.pack(padx=16)
         lb.bind("<<ListboxSelect>>",
-                lambda _: count_lbl.config(text=f"{len(lb.curselection())} kişi seçildi"))
+                lambda _: count_lbl.config(text=_tr("{} kişi seçildi")
+                                                .format(len(lb.curselection()))))
 
         def _send():
             body = msg_var.get().strip()
@@ -11453,11 +11481,11 @@ class MainWindow:
                 self.bot.send_chat(jids[i], body, encryption=enc, mid=mid)
                 self._store(jids[i], body, tag="me", sender="Ben", is_me=True,
                             mid=mid)
-            messagebox.showinfo("Toplu Mesaj",
-                                f"{len(sel)} kişiye gönderildi", parent=dlg)
+            messagebox.showinfo(_tr("Toplu Mesaj"),
+                                _tr("{} kişiye gönderildi").format(len(sel)), parent=dlg)
             dlg.destroy()
 
-        ttk.Button(dlg, text="📨 Gönder", command=_send).pack(
+        ttk.Button(dlg, text=_tr("📨 Gönder"), command=_send).pack(
             fill="x", padx=16, ipady=4, pady=8)
 
     # ── Toast bildirim balonu ────────────────────────────────────────────────
@@ -11522,34 +11550,36 @@ class MainWindow:
     def _auto_theme_dialog(self):
         cfg = _load_config()
         dlg = tk.Toplevel(self.root)
-        dlg.title("Otomatik Tema Geçişi")
+        dlg.title(_tr("Otomatik Tema Geçişi"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("360x300")
         dlg.transient(self.root)
         _make_popover(dlg, form=True)
 
-        tk.Label(dlg, text="🌓 Otomatik Tema Geçişi", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("🌓 Otomatik Tema Geçişi"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
 
         auto_var = tk.BooleanVar(value=cfg.get("auto_theme", False))
-        tk.Checkbutton(dlg, text="Otomatik tema geçişini etkinleştir",
+        tk.Checkbutton(dlg, text=_tr("Otomatik tema geçişini etkinleştir"),
                        variable=auto_var, bg=BG_CARD, fg=FG,
                        selectcolor=BG_HOVER, font=(FONT, 9)).pack(anchor="w", padx=16)
 
         themes = list(_THEMES.keys())
-        tk.Label(dlg, text="Gündüz teması:", font=(FONT, 9),
+        labels = [_theme_label(t) for t in themes]     # kayıtta anahtar
+        to_key = dict(zip(labels, themes))
+        tk.Label(dlg, text=_tr("Gündüz teması:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16, pady=(12, 0))
-        day_var = tk.StringVar(value=cfg.get("day_theme", "acik"))
-        ttk.Combobox(dlg, textvariable=day_var, values=themes,
+        day_var = tk.StringVar(value=_theme_label(cfg.get("day_theme", "acik")))
+        ttk.Combobox(dlg, textvariable=day_var, values=labels,
                      state="readonly", font=(FONT, 9)).pack(fill="x", padx=16)
 
-        tk.Label(dlg, text="Gece teması:", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Gece teması:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16, pady=(8, 0))
-        night_var = tk.StringVar(value=cfg.get("night_theme", "koyu"))
-        ttk.Combobox(dlg, textvariable=night_var, values=themes,
+        night_var = tk.StringVar(value=_theme_label(cfg.get("night_theme", "koyu")))
+        ttk.Combobox(dlg, textvariable=night_var, values=labels,
                      state="readonly", font=(FONT, 9)).pack(fill="x", padx=16)
 
-        tk.Label(dlg, text="Gündüz başlangıç saati:", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Gündüz başlangıç saati:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16, pady=(8, 0))
         day_h = tk.IntVar(value=cfg.get("day_start_hour", 7))
         tk.Scale(dlg, from_=0, to=23, orient="horizontal", variable=day_h,
@@ -11557,7 +11587,7 @@ class MainWindow:
                  highlightthickness=0, activebackground=ACCENT).pack(
                      fill="x", padx=16)
 
-        tk.Label(dlg, text="Gece başlangıç saati:", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Gece başlangıç saati:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16, pady=(4, 0))
         night_h = tk.IntVar(value=cfg.get("night_start_hour", 20))
         tk.Scale(dlg, from_=0, to=23, orient="horizontal", variable=night_h,
@@ -11568,8 +11598,8 @@ class MainWindow:
         def _save():
             cfg = _load_config()
             cfg["auto_theme"] = auto_var.get()
-            cfg["day_theme"] = day_var.get()
-            cfg["night_theme"] = night_var.get()
+            cfg["day_theme"] = to_key.get(day_var.get(), day_var.get())
+            cfg["night_theme"] = to_key.get(night_var.get(), night_var.get())
             cfg["day_start_hour"] = day_h.get()
             cfg["night_start_hour"] = night_h.get()
             _save_config(cfg)
@@ -11577,43 +11607,43 @@ class MainWindow:
                 self._auto_theme_check()
             dlg.destroy()
 
-        ttk.Button(dlg, text="Kaydet", command=_save).pack(
+        ttk.Button(dlg, text=_tr("Kaydet"), command=_save).pack(
             fill="x", padx=16, ipady=4, pady=12)
 
     # ── Uygulama kilidi (PIN) ────────────────────────────────────────────────
     def _pin_lock_dialog(self):
         cfg = _load_config()
         dlg = tk.Toplevel(self.root)
-        dlg.title("Uygulama Kilidi")
+        dlg.title(_tr("Uygulama Kilidi"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("320x240")
         dlg.transient(self.root)
         _make_popover(dlg, form=True)
 
-        tk.Label(dlg, text="🔑 Uygulama Kilidi", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("🔑 Uygulama Kilidi"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
 
         has_pin = bool(cfg.get("app_pin"))
 
         if has_pin:
-            tk.Label(dlg, text="Mevcut PIN ayarlanmış ✓", font=(FONT, 9),
+            tk.Label(dlg, text=_tr("Mevcut PIN ayarlanmış ✓"), font=(FONT, 9),
                      fg=ACCENT_G, bg=BG_CARD).pack(anchor="w", padx=16)
 
             def _remove_pin():
-                old = simpledialog.askstring("PIN Doğrula", "Mevcut PIN:",
+                old = simpledialog.askstring(_tr("PIN Doğrula"), _tr("Mevcut PIN:"),
                                               parent=dlg, show="*")
                 if old and _verify_pin(cfg.get("app_pin", ""), old):
                     cfg.pop("app_pin", None)
                     _save_config(cfg)
-                    messagebox.showinfo("PIN", "PIN kaldırıldı", parent=dlg)
+                    messagebox.showinfo(_tr("PIN"), _tr("PIN kaldırıldı"), parent=dlg)
                     dlg.destroy()
                 else:
-                    messagebox.showerror("Hata", "Yanlış PIN", parent=dlg)
+                    messagebox.showerror(_tr("Hata"), _tr("Yanlış PIN"), parent=dlg)
 
-            ttk.Button(dlg, text="🗑 PIN'i Kaldır",
+            ttk.Button(dlg, text=_tr("🗑 PIN'i Kaldır"),
                        command=_remove_pin).pack(fill="x", padx=16, ipady=4, pady=8)
         else:
-            tk.Label(dlg, text="Yeni PIN belirleyin:", font=(FONT, 9),
+            tk.Label(dlg, text=_tr("Yeni PIN belirleyin:"), font=(FONT, 9),
                      fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16)
             pin_var = tk.StringVar()
             pe = ttk.Entry(dlg, textvariable=pin_var, show="*",
@@ -11621,7 +11651,7 @@ class MainWindow:
             pe.pack(fill="x", padx=16, ipady=5, pady=(0, 4))
             pe.focus_set()
 
-            tk.Label(dlg, text="Tekrar girin:", font=(FONT, 9),
+            tk.Label(dlg, text=_tr("Tekrar girin:"), font=(FONT, 9),
                      fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16)
             pin2_var = tk.StringVar()
             ttk.Entry(dlg, textvariable=pin2_var, show="*",
@@ -11631,18 +11661,18 @@ class MainWindow:
                 p1 = pin_var.get().strip()
                 p2 = pin2_var.get().strip()
                 if not p1 or len(p1) < 4:
-                    messagebox.showwarning("PIN", "PIN en az 4 karakter olmalı",
+                    messagebox.showwarning(_tr("PIN"), _tr("PIN en az 4 karakter olmalı"),
                                             parent=dlg)
                     return
                 if p1 != p2:
-                    messagebox.showerror("Hata", "PIN'ler eşleşmiyor", parent=dlg)
+                    messagebox.showerror(_tr("Hata"), _tr("PIN'ler eşleşmiyor"), parent=dlg)
                     return
                 cfg["app_pin"] = _encode_pw(p1)
                 _save_config(cfg)
-                messagebox.showinfo("PIN", "PIN ayarlandı ✓", parent=dlg)
+                messagebox.showinfo(_tr("PIN"), _tr("PIN ayarlandı ✓"), parent=dlg)
                 dlg.destroy()
 
-            ttk.Button(dlg, text="🔒 PIN Ayarla",
+            ttk.Button(dlg, text=_tr("🔒 PIN Ayarla"),
                        command=_set_pin).pack(fill="x", padx=16, ipady=4, pady=8)
 
     # ── Mesaj geçmişi silme ──────────────────────────────────────────────────
@@ -11658,47 +11688,47 @@ class MainWindow:
     def _proxy_dialog(self):
         cfg = _load_config()
         dlg = tk.Toplevel(self.root)
-        dlg.title("Proxy Ayarları")
+        dlg.title(_tr("Proxy Ayarları"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("380x360")
         dlg.transient(self.root)
         _make_popover(dlg, form=True)
 
-        tk.Label(dlg, text="🔒 Proxy / SOCKS Ayarları", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("🔒 Proxy / SOCKS Ayarları"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 12))
 
         proxy_cfg = cfg.get("proxy", {})
 
-        tk.Label(dlg, text="Proxy türü:", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Proxy türü:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16)
         type_var = tk.StringVar(value=proxy_cfg.get("type", "none"))
         type_f = tk.Frame(dlg, bg=BG_CARD)
         type_f.pack(fill="x", padx=16)
-        for val, txt in [("none", "Yok"), ("socks5", "SOCKS5"),
+        for val, txt in [("none", _tr("Yok")), ("socks5", "SOCKS5"),
                          ("socks4", "SOCKS4"), ("http", "HTTP")]:
             tk.Radiobutton(type_f, text=txt, variable=type_var, value=val,
                           bg=BG_CARD, fg=FG, selectcolor=BG_HOVER,
                           font=(FONT, 8)).pack(side="left", padx=(0, 8))
 
-        tk.Label(dlg, text="Adres:", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Adres:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16, pady=(8, 0))
         host_var = tk.StringVar(value=proxy_cfg.get("host", "127.0.0.1"))
         ttk.Entry(dlg, textvariable=host_var, font=(FONT, 10)).pack(
             fill="x", padx=16, ipady=4)
 
-        tk.Label(dlg, text="Port:", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Port:"), font=(FONT, 9),
                  fg=FG_DIM, bg=BG_CARD).pack(anchor="w", padx=16, pady=(4, 0))
         port_var = tk.StringVar(value=str(proxy_cfg.get("port", 9050)))
         ttk.Entry(dlg, textvariable=port_var, font=(FONT, 10)).pack(
             fill="x", padx=16, ipady=4)
 
-        tk.Label(dlg, text="💡 Tor için: SOCKS5, 127.0.0.1:9050",
+        tk.Label(dlg, text=_tr("💡 Tor için: SOCKS5, 127.0.0.1:9050"),
                  font=(FONT, 7), fg=FG_DIM, bg=BG_CARD).pack(
                      anchor="w", padx=16, pady=(8, 0))
-        tk.Label(dlg, text="Yalnız XMPP bağlantısı proxy'den geçer; dosya "
-                           "yükleme/indirme, bağlantı önizlemesi, GIF ve AI "
-                           "istekleri geçmez. Kimlik doğrulamalı proxy "
-                           "desteklenmez.",
+        tk.Label(dlg, text=_tr("Yalnız XMPP bağlantısı proxy'den geçer; dosya "
+                               "yükleme/indirme, bağlantı önizlemesi, GIF ve AI "
+                               "istekleri geçmez. Kimlik doğrulamalı proxy "
+                               "desteklenmez."),
                  font=(FONT, 7), fg=FG_DIM, bg=BG_CARD, wraplength=340,
                  justify="left").pack(anchor="w", padx=16, pady=(4, 0))
 
@@ -11707,18 +11737,18 @@ class MainWindow:
                 value = _proxy_from_form(type_var.get(), host_var.get(),
                                          port_var.get())
             except ValueError as e:
-                messagebox.showerror("Proxy", str(e), parent=dlg)
+                messagebox.showerror(_tr("Proxy"), str(e), parent=dlg)
                 return
             cfg = _load_config()
             cfg["proxy"] = value
             _save_config(cfg)
-            messagebox.showinfo("Proxy", "Ayarlar kaydedildi.\n"
-                                "Bir sonraki bağlantıda uygulanır "
-                                "(ör. uygulamayı yeniden başlatınca).",
+            messagebox.showinfo(_tr("Proxy"), _tr("Ayarlar kaydedildi.\n"
+                                                  "Bir sonraki bağlantıda uygulanır "
+                                                  "(ör. uygulamayı yeniden başlatınca)."),
                                 parent=dlg)
             dlg.destroy()
 
-        ttk.Button(dlg, text="Kaydet", command=_save).pack(
+        ttk.Button(dlg, text=_tr("Kaydet"), command=_save).pack(
             fill="x", padx=16, ipady=4, pady=12)
 
     # ── Bot komutları (/komut) ───────────────────────────────────────────────
@@ -11730,25 +11760,25 @@ class MainWindow:
 
         commands = {
             "/help": lambda: self._append(
-                "Kullanılabilir komutlar:\n"
-                "/help — Bu yardım\n"
-                "/clear — Sohbet geçmişini temizle\n"
-                "/nick <isim> — Oda takma adını değiştir\n"
-                "/topic <konu> — Oda konusunu değiştir\n"
-                "/invite <jid> — Odaya davet et\n"
-                "/kick <nick> — Odadan at\n"
-                "/ban <jid> — Yasakla\n"
-                "/join <oda> — Odaya katıl\n"
-                "/leave — Odadan ayrıl\n"
-                "/status <mesaj> — Durum mesajı değiştir\n"
-                "/ping — Sunucu ping\n"
-                "/time — Şu anki saat\n"
-                "/broadcast — Toplu mesaj\n"
-                "/schedule — Mesaj zamanla\n"
-                "/reply <metin> — Son gelen mesaja yanıt ver\n"
-                "/react <emoji> — Son gelen mesaja tepki ekle\n"
-                "/edit <metin> — Son mesajımı düzenle\n"
-                "/del — Son mesajımı sil",
+                _tr("Kullanılabilir komutlar:\n"
+                    "/help — Bu yardım\n"
+                    "/clear — Sohbet geçmişini temizle\n"
+                    "/nick <isim> — Oda takma adını değiştir\n"
+                    "/topic <konu> — Oda konusunu değiştir\n"
+                    "/invite <jid> — Odaya davet et\n"
+                    "/kick <nick> — Odadan at\n"
+                    "/ban <jid> — Yasakla\n"
+                    "/join <oda> — Odaya katıl\n"
+                    "/leave — Odadan ayrıl\n"
+                    "/status <mesaj> — Durum mesajı değiştir\n"
+                    "/ping — Sunucu ping\n"
+                    "/time — Şu anki saat\n"
+                    "/broadcast — Toplu mesaj\n"
+                    "/schedule — Mesaj zamanla\n"
+                    "/reply <metin> — Son gelen mesaja yanıt ver\n"
+                    "/react <emoji> — Son gelen mesaja tepki ekle\n"
+                    "/edit <metin> — Son mesajımı düzenle\n"
+                    "/del — Son mesajımı sil"),
                 "sys"),
             "/clear": lambda: self._clear_active_history(),
             # [Phase6A-F1] Önceden tuple-lambda bellek-içi temizliği yapıyor
@@ -11756,7 +11786,7 @@ class MainWindow:
             # arşivi/restart sonrası "silinen" geçmiş geri geliyordu. Tek
             # yetkili yol canonical _clear_active_history'e delege edilir.
             "/ping": lambda: self._append(
-                f"📶 Son ping: {self._last_ping_ms}ms", "sys"),
+                _tr("📶 Son ping: {}ms").format(self._last_ping_ms), "sys"),
             "/time": lambda: self._append(
                 f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", "sys"),
             "/broadcast": lambda: self._broadcast_dialog(),
@@ -11768,36 +11798,36 @@ class MainWindow:
         elif cmd == "/nick" and arg and self.active in self.rooms:
             self.bot.change_nick(self.active, arg.strip())
             self.my_nick[self.active] = arg.strip()
-            self._append(f"Takma ad değiştirildi: {arg.strip()}", "sys")
+            self._append(_tr("Takma ad değiştirildi: {}").format(arg.strip()), "sys")
         elif cmd == "/topic" and self.active in self.rooms:
             self.bot.set_room_subject(self.active, arg.strip())
-            self._append(f"Konu değiştirildi: {arg.strip()}", "sys")
+            self._append(_tr("Konu değiştirildi: {}").format(arg.strip()), "sys")
         elif cmd == "/invite" and arg and self.active in self.rooms:
-            jid = self._jid_or_warn(arg, "Davet")
+            jid = self._jid_or_warn(arg, _tr("Davet"))
             if jid:
                 self.bot.invite_to_room(self.active, jid)
-                self._append(f"Davet gönderildi: {jid}", "sys")
+                self._append(_tr("Davet gönderildi: {}").format(jid), "sys")
         elif cmd == "/kick" and arg and self.active in self.rooms:
             try:
                 self.bot.kick_user(self.active, arg.strip())
-                self._append(f"Kullanıcı atıldı: {arg.strip()}", "sys")
+                self._append(_tr("Kullanıcı atıldı: {}").format(arg.strip()), "sys")
             except Exception as e:
-                self._append(f"Hata: {e}", "sys")
+                self._append(_tr("Hata: {}").format(e), "sys")
         elif cmd == "/ban" and arg and self.active in self.rooms:
-            jid = self._jid_or_warn(arg, "Yasakla")
+            jid = self._jid_or_warn(arg, _tr("Yasakla"))
             if jid:
                 self.bot.ban_user(self.active, jid)
-                self._append(f"Kullanıcı yasaklanıyor: {jid}", "sys")
+                self._append(_tr("Kullanıcı yasaklanıyor: {}").format(jid), "sys")
         elif cmd == "/join" and arg:
             room = self._join_room_normalized(arg, self.jid.split("@")[0])
             if room:
-                self._append(f"Odaya katılınıyor: {room}", "sys")
+                self._append(_tr("Odaya katılınıyor: {}").format(room), "sys")
         elif cmd == "/leave" and self.active in self.rooms:
-            self._append(f"Odadan ayrılınıyor: {self.active}", "sys")
+            self._append(_tr("Odadan ayrılınıyor: {}").format(self.active), "sys")
             self._leave_room(self.active)
         elif cmd == "/status" and arg:
             self._publish_status(arg.strip(), "chat")
-            self._append(f"Durum güncellendi: {arg.strip()}", "sys")
+            self._append(_tr("Durum güncellendi: {}").format(arg.strip()), "sys")
         elif cmd == "/reply" and arg:
             self._reply_last_incoming()
             if self._composer.has_reply():
@@ -11808,7 +11838,7 @@ class MainWindow:
             if row is not None:
                 self._toggle_reaction(row._mid, arg.strip()[:8])
             else:
-                self._append("😊 Tepki verilecek mesaj yok", "sys")
+                self._append(_tr("😊 Tepki verilecek mesaj yok"), "sys")
         elif cmd == "/edit" and arg:
             row = self._last_message_row(True)
             if row is not None and getattr(row, "_mid", ""):
@@ -11817,11 +11847,12 @@ class MainWindow:
                 # Normal düzenleme yolu: balon + geçmiş + DB birlikte
                 self._apply_local_correction(self.active, row._mid, arg)
             else:
-                self._append("✏ Düzenlenecek mesajım yok", "sys")
+                self._append(_tr("✏ Düzenlenecek mesajım yok"), "sys")
         elif cmd == "/del":
             self._delete_last_own()
         else:
-            self._append(f"Bilinmeyen komut: {cmd}\n/help yazarak yardım alabilirsiniz", "sys")
+            self._append(_tr("Bilinmeyen komut: {}\n/help yazarak yardım alabilirsiniz")
+                         .format(cmd), "sys")
 
     # ── Çoklu sohbet sekmeleri ───────────────────────────────────────────────
     def _tab_evict_oldest_row(self, rows):
@@ -11867,7 +11898,7 @@ class MainWindow:
 
         top = tk.Toplevel(self.root)
         short = target.split("@")[0] if "@" in target else target
-        top.title(f"Sohbet — {short}")
+        top.title(_tr("Sohbet — {}").format(short))
         top.configure(bg=BG_CHAT)
         top.geometry("500x500")
 
@@ -11998,12 +12029,12 @@ class MainWindow:
     def _split_view_dialog(self):
         """İki sohbeti yan yana göster."""
         if len(self.chats) < 2:
-            messagebox.showinfo("Bölünmüş Ekran",
-                                "En az 2 sohbet gerekli", parent=self.root)
+            messagebox.showinfo(_tr("Bölünmüş Ekran"),
+                                _tr("En az 2 sohbet gerekli"), parent=self.root)
             return
 
         pop = tk.Toplevel(self.root)
-        pop.title("Bölünmüş Ekran — İkinci sohbet seçin")
+        pop.title(_tr("Bölünmüş Ekran — İkinci sohbet seçin"))
         pop.configure(bg=BG_CARD)
         pop.geometry("300x300")
         pop.transient(self.root)
@@ -12025,7 +12056,7 @@ class MainWindow:
                 self._open_chat_tab(targets[sel[0]])
 
         lb.bind("<Double-1>", _go)
-        ttk.Button(pop, text="Aç", command=_go).pack(
+        ttk.Button(pop, text=_tr("Aç"), command=_go).pack(
             fill="x", padx=12, ipady=4, pady=(0, 12))
 
     # ── Polling / Olay işleme ─────────────────────────────────────────────────
@@ -12061,12 +12092,12 @@ class MainWindow:
                 self._conn_timeout_id = None
             self._contacts = data
             self._refresh_contacts()
-            self._append("✓ Bağlandı", "sys")
+            self._append(_tr("✓ Bağlandı"), "sys")
             if getattr(self, "_last_conn_error", ""):
                 self._last_conn_error = ""
-                self._show_toast("✓ Bağlantı Kuruldu", "Sunucuya bağlanıldı")
+                self._show_toast(_tr("✓ Bağlantı Kuruldu"), _tr("Sunucuya bağlanıldı"))
             try:
-                self._status_label.config(text=f"● {STATUS_OPTIONS[0][0]}", fg=ONLINE)
+                self._status_label.config(text=f"● {_status_options()[0][0]}", fg=ONLINE)
                 self._restore_status_prefs()
             except Exception:
                 _log.warning("Durum mesajı geri yüklenemedi", exc_info=True)
@@ -12169,22 +12200,22 @@ class MainWindow:
                 icon = ("🔒" if enc == "omemo" else
                         "🔑" if enc == "pgp" else "🔔")
                 badge = f" [{total}]" if total > 0 else ""
-                self.root.title(f"XMPP — {self.jid}{badge}  {icon}  {frm}")
+                self.root.title(_tr("XMPP — {}{}  {}  {}").format(self.jid, badge, icon, frm))
                 # Şifreli medya bağlantısı (aesgcm://) çözme anahtarı taşır:
                 # bildirim geçmişine düşmesin, yer tutucu gösterilir
                 notify_body = (_ai.strip_media_urls(body)
                                if "aesgcm://" in (body or "").lower() else body)
                 # Masaüstü bildirimi
                 if self._notify_enabled:
-                    _desktop_notify(f"Mesaj — {nick or frm}",
-                                    notify_body[:100] if notify_body else "Yeni mesaj")
+                    _desktop_notify(_tr("Mesaj — {}").format(nick or frm),
+                                    notify_body[:100] if notify_body else _tr("Yeni mesaj"))
                 # Bildirim sesi
                 if self._sound_enabled:
                     threading.Thread(target=self._play_notification_sound,
                                      daemon=True).start()
                 # Toast bildirim balonu
                 self._show_toast(f"💬 {nick or frm}",
-                                 notify_body[:80] if notify_body else "Yeni mesaj")
+                                 notify_body[:80] if notify_body else _tr("Yeni mesaj"))
 
         elif kind == "own_msg":
             # Aynı hesabın başka cihazından (ör. telefondaki Monocles)
@@ -12235,10 +12266,10 @@ class MainWindow:
                 lb.delete(0, "end")
                 jids.clear()
                 if err:
-                    lb.insert("end", f"  Arama hatası: {err[:60]}")
+                    lb.insert("end", _tr("  Arama hatası: {}").format(err[:60]))
                     jids.append(None)
                 elif not items:
-                    lb.insert("end", "  Sonuç bulunamadı")
+                    lb.insert("end", _tr("  Sonuç bulunamadı"))
                     jids.append(None)
                 else:
                     for item in items:
@@ -12424,7 +12455,7 @@ class MainWindow:
                 self._filter_sidebar()
             self._load_chat(room)
             self._show_members(room)
-            self._append(f"✓ {room} odasına katıldı", "sys")
+            self._append(_tr("✓ {} odasına katıldı").format(room), "sys")
             self._save_room(room)
 
         elif kind == "room_created":
@@ -12435,8 +12466,8 @@ class MainWindow:
 
         elif kind == "room_exists":
             self._append(
-                f"ℹ {data['room']} zaten vardı: mevcut odaya katıldınız, "
-                "ayarları değiştirilmedi.", "sys")
+                _tr("ℹ {} zaten vardı: mevcut odaya katıldınız, ayarları değiştirilmedi.")
+                .format(data['room']), "sys")
 
         elif kind == "room_left":
             room = data
@@ -12447,7 +12478,7 @@ class MainWindow:
             self._remove_room(room)
             if self.active == room:
                 self.active = None
-                self.chat_title.config(text="Bir kişi veya oda seçin")
+                self.chat_title.config(text=_tr("Bir kişi veya oda seçin"))
                 self._chat_shell.show_empty_state()
                 self._hide_members()
 
@@ -12477,7 +12508,7 @@ class MainWindow:
                     self._chat_subject.pack(anchor="w")
                     # [2G] Oda başına tek konu balonu: her stanza yeni balon
                     # EKLEMEZ; güncel konu eskisinin yerine geçer (sınırlı yol).
-                    self._show_room_subject(room, f"📌 Konu: {subject}")
+                    self._show_room_subject(room, _tr("📌 Konu: {}").format(subject))
                 else:
                     self._chat_subject.config(text="")
                     self._chat_subject.pack_forget()
@@ -12499,9 +12530,9 @@ class MainWindow:
             room   = data["room"]
             reason = data["reason"]
             ans = messagebox.askyesno(
-                "MUC Daveti",
-                f"{room} odasına davet edildiniz.\n"
-                f"Sebep: {reason or '—'}\n\nKabul et?",
+                _tr("MUC Daveti"),
+                _tr("{} odasına davet edildiniz.\nSebep: {}\n\nKabul et?")
+                .format(room, reason or '—'),
                 parent=self.root)
             if ans:
                 nick = self.jid.split("@")[0]
@@ -12511,8 +12542,8 @@ class MainWindow:
         elif kind == "subscribe_req":
             jid = data
             ans = messagebox.askyesno(
-                "Arkadaşlık İsteği",
-                f"{jid} sizi takip etmek istiyor.\nKabul et?",
+                _tr("Arkadaşlık İsteği"),
+                _tr("{} sizi takip etmek istiyor.\nKabul et?").format(jid),
                 parent=self.root)
             self.bot.approve_subscribe(jid, ans)
             if ans:
@@ -12524,7 +12555,7 @@ class MainWindow:
             self._refresh_contacts()
             if self.active == jid:
                 self.active = None
-                self.chat_title.config(text="Bir kişi veya oda seçin")
+                self.chat_title.config(text=_tr("Bir kişi veya oda seçin"))
                 self._chat_shell.show_empty_state()
 
         elif kind == "sys_msg":
@@ -12558,13 +12589,13 @@ class MainWindow:
         elif kind == "rooms_discover_failed":
             # Diyalog kapanmış ve açık sohbet olmayabilir: sys balonu
             # görünmezdi, bu yüzden her zaman görünür bilgi kutusu.
-            messagebox.showinfo("Oda Keşfi", data, parent=self.root)
+            messagebox.showinfo(_tr("Oda Keşfi"), data, parent=self.root)
 
         elif kind == "auth_failed":
             if self._conn_timeout_id:
                 self.root.after_cancel(self._conn_timeout_id)
                 self._conn_timeout_id = None
-            messagebox.showerror("Giriş Hatası", data, parent=self.root)
+            messagebox.showerror(_tr("Giriş Hatası"), data, parent=self.root)
             self._relogin = True
             self._quit()
 
@@ -12690,7 +12721,7 @@ class MainWindow:
                 self._refresh_reaction_rows(frm, target_id)
 
         elif kind == "error":
-            messagebox.showerror("Hata", data, parent=self.root)
+            messagebox.showerror(_tr("Hata"), data, parent=self.root)
 
         elif kind == "disconnected":
             # [2O] Bağlantı kopması: ters-alias registry oturum-yerelidir
@@ -12699,10 +12730,10 @@ class MainWindow:
             # sonuçlarını da öldürür: niyetler stale kalıp sonraki
             # yüklemeleri kilitlemesin diye temizlenir.
             self._history_mam_intent.clear()
-            self._append("⚠ Bağlantı kesildi", "sys")
+            self._append(_tr("⚠ Bağlantı kesildi"), "sys")
 
         elif kind == "conn_failed":
-            detail = str(data.get("error", "")) or "bilinmeyen hata"
+            detail = str(data.get("error", "")) or _tr("bilinmeyen hata")
             domain = str(data.get("domain", "") or "")
             port = data.get("port", 5222)
             where = data.get("address", "") or (
@@ -12710,17 +12741,17 @@ class MainWindow:
             first = detail != getattr(self, "_last_conn_error", "")
             self._last_conn_error = detail
             try:
-                self._status_label.config(text="⚠ Bağlanılamadı", fg=RED)
+                self._status_label.config(text=_tr("⚠ Bağlanılamadı"), fg=RED)
             except Exception:
                 pass
             self._append(
-                f"⚠ Bağlantı başarısız{(' (' + where + ')') if where else ''}: "
-                f"{detail}", "sys")
+                _tr("⚠ Bağlantı başarısız{}: {}")
+                .format((' (' + where + ')') if where else '', detail), "sys")
             now = time.time()
             if first or now - getattr(self, "_last_conn_toast_ts", 0.0) > 30:
                 self._last_conn_toast_ts = now
                 self._show_toast(
-                    f"⚠ {_t('disconnected')}",
+                    f"⚠ {_tr('Bağlantı kesildi')}",
                     f"{where + ' — ' if where else ''}{detail}")
 
     # ── Anket oluşturma ─────────────────────────────────────────────────────
@@ -12728,40 +12759,42 @@ class MainWindow:
         if not self.active or not self.bot:
             return
         dlg = tk.Toplevel(self.root)
-        dlg.title("📊 Anket Oluştur")
+        dlg.title(_tr("📊 Anket Oluştur"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("400x380")
         dlg.transient(self.root)
         _make_popover(dlg, form=True)
 
-        tk.Label(dlg, text="📊 Anket Oluştur", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("📊 Anket Oluştur"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
 
-        tk.Label(dlg, text="Soru:", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Soru:"), font=(FONT, 9),
                  fg=FG, bg=BG_CARD).pack(anchor="w", padx=16)
         q_var = tk.StringVar()
         ttk.Entry(dlg, textvariable=q_var, font=(FONT, 10)).pack(
             fill="x", padx=16, ipady=5, pady=(0, 8))
 
-        tk.Label(dlg, text="Seçenekler (her satır bir seçenek):", font=(FONT, 9),
+        tk.Label(dlg, text=_tr("Seçenekler (her satır bir seçenek):"), font=(FONT, 9),
                  fg=FG, bg=BG_CARD).pack(anchor="w", padx=16)
         opts_text = tk.Text(dlg, height=6, font=(FONT, 9), bg=BG_INPUT,
                             fg=FG, insertbackground=FG)
         opts_text.pack(fill="x", padx=16, pady=(0, 8))
-        opts_text.insert("1.0", "Evet\nHayır\nKararsızım")
+        opts_text.insert("1.0", _tr("Evet\nHayır\nKararsızım"))
 
         def _send_poll():
             question = q_var.get().strip()
             options = [opt.strip() for opt in opts_text.get("1.0", "end").strip().split("\n") if opt.strip()]
             if not question or len(options) < 2:
-                messagebox.showwarning("Anket", "Soru ve en az 2 seçenek gerekli", parent=dlg)
+                messagebox.showwarning(
+                    _tr("Anket"), _tr("Soru ve en az 2 seçenek gerekli"),
+                    parent=dlg)
                 return
             # Anketi emoji numaralarıyla mesaj olarak gönder
             lines = [f"📊 **{question}**", ""]
             emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"]
             for i, opt in enumerate(options[:9]):
                 lines.append(f"{emojis[i]} {opt}")
-            lines.append("\n💡 Oy vermek için ilgili emoji ile tepki ekleyin")
+            lines.append(_tr("\n💡 Oy vermek için ilgili emoji ile tepki ekleyin"))
             body = "\n".join(lines)
             mtype = "groupchat" if self.active in self.rooms else "chat"
             mid = _new_msg_id()
@@ -12774,7 +12807,7 @@ class MainWindow:
             self._append(body, "me", sender="Ben", is_me=True, mid=mid)
             dlg.destroy()
 
-        ttk.Button(dlg, text="📊 Anketi Gönder", command=_send_poll).pack(
+        ttk.Button(dlg, text=_tr("📊 Anketi Gönder"), command=_send_poll).pack(
             padx=16, pady=8, fill="x", ipady=4)
 
     # ── Hikaye/durum paylaşımı (PEP) ────────────────────────────────────────
@@ -12796,7 +12829,7 @@ class MainWindow:
             try:
                 data = _square_avatar_png(photo_path)
             except Exception as e:
-                messagebox.showerror("Hikaye", f"Fotoğraf okunamadı: {e}",
+                messagebox.showerror(_tr("Hikaye"), _tr("Fotoğraf okunamadı: {}").format(e),
                                      parent=self.root)
                 return
             old = self._avatars.get(self.jid)
@@ -12808,7 +12841,7 @@ class MainWindow:
             self._avatars[self.jid] = data
             _save_avatar_cache(self.jid, data)
             self._update_sidebar_avatar()
-        self._show_toast("📖 Hikaye", "Durum yayınlandı")
+        self._show_toast(_tr("📖 Hikaye"), _tr("Durum yayınlandı"))
 
     # ── Kişi kartı hover önizleme ────────────────────────────────────────────
     def _show_contact_card(self, event, jid):
@@ -12850,12 +12883,12 @@ class MainWindow:
     # ── Log görüntüleyici (XML debug) ────────────────────────────────────────
     def _log_viewer_dialog(self):
         dlg = tk.Toplevel(self.root)
-        dlg.title("📋 XMPP Log Görüntüleyici")
+        dlg.title(_tr("📋 XMPP Log Görüntüleyici"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("600x500")
         dlg.transient(self.root)
 
-        tk.Label(dlg, text="📋 XMPP XML Trafik Logu", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("📋 XMPP XML Trafik Logu"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
 
         # Log text widget
@@ -12877,9 +12910,10 @@ class MainWindow:
         self._log_active = True
 
         # Mevcut logları göster
-        log_text.insert("end", "── XMPP Debug Log ──\n", "info")
-        log_text.insert("end", f"Hesap: {self.jid}\n", "info")
-        log_text.insert("end", f"Bağlı: {self.bot.is_connected() if self.bot else False}\n\n", "info")
+        log_text.insert("end", _tr("── XMPP Debug Log ──\n"), "info")
+        log_text.insert("end", _tr("Hesap: {}\n").format(self.jid), "info")
+        log_text.insert("end", _tr("Bağlı: {}\n\n")
+                               .format(self.bot.is_connected() if self.bot else False), "info")
 
         # Slixmpp filter ile canlı izleme (filter'lar XMPP thread'inde çalışır)
         def _log_sent(stanza):
@@ -12888,7 +12922,7 @@ class MainWindow:
 
                 def _ui():
                     if dlg.winfo_exists():
-                        log_text.insert("end", f"→ SENT:\n{xml_str}\n\n", "sent")
+                        log_text.insert("end", _tr("→ SENT:\n{}\n\n").format(xml_str), "sent")
                         log_text.see("end")
                 self._safe_after(0, _ui)
             return stanza
@@ -12899,7 +12933,7 @@ class MainWindow:
 
                 def _ui():
                     if dlg.winfo_exists():
-                        log_text.insert("end", f"← RECV:\n{xml_str}\n\n", "recv")
+                        log_text.insert("end", _tr("← RECV:\n{}\n\n").format(xml_str), "recv")
                         log_text.see("end")
                 self._safe_after(0, _ui)
             return stanza
@@ -12909,7 +12943,7 @@ class MainWindow:
             self.bot.add_filter('in', _log_recv)
             self._log_filters = (_log_sent, _log_recv)
         except Exception:
-            log_text.insert("end", "⚠ Filter eklenemedi\n", "error")
+            log_text.insert("end", _tr("⚠ Filter eklenemedi\n"), "error")
 
         btn_f = tk.Frame(dlg, bg=BG_CARD)
         btn_f.pack(fill="x", padx=16, pady=8)
@@ -12945,9 +12979,9 @@ class MainWindow:
             _cleanup_filters()
             dlg.destroy()
 
-        ttk.Button(btn_f, text="🗑 Temizle", command=_clear).pack(side="left", padx=4)
-        ttk.Button(btn_f, text="📤 Dışa Aktar", command=_export).pack(side="left", padx=4)
-        ttk.Button(btn_f, text="Kapat", command=_close).pack(side="right", padx=4)
+        ttk.Button(btn_f, text=_tr("🗑 Temizle"), command=_clear).pack(side="left", padx=4)
+        ttk.Button(btn_f, text=_tr("📤 Dışa Aktar"), command=_export).pack(side="left", padx=4)
+        ttk.Button(btn_f, text=_tr("Kapat"), command=_close).pack(side="right", padx=4)
 
         dlg.protocol("WM_DELETE_WINDOW", _close)
         # Pencere ebeveynle birlikte yok edilirse filtreler sızmasın
@@ -13179,7 +13213,8 @@ class MainWindow:
                 _log.error("REST API başlatılamadı (port=%d)", port, exc_info=True)
                 try:
                     self._safe_after(0, lambda err=str(e): messagebox.showerror(
-                        "REST API", f"Sunucu başlatılamadı (port {port}):\n{err}",
+                        _tr("REST API"), _tr("Sunucu başlatılamadı (port {}):\n{}")
+                                         .format(port, err),
                         parent=self.root))
                 except Exception:
                     pass
@@ -13216,30 +13251,30 @@ class MainWindow:
 
     def _rest_api_dialog(self):
         dlg = tk.Toplevel(self.root)
-        dlg.title("🌐 REST API")
+        dlg.title(_tr("🌐 REST API"))
         dlg.configure(bg=BG_CARD)
         dlg.geometry("420x340")
         dlg.transient(self.root)
         _make_popover(dlg, form=True)
 
-        tk.Label(dlg, text="🌐 REST API", font=(FONT, 12, "bold"),
+        tk.Label(dlg, text=_tr("🌐 REST API"), font=(FONT, 12, "bold"),
                  fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 8))
 
         port_var = tk.IntVar(value=getattr(self, '_api_port', 8099))
         pf = tk.Frame(dlg, bg=BG_CARD)
         pf.pack(fill="x", padx=16)
-        tk.Label(pf, text="Port:", font=(FONT, 9), fg=FG, bg=BG_CARD).pack(side="left")
+        tk.Label(pf, text=_tr("Port:"), font=(FONT, 9), fg=FG, bg=BG_CARD).pack(side="left")
         ttk.Entry(pf, textvariable=port_var, width=8, font=(FONT, 10)).pack(
             side="left", padx=(8, 0))
 
         api_err = getattr(self, '_api_error', None)
         running = getattr(self, '_api_server', None) is not None and not api_err
         if api_err:
-            _status_text, _status_fg = f"🔴 Hata: {api_err}", RED
+            _status_text, _status_fg = _tr("🔴 Hata: {}").format(api_err), RED
         elif running:
-            _status_text, _status_fg = "🟢 Çalışıyor", ONLINE
+            _status_text, _status_fg = _tr("🟢 Çalışıyor"), ONLINE
         else:
-            _status_text, _status_fg = "⚫ Durduruldu", FG_DIM
+            _status_text, _status_fg = _tr("⚫ Durduruldu"), FG_DIM
         status = tk.Label(dlg, text=_status_text, font=(FONT, 9, "bold"),
                           fg=_status_fg, bg=BG_CARD, wraplength=380)
         status.pack(pady=8)
@@ -13248,7 +13283,7 @@ class MainWindow:
         token_var = tk.StringVar(value=getattr(self, '_api_token', '—'))
         tf = tk.Frame(dlg, bg=BG_CARD)
         tf.pack(fill="x", padx=16, pady=(0, 8))
-        tk.Label(tf, text="Token:", font=(FONT, 9), fg=FG, bg=BG_CARD).pack(side="left")
+        tk.Label(tf, text=_tr("Token:"), font=(FONT, 9), fg=FG, bg=BG_CARD).pack(side="left")
         token_entry = ttk.Entry(tf, textvariable=token_var, width=30, font=(FONT_MONO, 8),
                                 state="readonly")
         token_entry.pack(side="left", padx=(8, 4))
@@ -13259,7 +13294,7 @@ class MainWindow:
 
         def _start():
             self._start_rest_api(port_var.get())
-            status.config(text="⏳ Başlatılıyor…", fg=AWAY)
+            status.config(text=_tr("⏳ Başlatılıyor…"), fg=AWAY)
             token_var.set(getattr(self, '_api_token', '—'))
 
             def _check_status():
@@ -13267,25 +13302,25 @@ class MainWindow:
                     return
                 err = getattr(self, '_api_error', None)
                 if err:
-                    status.config(text=f"🔴 Hata: {err}", fg=RED)
+                    status.config(text=_tr("🔴 Hata: {}").format(err), fg=RED)
                 elif getattr(self, '_api_server', None) is not None:
-                    status.config(text="🟢 Çalışıyor", fg=ONLINE)
+                    status.config(text=_tr("🟢 Çalışıyor"), fg=ONLINE)
                 elif getattr(self, '_api_starting', False):
                     _after_alive(dlg, 500, _check_status)
                 else:
-                    status.config(text="⚫ Durduruldu", fg=FG_DIM)
+                    status.config(text=_tr("⚫ Durduruldu"), fg=FG_DIM)
 
             _after_alive(dlg, 500, _check_status)
 
         def _stop():
-            status.config(text="⏳ Durduruluyor…", fg=AWAY)
+            status.config(text=_tr("⏳ Durduruluyor…"), fg=AWAY)
 
             def _done():
                 if dlg.winfo_exists():
                     if getattr(self, "_api_stopping", False):
                         self._safe_after(100, _done)
                     else:
-                        status.config(text="⚫ Durduruldu", fg=FG_DIM)
+                        status.config(text=_tr("⚫ Durduruldu"), fg=FG_DIM)
 
             def _worker():
                 self._stop_api_server()
@@ -13295,18 +13330,18 @@ class MainWindow:
 
         btn_f = tk.Frame(dlg, bg=BG_CARD)
         btn_f.pack(pady=8)
-        ttk.Button(btn_f, text="▶ Başlat", command=_start).pack(side="left", padx=4)
-        ttk.Button(btn_f, text="⏹ Durdur", command=_stop).pack(side="left", padx=4)
+        ttk.Button(btn_f, text=_tr("▶ Başlat"), command=_start).pack(side="left", padx=4)
+        ttk.Button(btn_f, text=_tr("⏹ Durdur"), command=_stop).pack(side="left", padx=4)
 
         # API endpoints
-        tk.Label(dlg, text="API Endpoints:", font=(FONT, 9, "bold"),
+        tk.Label(dlg, text=_tr("API Endpoints:"), font=(FONT, 9, "bold"),
                  fg=FG, bg=BG_CARD).pack(anchor="w", padx=16, pady=(12, 4))
         endpoints = [
-            ("GET", "/api/status", "Bağlantı durumu"),
-            ("GET", "/api/contacts", "Kişi listesi"),
-            ("GET", "/api/rooms", "Oda listesi"),
-            ("GET", "/api/messages/{jid}", "Mesaj geçmişi"),
-            ("POST", "/api/send", "Mesaj gönder {to, message}"),
+            ("GET", "/api/status", _tr("Bağlantı durumu")),
+            ("GET", "/api/contacts", _tr("Kişi listesi")),
+            ("GET", "/api/rooms", _tr("Oda listesi")),
+            ("GET", "/api/messages/{jid}", _tr("Mesaj geçmişi")),
+            ("POST", "/api/send", _tr("Mesaj gönder {to, message}")),
         ]
         for method, path, desc in endpoints:
             row = tk.Frame(dlg, bg=BG_CARD, padx=16)
@@ -13323,7 +13358,7 @@ class MainWindow:
         self._conn_timeout_id = None
         if self.bot._connected_ok:
             return  # Zaten bağlandı
-        detail = getattr(self, "_last_conn_error", "") or "bilinmeyen hata"
+        detail = getattr(self, "_last_conn_error", "") or _tr("bilinmeyen hata")
         domain = str(getattr(self.bot, "default_domain", "") or "")
         port = getattr(self.bot, "default_port", 5222)
         addr = ""
@@ -13331,13 +13366,11 @@ class MainWindow:
         if ca:
             addr = f" ({ca[0]}:{ca[1]})"
         keep = messagebox.askyesno(
-            "Bağlantı Kurulamadı",
-            "20 saniye içinde sunucuya bağlanılamadı.\n\n"
-            f"Sunucu: {domain}:{port}{addr}\n"
-            f"Son hata: {detail}\n\n"
-            "Arka planda yeniden bağlanma denemeleri sürüyor.\n"
-            "Denemeye devam edilsin mi?\n"
-            "(\"Hayır\" → giriş ekranına dönülür)",
+            _tr("Bağlantı Kurulamadı"),
+            _tr("20 saniye içinde sunucuya bağlanılamadı.\n\nSunucu: {}:{}{}\nSon "
+                "hata: {}\n\nArka planda yeniden bağlanma denemeleri "
+                "sürüyor.\nDenemeye devam edilsin mi?\n(\"Hayır\" → giriş ekranına "
+                "dönülür)").format(domain, port, addr, detail),
             parent=self.root)
         if keep:
             return
@@ -13351,7 +13384,7 @@ class MainWindow:
     def _on_close_request(self):
         """Kapatma tuşuna basınca seçenek diyalogu göster."""
         dlg = tk.Toplevel(self.root)
-        dlg.title("Kapat")
+        dlg.title(_tr("Kapat"))
         dlg.configure(bg=BG)
         dlg.resizable(False, False)
         dlg.transient(self.root)
@@ -13380,7 +13413,7 @@ class MainWindow:
                            e.width * 0.2, 0, e.width * 0.8, 3,
                            fill=ACCENT2, outline="")))
 
-        tk.Label(inner, text="Ne yapmak istiyorsun?",
+        tk.Label(inner, text=_tr("Ne yapmak istiyorsun?"),
                  font=(FONT, 12, "bold"), fg=FG, bg=BG_CARD).pack(pady=(24, 20))
 
         btn_f = tk.Frame(inner, bg=BG_CARD)
@@ -13394,11 +13427,11 @@ class MainWindow:
             dlg.destroy()
             self._quit()
 
-        ttk.Button(btn_f, text="  Gizle (Tepsiye)  ",
+        ttk.Button(btn_f, text=_tr("  Gizle (Tepsiye)  "),
                    command=_hide, style="Ghost.TButton").pack(fill="x", pady=4)
-        ttk.Button(btn_f, text="  Uygulamadan Cik  ",
+        ttk.Button(btn_f, text=_tr("  Uygulamadan Cik  "),
                    command=_quit, style="Danger.TButton").pack(fill="x", pady=4)
-        ttk.Button(btn_f, text="  Iptal  ",
+        ttk.Button(btn_f, text=_tr("  Iptal  "),
                    command=dlg.destroy, style="Small.TButton").pack(fill="x", pady=4)
 
         dlg.bind("<Escape>", lambda _: dlg.destroy())
@@ -13418,11 +13451,11 @@ class MainWindow:
             cfg.pop("server", None)
             cfg.pop("port", None)
             _save_config(cfg)
-            self._show_toast("🔁 Hesap Değişimi",
-                             f"{jid} hesabına geçiliyor…")
+            self._show_toast(_tr("🔁 Hesap Değişimi"),
+                             _tr("{} hesabına geçiliyor…").format(jid))
             self._after(800, self._switch_and_relogin)
         except Exception as e:
-            messagebox.showerror("Hesap", f"Hesap değiştirilemedi: {e}",
+            messagebox.showerror(_tr("Hesap"), _tr("Hesap değiştirilemedi: {}").format(e),
                                  parent=self.root)
 
     def _apply_login_prefs(self, cfg: dict, remember: bool, auto_login: bool):
@@ -13610,13 +13643,13 @@ def start(jid: str, password: str, port: int = 5222, server: str = ""):
         except Exception as e:
             _log.error("XMPP thread'i beklenmedik şekilde durdu", exc_info=True)
             try:
-                gui_q.put(("error", f"XMPP bağlantı thread'i durdu: {e}"))
+                gui_q.put(("error", _tr("XMPP bağlantı thread'i durdu: {}").format(e)))
             except Exception:
                 pass
         finally:
             _shutdown_loop(loop)
 
-    gui_q.put(("sys_msg", f"Bağlanıyor… {jid}"))
+    gui_q.put(("sys_msg", _tr("Bağlanıyor… {}").format(jid)))
     t = threading.Thread(target=run_xmpp, daemon=True)
     t.start()
 
@@ -13643,14 +13676,14 @@ def _check_pin_lock():
     if not pin:
         return True
     root = tk.Tk()
-    root.title("🔑 Uygulama Kilidi")
+    root.title(_tr("🔑 Uygulama Kilidi"))
     root.geometry("300x180")
     root.configure(bg=BG)
     root.resizable(False, False)
     _apply_theme()
 
     result = [False]
-    tk.Label(root, text="🔑 PIN Girin", font=(FONT, 14, "bold"),
+    tk.Label(root, text=_tr("🔑 PIN Girin"), font=(FONT, 14, "bold"),
              fg=FG, bg=BG).pack(pady=(24, 12))
     pin_var = tk.StringVar()
     entry = ttk.Entry(root, textvariable=pin_var, show="●",
@@ -13670,11 +13703,11 @@ def _check_pin_lock():
             result[0] = True
             root.destroy()
         else:
-            err_lbl.config(text="Yanlış PIN")
+            err_lbl.config(text=_tr("Yanlış PIN"))
             pin_var.set("")
 
     entry.bind("<Return>", _check)
-    ttk.Button(root, text="Giriş", command=_check).pack(pady=8)
+    ttk.Button(root, text=_tr("Giriş"), command=_check).pack(pady=8)
     root.protocol("WM_DELETE_WINDOW", root.destroy)
     root.mainloop()
     return result[0]

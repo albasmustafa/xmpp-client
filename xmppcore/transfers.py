@@ -14,6 +14,7 @@ import os
 
 from xmppcore import aesgcm as _aesgcm
 from xmppcore.helpers import _get_xep
+from xmppcore.i18n import tr as _tr
 
 
 def _encrypt_file(filepath):
@@ -41,7 +42,7 @@ class TransferMixin:
             self.gui_q.put(("file_uploaded", {"url": str(url), "path": filepath,
                              "cb": callback, "encrypted": bool(encrypt)}))
         except Exception as e:
-            self.gui_q.put(("error", f"Dosya yükleme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Dosya yükleme hatası: {}").format(e)))
 
     def send_file(self, to, filepath, mtype="chat", encryption="none"):
         """Dosyayı HTTP Upload ile yükleyip gönder: düz → OOB mesaj,
@@ -57,7 +58,7 @@ class TransferMixin:
                     return
                 url = await self._upload_encrypted(filepath)
                 self.gui_q.put(("sys_msg",
-                                f"🔒 Dosya şifreli yüklendi: {fname}"))
+                                _tr("🔒 Dosya şifreli yüklendi: {}").format(fname)))
                 # Gönderim sonucu (hata dahil) _send_omemo'nun kendi olaylarıdır
                 await self._send_omemo(to, url, mtype)
                 return
@@ -67,9 +68,9 @@ class TransferMixin:
             msg = self.make_message(mto=to, mbody=url, mtype=mtype)
             msg["oob"]["url"] = url
             msg.send()
-            self.gui_q.put(("sys_msg", f"✓ Dosya gönderildi: {fname}"))
+            self.gui_q.put(("sys_msg", _tr("✓ Dosya gönderildi: {}").format(fname)))
         except Exception as e:
-            self.gui_q.put(("error", f"Dosya gönderme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Dosya gönderme hatası: {}").format(e)))
 
     # ── Şifreli yükleme (XEP-0454) ───────────────────────────────────────────
     def _omemo_file_ready(self):
@@ -77,13 +78,13 @@ class TransferMixin:
         şifresiz yüklemeye düşmek sohbetin şifreleme seçimini çiğner."""
         if not self._omemo_enabled():
             self.gui_q.put(("error",
-                "OMEMO kütüphanesi yüklü değil (slixmpp-omemo) — dosya "
-                "gönderilmedi."))
+                _tr("OMEMO kütüphanesi yüklü değil (slixmpp-omemo) — dosya "
+                    "gönderilmedi.")))
             return False
         if not self.omemo_ready:
             self.gui_q.put(("error",
-                "OMEMO henüz hazır değil — dosya gönderilmedi; birkaç "
-                "saniye sonra tekrar deneyin."))
+                _tr("OMEMO henüz hazır değil — dosya gönderilmedi; birkaç "
+                    "saniye sonra tekrar deneyin.")))
             return False
         return True
 

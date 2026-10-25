@@ -9,6 +9,11 @@ from tkinter import simpledialog, ttk
 from ui.dialogs.simple import _app
 
 
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
+
 def ask_edit_message(parent, title, prompt, initial):
     """Mesaj düzenleme girdisi (MainWindow._edit_message_dialog).
 
@@ -26,13 +31,13 @@ def show_forward(parent, contacts, rooms, body, sender, on_forward):
     """
     A = _app()
     pop = tk.Toplevel(parent)
-    pop.title("Mesajı İlet")
+    pop.title(_tr("Mesajı İlet"))
     pop.configure(bg=A.BG_CARD)
     pop.geometry("320x400")
     pop.transient(parent)
     A._make_popover(pop)
 
-    tk.Label(pop, text="İletilecek kişi/oda seçin:",
+    tk.Label(pop, text=_tr("İletilecek kişi/oda seçin:"),
              fg=A.FG, bg=A.BG_CARD, font=(A.FONT, 10, "bold")).pack(
                  padx=16, pady=(16, 8), anchor="w")
 
@@ -68,5 +73,5 @@ def show_forward(parent, contacts, rooms, body, sender, on_forward):
         on_forward(to, mtype)
         pop.destroy()
 
-    ttk.Button(pop, text="İlet", command=do_forward).pack(
+    ttk.Button(pop, text=_tr("İlet"), command=do_forward).pack(
         padx=16, pady=(0, 16))

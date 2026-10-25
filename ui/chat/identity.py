@@ -5,6 +5,10 @@ network/thread/after/queue/async YOKTUR. State sahipliği çağırandadır.
 """
 import tkinter as tk
 
+# Arayüz metni çevirisi: xmpp içe aktarılınca `xmpp._tr` takılır
+# (ui/chat yalnız tkinter/collections içe aktarır)
+_tr = str
+
 
 def find_row_by_mid(rows, mid):
     """mid → ilk eşleşen row (mevcut doğrusal tarama semantiği)."""
@@ -73,7 +77,7 @@ def apply_retraction_to_row(row, body, *, formatter, theme, clear_reactions):
     """Rendered row'a retraction görsel mutasyonu (state maps'e dokunmaz)."""
     row._body = body
     row._retracted = True
-    update_bubble_text(row, body, retracted=True, formatter=formatter,
+    update_bubble_text(row, _tr(body), retracted=True, formatter=formatter,
                        theme=theme)
     clear_reactions(row)
 

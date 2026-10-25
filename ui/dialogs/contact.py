@@ -15,6 +15,11 @@ from ui.timers import after_alive
 from xmppcore.helpers import _normalize_user_jid
 
 
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
+
 def show_contact_groups(parent, contacts, groups, on_save):
     """Kişi grupları yönetim penceresi (MainWindow._contact_groups_dialog).
 
@@ -23,12 +28,12 @@ def show_contact_groups(parent, contacts, groups, on_save):
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Kişi Grupları")
+    dlg.title(_tr("Kişi Grupları"))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("420x400")
     dlg.transient(parent)
 
-    tk.Label(dlg, text="🏷 Kişi Grupları", font=(A.FONT, 12, "bold"),
+    tk.Label(dlg, text=_tr("🏷 Kişi Grupları"), font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 8))
 
     list_f = tk.Frame(dlg, bg=A.BG_CARD)
@@ -54,29 +59,29 @@ def show_contact_groups(parent, contacts, groups, on_save):
                 tk.Label(gf, text=f"  • {name}", font=(A.FONT, 7),
                          fg=A.FG_DIM, bg=A.BG_HOVER).pack(anchor="w")
         if not groups:
-            tk.Label(list_f, text="Henüz grup yok",
+            tk.Label(list_f, text=_tr("Henüz grup yok"),
                      font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w")
 
     _refresh()
 
     def _add_group():
-        name = simpledialog.askstring("Grup Ekle", "Grup adı:", parent=dlg)
+        name = simpledialog.askstring(_tr("Grup Ekle"), _tr("Grup adı:"), parent=dlg)
         if name and name.strip():
             groups[name.strip()] = []
             _refresh()
 
     def _add_to_group():
         if not groups:
-            messagebox.showinfo("Bilgi", "Önce bir grup oluşturun", parent=dlg)
+            messagebox.showinfo(_tr("Bilgi"), _tr("Önce bir grup oluşturun"), parent=dlg)
             return
         pop2 = tk.Toplevel(dlg)
-        pop2.title("Gruba Ekle")
+        pop2.title(_tr("Gruba Ekle"))
         pop2.configure(bg=A.BG_CARD)
         pop2.geometry("300x300")
         pop2.transient(dlg)
         A._make_popover(pop2, form=True)
 
-        tk.Label(pop2, text="Grup:", font=(A.FONT, 9),
+        tk.Label(pop2, text=_tr("Grup:"), font=(A.FONT, 9),
                  fg=A.FG_DIM, bg=A.BG_CARD).pack(anchor="w", padx=12, pady=(12, 0))
         grp_var = tk.StringVar(value=list(groups.keys())[0])
         ttk.Combobox(pop2, textvariable=grp_var,
@@ -101,21 +106,21 @@ def show_contact_groups(parent, contacts, groups, on_save):
             pop2.destroy()
             _refresh()
 
-        ttk.Button(pop2, text="Ekle", command=_do_add).pack(
+        ttk.Button(pop2, text=_tr("Ekle"), command=_do_add).pack(
             fill="x", padx=12, ipady=4, pady=8)
 
     btn_f = tk.Frame(dlg, bg=A.BG_CARD, padx=16)
     btn_f.pack(fill="x", pady=8)
-    ttk.Button(btn_f, text="+ Yeni Grup", command=_add_group).pack(
+    ttk.Button(btn_f, text=_tr("+ Yeni Grup"), command=_add_group).pack(
         side="left", padx=(0, 6))
-    ttk.Button(btn_f, text="+ Kişi Ekle", command=_add_to_group).pack(
+    ttk.Button(btn_f, text=_tr("+ Kişi Ekle"), command=_add_to_group).pack(
         side="left")
 
     def _save_groups():
         on_save(groups)
         dlg.destroy()
 
-    ttk.Button(btn_f, text="Kaydet", command=_save_groups).pack(side="right")
+    ttk.Button(btn_f, text=_tr("Kaydet"), command=_save_groups).pack(side="right")
     # Pencere X ile ya da dışarı tıklanarak kapatılsa bile değişiklikler
     # kaybolmasın
     def _close():
@@ -149,14 +154,14 @@ def show_add_contact(parent, contacts, presence, default_server,
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Yeni Sohbet")
+    dlg.title(_tr("Yeni Sohbet"))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("420x460")
     dlg.resizable(False, True)
     dlg.transient(parent)
     A._make_popover(dlg, form=True)
 
-    tk.Label(dlg, text="Yeni Sohbet", font=(A.FONT, 14, "bold"),
+    tk.Label(dlg, text=_tr("Yeni Sohbet"), font=(A.FONT, 14, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(anchor="w", padx=20, pady=(16, 0))
 
     nb = ttk.Notebook(dlg)
@@ -164,19 +169,19 @@ def show_add_contact(parent, contacts, presence, default_server,
 
     # ── Sekme 1: JID Gir ──
     t1 = tk.Frame(nb, bg=A.BG_CARD, padx=20, pady=16)
-    nb.add(t1, text="  JID Gir  ")
+    nb.add(t1, text=_tr("  JID Gir  "))
 
-    tk.Label(t1, text="Bir XMPP adresi girerek doğrudan sohbet\n"
-                      "başlatabilir veya abonelik isteği gönderebilirsiniz.",
+    tk.Label(t1, text=_tr("Bir XMPP adresi girerek doğrudan sohbet\n"
+                          "başlatabilir veya abonelik isteği gönderebilirsiniz."),
              fg=A.FG_DIM, bg=A.BG_CARD,
              font=(A.FONT, 8), justify="left").pack(anchor="w", pady=(0, 12))
 
-    tk.Label(t1, text="JID (XMPP Adresi)", fg=A.FG_DIM, bg=A.BG_CARD,
+    tk.Label(t1, text=_tr("JID (XMPP Adresi)"), fg=A.FG_DIM, bg=A.BG_CARD,
              font=(A.FONT, 7, "bold")).pack(anchor="w")
     jid_var = tk.StringVar()
     inp_b = tk.Frame(t1, bg=A.BORDER, padx=1, pady=1)
     inp_b.pack(fill="x", pady=(4, 4))
-    e = A.PlaceholderEntry(inp_b, placeholder="kullanici@sunucu.tld",
+    e = A.PlaceholderEntry(inp_b, placeholder=_tr("kullanici@sunucu.tld"),
                            textvariable=jid_var,
                            font=(A.FONT, 10), style="Modern.TEntry")
     e.pack(fill="x", ipady=7, padx=2, pady=2)
@@ -207,18 +212,18 @@ def show_add_contact(parent, contacts, presence, default_server,
 
     bf = tk.Frame(t1, bg=A.BG_CARD)
     bf.pack(fill="x", pady=(12, 0))
-    ttk.Button(bf, text="  Sohbet Başlat  ",
+    ttk.Button(bf, text=_tr("  Sohbet Başlat  "),
                command=_open_chat).pack(side="left", ipadx=8, ipady=4)
-    ttk.Button(bf, text="  Kişi Olarak Ekle  ",
+    ttk.Button(bf, text=_tr("  Kişi Olarak Ekle  "),
                command=_subscribe).pack(side="right", ipadx=8, ipady=4)
     e.bind("<Return>", _open_chat)
 
     # ── Sekme 2: Kişiler ──
     t_contacts = tk.Frame(nb, bg=A.BG_CARD, padx=20, pady=12)
-    nb.add(t_contacts, text="  Kişiler  ")
+    nb.add(t_contacts, text=_tr("  Kişiler  "))
 
-    tk.Label(t_contacts, text="Mevcut kişilerinizden birini seçerek\n"
-                              "sohbet başlatabilirsiniz.",
+    tk.Label(t_contacts, text=_tr("Mevcut kişilerinizden birini seçerek\n"
+                                  "sohbet başlatabilirsiniz."),
              fg=A.FG_DIM, bg=A.BG_CARD, font=(A.FONT, 8),
              justify="left").pack(anchor="w", pady=(0, 8))
 
@@ -226,7 +231,7 @@ def show_add_contact(parent, contacts, presence, default_server,
     filter_var = tk.StringVar()
     filter_b = tk.Frame(t_contacts, bg=A.BORDER, padx=1, pady=1)
     filter_b.pack(fill="x", pady=(0, 6))
-    fe = A.PlaceholderEntry(filter_b, placeholder="Filtrele...",
+    fe = A.PlaceholderEntry(filter_b, placeholder=_tr("Filtrele..."),
                             textvariable=filter_var,
                             font=(A.FONT, 9), style="Modern.TEntry")
     fe.pack(fill="x", ipady=3, padx=1, pady=1)
@@ -272,15 +277,15 @@ def show_add_contact(parent, contacts, presence, default_server,
 
     cbf = tk.Frame(t_contacts, bg=A.BG_CARD)
     cbf.pack(fill="x")
-    ttk.Button(cbf, text="  Sohbet Başlat  ",
+    ttk.Button(cbf, text=_tr("  Sohbet Başlat  "),
                command=_pick_contact).pack(side="right", ipadx=8, ipady=4)
 
     # ── Sekme 3: Kullanıcı Ara ──
     t2 = tk.Frame(nb, bg=A.BG_CARD, padx=20, pady=12)
-    nb.add(t2, text="  Kullanıcı Ara  ")
+    nb.add(t2, text=_tr("  Kullanıcı Ara  "))
 
-    tk.Label(t2, text="Sunucuda kullanıcı arayın (XEP-0055).\n"
-                      "Tüm sunucular bu özelliği desteklemeyebilir.",
+    tk.Label(t2, text=_tr("Sunucuda kullanıcı arayın (XEP-0055).\n"
+                          "Tüm sunucular bu özelliği desteklemeyebilir."),
              fg=A.FG_DIM, bg=A.BG_CARD, font=(A.FONT, 8),
              justify="left").pack(anchor="w", pady=(0, 8))
 
@@ -290,18 +295,18 @@ def show_add_contact(parent, contacts, presence, default_server,
     sf = tk.Frame(t2, bg=A.BG_CARD)
     sf.pack(fill="x")
     sf.columnconfigure(1, weight=1)
-    tk.Label(sf, text="Sunucu:", font=(A.FONT, 8), fg=A.FG_DIM,
+    tk.Label(sf, text=_tr("Sunucu:"), font=(A.FONT, 8), fg=A.FG_DIM,
              bg=A.BG_CARD).grid(row=0, column=0, sticky="w")
     srv_b = tk.Frame(sf, bg=A.BORDER, padx=1, pady=1)
     srv_b.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=2)
     ttk.Entry(srv_b, textvariable=srv_var, font=(A.FONT, 9),
               style="Modern.TEntry").pack(fill="x", ipady=3, padx=1, pady=1)
 
-    tk.Label(sf, text="Arama:", font=(A.FONT, 8), fg=A.FG_DIM,
+    tk.Label(sf, text=_tr("Arama:"), font=(A.FONT, 8), fg=A.FG_DIM,
              bg=A.BG_CARD).grid(row=1, column=0, sticky="w")
     q_b = tk.Frame(sf, bg=A.BORDER, padx=1, pady=1)
     q_b.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=2)
-    qe = A.PlaceholderEntry(q_b, placeholder="İsim veya JID...",
+    qe = A.PlaceholderEntry(q_b, placeholder=_tr("İsim veya JID..."),
                             textvariable=q_var,
                             font=(A.FONT, 9), style="Modern.TEntry")
     qe.pack(fill="x", ipady=3, padx=1, pady=1)
@@ -323,7 +328,7 @@ def show_add_contact(parent, contacts, presence, default_server,
             return
         s_list.delete(0, "end")
         _s_jids.clear()
-        s_list.insert("end", "  Aranıyor…")
+        s_list.insert("end", _tr("  Aranıyor…"))
         _s_jids.append(None)
         on_search(srv, q)
 
@@ -339,9 +344,9 @@ def show_add_contact(parent, contacts, presence, default_server,
 
     sbf = tk.Frame(t2, bg=A.BG_CARD)
     sbf.pack(fill="x")
-    ttk.Button(sbf, text="  Ara  ", command=_do_search).pack(
+    ttk.Button(sbf, text=_tr("  Ara  "), command=_do_search).pack(
         side="left", ipadx=8, ipady=4)
-    ttk.Button(sbf, text="  Sohbet Başlat  ",
+    ttk.Button(sbf, text=_tr("  Sohbet Başlat  "),
                command=_pick_from_search).pack(side="right", ipadx=8, ipady=4)
 
     dlg.lift()
@@ -360,15 +365,15 @@ def show_search_users(parent, default_server, on_search, on_start_chat):
     """
     A = _app()
     dlg = tk.Toplevel(parent)
-    dlg.title("Kullanıcı Ara")
+    dlg.title(_tr("Kullanıcı Ara"))
     dlg.configure(bg=A.BG_CARD)
     dlg.geometry("460x420")
     dlg.transient(parent)
     A._make_popover(dlg)
 
-    tk.Label(dlg, text="🔍  Kullanıcı Ara", font=(A.FONT, 12, "bold"),
+    tk.Label(dlg, text=_tr("🔍  Kullanıcı Ara"), font=(A.FONT, 12, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=16, pady=(16, 4), anchor="w")
-    tk.Label(dlg, text="Sunucuda kullanıcı arayın (XEP-0055)",
+    tk.Label(dlg, text=_tr("Sunucuda kullanıcı arayın (XEP-0055)"),
              font=(A.FONT, 8), fg=A.FG_DIM, bg=A.BG_CARD).pack(
                  padx=16, anchor="w")
 
@@ -378,18 +383,18 @@ def show_search_users(parent, default_server, on_search, on_start_chat):
     server_var = tk.StringVar(value=default_server)
     query_var = tk.StringVar()
 
-    tk.Label(inp, text="Sunucu:", font=(A.FONT, 8), fg=A.FG_DIM,
+    tk.Label(inp, text=_tr("Sunucu:"), font=(A.FONT, 8), fg=A.FG_DIM,
              bg=A.BG_CARD).pack(anchor="w")
     sb = tk.Frame(inp, bg=A.BORDER, padx=1, pady=1)
     sb.pack(fill="x", pady=(2, 6))
     ttk.Entry(sb, textvariable=server_var, font=(A.FONT, 10),
               style="Modern.TEntry").pack(fill="x", ipady=5, padx=2, pady=2)
 
-    tk.Label(inp, text="Arama:", font=(A.FONT, 8), fg=A.FG_DIM,
+    tk.Label(inp, text=_tr("Arama:"), font=(A.FONT, 8), fg=A.FG_DIM,
              bg=A.BG_CARD).pack(anchor="w")
     qb = tk.Frame(inp, bg=A.BORDER, padx=1, pady=1)
     qb.pack(fill="x", pady=(2, 0))
-    qe = A.PlaceholderEntry(qb, placeholder="İsim veya JID...",
+    qe = A.PlaceholderEntry(qb, placeholder=_tr("İsim veya JID..."),
                             textvariable=query_var,
                             font=(A.FONT, 10), style="Modern.TEntry")
     qe.pack(fill="x", ipady=5, padx=2, pady=2)
@@ -408,7 +413,7 @@ def show_search_users(parent, default_server, on_search, on_start_chat):
         if q and srv:
             result_list.delete(0, "end")
             _jids.clear()
-            result_list.insert("end", "  Aranıyor…")
+            result_list.insert("end", _tr("  Aranıyor…"))
             on_search(srv, q)
 
     def _start_chat():
@@ -419,12 +424,12 @@ def show_search_users(parent, default_server, on_search, on_start_chat):
             on_start_chat(jid)
 
     qe.bind("<Return>", _search)
-    ttk.Button(dlg, text="Ara", command=_search).pack(padx=16, pady=(0, 4))
+    ttk.Button(dlg, text=_tr("Ara"), command=_search).pack(padx=16, pady=(0, 4))
 
     btn_f = tk.Frame(dlg, bg=A.BG_CARD)
     btn_f.pack(fill="x", padx=16, pady=(0, 12))
-    ttk.Button(btn_f, text="Sohbet Başlat", command=_start_chat).pack(side="left")
-    ttk.Button(btn_f, text="Kapat", command=dlg.destroy).pack(side="right")
+    ttk.Button(btn_f, text=_tr("Sohbet Başlat"), command=_start_chat).pack(side="left")
+    ttk.Button(btn_f, text=_tr("Kapat"), command=dlg.destroy).pack(side="right")
 
     after_alive(dlg, 50, qe.focus_force)
     return dlg, result_list, _jids

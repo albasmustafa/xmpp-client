@@ -9,6 +9,8 @@ yerelde işlenir, hiçbir modele gitmez.
 import re
 from datetime import date, datetime, timedelta
 
+from xmppcore.i18n import tr as _tr
+
 from .ai import message_text
 from .storage import STORED_AT_FMT
 
@@ -104,13 +106,13 @@ def format_age(since, now) -> str:
         return "tarihi bilinmiyor"
     secs = max(0, int((now - since).total_seconds()))
     if secs < 60:
-        return "az önce"
+        return _tr("az önce")
     if secs < 3600:
-        return f"{secs // 60} dakika önce"
+        return _tr("{} dakika önce").format(secs // 60)
     if secs < 86400:
-        return f"{secs // 3600} saat önce"
+        return _tr("{} saat önce").format(secs // 3600)
     days = (now.date() - since.date()).days
-    return "dün" if days <= 1 else f"{days} gün önce"
+    return _tr("dün") if days <= 1 else _tr("{} gün önce").format(days)
 
 
 def waiting_longer_than(entries, now, seconds) -> list:
@@ -130,6 +132,6 @@ def dismiss(stored, key) -> list:
 def reminder_item(entry, label: str, today: date) -> dict:
     """"Yarın 09:00'da hatırlat" için görev öğesi (ai.validate_actions
     biçimi; MainWindow mevcut hatırlatıcı yoluna verir)."""
-    return {"kind": "task", "title": f"Yanıtla: {label} — {entry['text']}",
+    return {"kind": "task", "title": _tr("Yanıtla: {} — {}").format(label, entry['text']),
             "date": (today + timedelta(days=1)).isoformat(), "time": "09:00",
             "location": "", "notes": entry["text"]}

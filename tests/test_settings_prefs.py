@@ -23,7 +23,7 @@ def _w():
 # ── Açılışta okunan tercihler ────────────────────────────────────────────────
 
 def test_saved_prefs_are_loaded_at_startup(monkeypatch):
-    monkeypatch.setattr(xmpp, "_current_lang", "tr")
+    monkeypatch.setattr(xmpp._i18n, "_lang", "tr")
     w = _w()
     xmpp.MainWindow._load_saved_prefs(w, {
         "notifications": False, "sounds": False,
@@ -34,11 +34,11 @@ def test_saved_prefs_are_loaded_at_startup(monkeypatch):
     assert w._default_encryption == "omemo"
     assert w._default_disappear == 300
     assert w._encrypted_rooms == {"gizli@conf"}
-    assert xmpp._current_lang == "en"
+    assert xmpp._i18n.language() == "en"
 
 
 def test_saved_prefs_defaults(monkeypatch):
-    monkeypatch.setattr(xmpp, "_current_lang", "tr")
+    monkeypatch.setattr(xmpp._i18n, "_lang", "tr")
     w = _w()
     xmpp.MainWindow._load_saved_prefs(
         w, {"language": "xx", "default_disappear": "abc"})
@@ -46,7 +46,7 @@ def test_saved_prefs_defaults(monkeypatch):
     assert w._default_encryption == "none"
     assert w._default_disappear == 0
     assert w._encrypted_rooms == set()
-    assert xmpp._current_lang == "tr"
+    assert xmpp._i18n.language() == "tr"
 
 
 @pytest.mark.parametrize("cfg, expected", [
@@ -124,7 +124,7 @@ def _apply_settings(monkeypatch, values, w=None):
     monkeypatch.setattr(xmpp, "_load_config", lambda: {})
     monkeypatch.setattr(xmpp, "_save_config", saved.append)
     monkeypatch.setattr(xmpp, "_apply_color_theme", lambda name: None)
-    monkeypatch.setattr(xmpp, "_current_lang", "tr")
+    monkeypatch.setattr(xmpp._i18n, "_lang", "tr")
     w = w or _w()
     w.bot = None
     w._apply_login_prefs = lambda cfg, remember, auto: None

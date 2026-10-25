@@ -19,21 +19,23 @@ from xmppcore.helpers import (
     _stanza_msg_id,
     _strip_quoted_fallback,
 )
+from xmppcore.i18n import N_
+from xmppcore.i18n import tr as _tr
 
 # Oda katılım hatası koşulu → kullanıcıya gösterilen açıklama (XEP-0045 §7.2)
 _JOIN_ERRORS = {
-    "conflict": "Bu takma ad odada kullanılıyor; başka bir takma ad deneyin.",
-    "not-authorized": "Oda parola istiyor.",
-    "forbidden": "Bu odaya girişiniz yasaklanmış.",
-    "registration-required": "Oda yalnız üyelere açık.",
-    "item-not-found": "Oda bulunamadı (adres yanlış ya da oda kilitli olabilir).",
-    "remote-server-not-found": "Oda sunucusu bulunamadı (adresi kontrol edin).",
-    "service-unavailable": "Oda dolu ya da şu an kullanılamıyor.",
-    "not-allowed": "Bu sunucuda yeni oda oluşturma izniniz yok.",
-    "jid-malformed": "Geçersiz oda adresi ya da takma ad.",
-    "remote-server-timeout": "Oda sunucusuna ulaşılamadı (zaman aşımı).",
-    "gone": "Oda taşınmış ya da kaldırılmış.",
-    "redirect": "Oda taşınmış ya da kaldırılmış.",
+    "conflict": N_("Bu takma ad odada kullanılıyor; başka bir takma ad deneyin."),
+    "not-authorized": N_("Oda parola istiyor."),
+    "forbidden": N_("Bu odaya girişiniz yasaklanmış."),
+    "registration-required": N_("Oda yalnız üyelere açık."),
+    "item-not-found": N_("Oda bulunamadı (adres yanlış ya da oda kilitli olabilir)."),
+    "remote-server-not-found": N_("Oda sunucusu bulunamadı (adresi kontrol edin)."),
+    "service-unavailable": N_("Oda dolu ya da şu an kullanılamıyor."),
+    "not-allowed": N_("Bu sunucuda yeni oda oluşturma izniniz yok."),
+    "jid-malformed": N_("Geçersiz oda adresi ya da takma ad."),
+    "remote-server-timeout": N_("Oda sunucusuna ulaşılamadı (zaman aşımı)."),
+    "gone": N_("Oda taşınmış ya da kaldırılmış."),
+    "redirect": N_("Oda taşınmış ya da kaldırılmış."),
 }
 
 # Oda türü → muc#roomconfig alanları (XEP-0045 §10.2). OMEMO odada üyelerin
@@ -263,11 +265,11 @@ class MucMixin:
             if encryption == "omemo":
                 if not self._omemo_enabled():
                     self.gui_q.put(("error",
-                        "OMEMO kütüphanesi yüklü değil (slixmpp-omemo)."))
+                        _tr("OMEMO kütüphanesi yüklü değil (slixmpp-omemo).")))
                     return False
                 if not self.omemo_ready:
                     self.gui_q.put(("error",
-                        "OMEMO henüz hazır değil — lütfen birkaç saniye bekleyin."))
+                        _tr("OMEMO henüz hazır değil — lütfen birkaç saniye bekleyin.")))
                     return False
                 await self._send_omemo(room, body, "groupchat", mid=mid)
             elif encryption == "pgp":
@@ -279,7 +281,7 @@ class MucMixin:
                 self.gui_q.put(("sent_mid", {"to": room, "mid": sent_mid}))
                 return True
         except Exception as e:
-            self.gui_q.put(("error", f"Oda mesajı gönderilemedi: {e}"))
+            self.gui_q.put(("error", _tr("Oda mesajı gönderilemedi: {}").format(e)))
             return False
 
     # ── Oda yönetimi ──────────────────────────────────────────────────────────
@@ -298,22 +300,21 @@ class MucMixin:
             else:
                 # Ayrı olay: açık sohbet yokken de görünür (bkz. MainWindow._handle)
                 self.gui_q.put(("rooms_discover_failed",
-                    f"'{server}' sunucusunda oda bulunamadi."))
+                    _tr("'{}' sunucusunda oda bulunamadi.").format(server)))
         except Exception as e:
             err = str(e)
             if "remote-server-not-found" in err or "NXDomain" in err:
-                reason = "Sunucu bulunamadi (DNS hatasi)"
+                reason = _tr("Sunucu bulunamadi (DNS hatasi)")
             elif "service-unavailable" in err:
-                reason = "Sunucu kesfetme desteklemiyor"
+                reason = _tr("Sunucu kesfetme desteklemiyor")
             elif "timed out" in err.lower() or "timeout" in err.lower():
-                reason = "Sunucu yanit vermedi (zaman asimi)"
+                reason = _tr("Sunucu yanit vermedi (zaman asimi)")
             elif "not-allowed" in err or "forbidden" in err:
-                reason = "Erisim reddedildi"
+                reason = _tr("Erisim reddedildi")
             else:
                 reason = "Baglanti kurulamadi"
             self.gui_q.put(("rooms_discover_failed",
-                f"⚠ '{server}': {reason}. "
-                f"Genel Ara sekmesini deneyin."))
+                _tr("⚠ '{}': {}. Genel Ara sekmesini deneyin.").format(server, reason)))
 
     async def _find_muc_service(self):
         """Kendi sunucumuzun oda servisini bul (XEP-0045 §6.1 / XEP-0030).
@@ -382,17 +383,16 @@ class MucMixin:
         except asyncio.TimeoutError:
             _log.warning("Oda katılımı başarısız: %s — yanıt yok", room)
             self.gui_q.put(("error",
-                f"Oda katılım hatası: {room} {self._JOIN_TIMEOUT} sn içinde "
-                "yanıt vermedi; oda sunucusu kapalı ya da adres yanlış "
-                "olabilir."))
+                _tr("Oda katılım hatası: {} {} sn içinde yanıt vermedi; oda sunucusu "
+                    "kapalı ya da adres yanlış olabilir.").format(room, self._JOIN_TIMEOUT)))
         except PresenceError as e:
-            reason = _JOIN_ERRORS.get(e.condition) or e.text or e.condition
+            reason = _tr(_JOIN_ERRORS.get(e.condition)) or e.text or e.condition
             _log.warning("Oda katılımı başarısız: %s — %s", room, e.condition)
-            self.gui_q.put(("error", f"{room} odasına katılınamadı: {reason}"))
+            self.gui_q.put(("error", _tr("{} odasına katılınamadı: {}").format(room, reason)))
         except Exception as e:
             _log.warning("Oda katılımı başarısız: %s — %s", room, e,
                          exc_info=True)
-            self.gui_q.put(("error", f"Oda katılım hatası: {e}"))
+            self.gui_q.put(("error", _tr("Oda katılım hatası: {}").format(e)))
 
     async def _await_room_join(self, muc, room, nick):
         """Katılımı bekle; slixmpp `join_muc_wait`'in iki kör noktasını kapat.
@@ -463,7 +463,7 @@ class MucMixin:
             self.my_nicks.pop(room, None)
             self.gui_q.put(("room_left", room))
         except Exception as e:
-            self.gui_q.put(("error", f"Oda ayrılma hatası: {e}"))
+            self.gui_q.put(("error", _tr("Oda ayrılma hatası: {}").format(e)))
 
     # ── MUC Yönetim ─────────────────────────────────────────────────────────
     def set_room_subject(self, room, subject):
@@ -473,7 +473,7 @@ class MucMixin:
                 muc = _get_xep(self, "xep_0045")
                 muc.set_subject(room, subject)
             except Exception as e:
-                self.gui_q.put(("error", f"Konu değiştirme hatası: {e}"))
+                self.gui_q.put(("error", _tr("Konu değiştirme hatası: {}").format(e)))
         self._dispatch_loop(_do)
 
     def kick_user(self, room, nick, reason=""):
@@ -484,9 +484,9 @@ class MucMixin:
         try:
             muc = _get_xep(self, "xep_0045")
             await muc.set_role(room, nick, "none", reason=reason)
-            self.gui_q.put(("sys_msg", f"✓ {nick} odadan atıldı."))
+            self.gui_q.put(("sys_msg", _tr("✓ {} odadan atıldı.").format(nick)))
         except Exception as e:
-            self.gui_q.put(("error", f"Kick hatası: {e}"))
+            self.gui_q.put(("error", _tr("Kick hatası: {}").format(e)))
 
     def ban_user(self, room, jid, reason=""):
         asyncio.run_coroutine_threadsafe(
@@ -496,9 +496,9 @@ class MucMixin:
         try:
             muc = _get_xep(self, "xep_0045")
             await muc.set_affiliation(room, "outcast", jid=jid, reason=reason)
-            self.gui_q.put(("sys_msg", f"✓ {jid} yasaklandı."))
+            self.gui_q.put(("sys_msg", _tr("✓ {} yasaklandı.").format(jid)))
         except Exception as e:
-            self.gui_q.put(("error", f"Ban hatası: {e}"))
+            self.gui_q.put(("error", _tr("Ban hatası: {}").format(e)))
 
     def set_user_role(self, room, nick, role, reason=""):
         asyncio.run_coroutine_threadsafe(
@@ -510,7 +510,7 @@ class MucMixin:
             await muc.set_role(room, nick, role, reason=reason)
             self.gui_q.put(("sys_msg", f"✓ {nick} → {role}"))
         except Exception as e:
-            self.gui_q.put(("error", f"Rol değiştirme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Rol değiştirme hatası: {}").format(e)))
 
     def set_user_affiliation(self, room, jid, affiliation, reason=""):
         asyncio.run_coroutine_threadsafe(
@@ -522,7 +522,7 @@ class MucMixin:
             await muc.set_affiliation(room, affiliation, jid=jid, reason=reason)
             self.gui_q.put(("sys_msg", f"✓ {jid} → {affiliation}"))
         except Exception as e:
-            self.gui_q.put(("error", f"Yetki değiştirme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Yetki değiştirme hatası: {}").format(e)))
 
     def change_nick(self, room, new_nick):
         async def _change():
@@ -531,9 +531,9 @@ class MucMixin:
                 muc = _get_xep(self, "xep_0045")
                 await muc.set_self_nick(JID(room), new_nick)
                 self.my_nicks[room] = new_nick
-                self.gui_q.put(("sys_msg", f"✓ Takma adın değişti: {new_nick}"))
+                self.gui_q.put(("sys_msg", _tr("✓ Takma adın değişti: {}").format(new_nick)))
             except Exception as e:
-                self.gui_q.put(("error", f"Takma ad değiştirilemedi: {e}"))
+                self.gui_q.put(("error", _tr("Takma ad değiştirilemedi: {}").format(e)))
         asyncio.run_coroutine_threadsafe(_change(), self.loop)
 
     def invite_to_room(self, room, jid, reason=""):
@@ -541,9 +541,9 @@ class MucMixin:
             try:
                 muc = _get_xep(self, "xep_0045")
                 muc.invite(room, jid, reason=reason)
-                self.gui_q.put(("sys_msg", f"✓ {jid} davet edildi → {room}"))
+                self.gui_q.put(("sys_msg", _tr("✓ {} davet edildi → {}").format(jid, room)))
             except Exception as e:
-                self.gui_q.put(("error", f"Davet hatası: {e}"))
+                self.gui_q.put(("error", _tr("Davet hatası: {}").format(e)))
         self._dispatch_loop(_do)
 
     def get_room_config(self, room, callback):
@@ -556,7 +556,7 @@ class MucMixin:
             form = await muc.get_room_config(room)
             self.gui_q.put(("room_config", {"room": room, "form": form, "cb": callback}))
         except Exception as e:
-            self.gui_q.put(("error", f"Oda ayarları alınamadı: {e}"))
+            self.gui_q.put(("error", _tr("Oda ayarları alınamadı: {}").format(e)))
 
     def set_room_config(self, room, form):
         asyncio.run_coroutine_threadsafe(
@@ -566,9 +566,9 @@ class MucMixin:
         try:
             muc = _get_xep(self, "xep_0045")
             await muc.set_room_config(room, form)
-            self.gui_q.put(("sys_msg", f"✓ {room} ayarları güncellendi."))
+            self.gui_q.put(("sys_msg", _tr("✓ {} ayarları güncellendi.").format(room)))
         except Exception as e:
-            self.gui_q.put(("error", f"Oda ayar kaydetme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Oda ayar kaydetme hatası: {}").format(e)))
 
     def destroy_room(self, room, reason=""):
         asyncio.run_coroutine_threadsafe(
@@ -578,10 +578,10 @@ class MucMixin:
         try:
             muc = _get_xep(self, "xep_0045")
             await muc.destroy(room, reason=reason)
-            self.gui_q.put(("sys_msg", f"✓ {room} odası silindi."))
+            self.gui_q.put(("sys_msg", _tr("✓ {} odası silindi.").format(room)))
             self.gui_q.put(("room_left", room))
         except Exception as e:
-            self.gui_q.put(("error", f"Oda silme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Oda silme hatası: {}").format(e)))
 
     async def _room_exists(self, room):
         """Adreste oda var mı (disco#info; yoksa sunucu item-not-found döner).
@@ -599,10 +599,10 @@ class MucMixin:
         try:
             await muc.set_room_config(room, Form())
             self.gui_q.put(("sys_msg",
-                f"ℹ {room} adresinde oda yoktu; sunucunun varsayılan "
-                "ayarlarıyla yeni bir oda oluşturuldu."))
+                _tr("ℹ {} adresinde oda yoktu; sunucunun varsayılan ayarlarıyla yeni "
+                    "bir oda oluşturuldu.").format(room)))
         except Exception as e:
-            self.gui_q.put(("error", f"Yeni oda kullanıma açılamadı: {e}"))
+            self.gui_q.put(("error", _tr("Yeni oda kullanıma açılamadı: {}").format(e)))
 
     async def _setup_new_room(self, muc, room, kind, name=""):
         """Sunucunun yeni açtığı (201) odayı türüne göre yapılandır (§10.1).
@@ -621,8 +621,8 @@ class MucMixin:
             await muc.set_room_config(room, form)
         except Exception as e:
             self.gui_q.put(("error",
-                f"Oda yapılandırılamadı (sahibi olarak ⋮ → Oda Yönetimi'ni "
-                f"kullanın): {e}"))
+                _tr("Oda yapılandırılamadı (sahibi olarak ⋮ → Oda Yönetimi'ni "
+                    "kullanın): {}").format(e)))
             return
         self.gui_q.put(("room_created",
                         {"room": room, "kind": kind, "missing": missing}))
@@ -670,6 +670,6 @@ class MucMixin:
                     name=b.get("name", ""),
                     autojoin=b.get("autojoin", False))
             await bm.set_bookmarks(bm_stanza)
-            self.gui_q.put(("sys_msg", "✓ Yer imleri kaydedildi"))
+            self.gui_q.put(("sys_msg", _tr("✓ Yer imleri kaydedildi")))
         except Exception as e:
-            self.gui_q.put(("error", f"Yer imi kaydetme hatası: {e}"))
+            self.gui_q.put(("error", _tr("Yer imi kaydetme hatası: {}").format(e)))

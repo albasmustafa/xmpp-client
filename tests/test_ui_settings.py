@@ -50,7 +50,7 @@ def settings(monkeypatch):
     monkeypatch.setattr(xmpp, "_save_config", saved.append)
     monkeypatch.setattr(xmpp, "_safe_grab_set", lambda *a, **k: None)
     monkeypatch.setattr(xmpp, "_apply_color_theme", lambda name: None)
-    monkeypatch.setattr(xmpp, "_current_lang", "tr")
+    monkeypatch.setattr(xmpp._i18n, "_lang", "tr")
 
     class _W(xmpp.MainWindow):
         def __getattr__(self, name):

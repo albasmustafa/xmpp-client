@@ -333,7 +333,7 @@ def test_animate_uses_presentation_cycle_and_closing_guard():
     w._closing = False
 
     xmpp.MainWindow._animate_typing(w)
-    assert w.typing_label.text == f"✎ {xmpp._t('typing')}."
+    assert w.typing_label.text == f"✎ {'yazıyor'}."
     aid = w._typing_anim_id
     assert w.root.pending[aid][0] == 500
     w.root.fire(aid)

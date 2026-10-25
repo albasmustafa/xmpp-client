@@ -19,6 +19,11 @@ def _app():
     return _app_mod
 
 
+def _tr(text):
+    """Arayüz metnini seçili dile çevir (`xmpp._tr`)."""
+    return _app()._tr(text)
+
+
 def _search_text(value):
     text = unicodedata.normalize("NFKD", str(value or "").casefold()).replace("ı", "i")
     return "".join(char for char in text if not unicodedata.combining(char))
@@ -136,13 +141,13 @@ def show_quick_switch(parent, targets, on_go):
     """
     A = _app()
     pop = tk.Toplevel(parent)
-    pop.title(A._t("quick_switch"))
+    pop.title(_tr("Hızlı Geçiş"))
     pop.configure(bg=A.BG_CARD)
     pop.geometry("380x320")
     pop.transient(parent)
     A._make_popover(pop)
 
-    tk.Label(pop, text=f"⚡ {A._t('quick_switch')} (Ctrl+K)", font=(A.FONT, 10, "bold"),
+    tk.Label(pop, text=_tr("⚡ {} (Ctrl+K)").format(_tr("Hızlı Geçiş")), font=(A.FONT, 10, "bold"),
              fg=A.FG, bg=A.BG_CARD).pack(padx=12, pady=(12, 6))
 
     filter_var = tk.StringVar()
@@ -155,7 +160,7 @@ def show_quick_switch(parent, targets, on_go):
                     highlightthickness=0, activestyle="none")
     lb.pack(fill="both", expand=True, padx=12, pady=(6, 12))
 
-    hint = tk.Label(pop, text=A._t("quick_switch_hint"), font=(A.FONT, 8),
+    hint = tk.Label(pop, text=_tr("↑/↓ seç · Enter aç · Esc kapat"), font=(A.FONT, 8),
                     fg=A.FG_DIM, bg=A.BG_CARD)
     hint.pack(fill="x", padx=12, pady=(0, 8))
     matches = []
@@ -180,7 +185,8 @@ def show_quick_switch(parent, targets, on_go):
         lb.delete(0, "end")
         for _jid, label, _is_room in matches:
             lb.insert("end", f"  {label}")
-        hint.config(text=A._t("quick_switch_hint") if matches else A._t("no_chats_found"))
+        hint.config(text=_tr("↑/↓ seç · Enter aç · Esc kapat") if matches
+                    else _tr("Eşleşen sohbet bulunamadı"))
         _select(0)
 
     trace_id = filter_var.trace_add("write", _filter)
@@ -270,13 +276,13 @@ def show_contact_menu(parent, jid, is_pinned, on_open_chat, on_toggle_pin,
                    relief="flat", font=(A.FONT, 9))
     menu.add_command(label=jid, state="disabled")
     menu.add_separator()
-    menu.add_command(label="  Sohbet Başlat", command=on_open_chat)
+    menu.add_command(label=_tr("  Sohbet Başlat"), command=on_open_chat)
     if is_pinned:
-        menu.add_command(label="📌 Sabitlemeyi Kaldır", command=on_toggle_pin)
+        menu.add_command(label=_tr("📌 Sabitlemeyi Kaldır"), command=on_toggle_pin)
     else:
-        menu.add_command(label="📌 Sohbeti Sabitle", command=on_toggle_pin)
-    menu.add_command(label="🏠 Ortak Gruplar", command=on_common_groups)
-    menu.add_command(label="  Kişiyi Kaldır", command=on_remove_contact)
+        menu.add_command(label=_tr("📌 Sohbeti Sabitle"), command=on_toggle_pin)
+    menu.add_command(label=_tr("🏠 Ortak Gruplar"), command=on_common_groups)
+    menu.add_command(label=_tr("  Kişiyi Kaldır"), command=on_remove_contact)
     menu.tk_popup(x_root, y_root)
 
 
@@ -295,7 +301,7 @@ def build_assistant_entry(parent, on_open, *, subtitle):
     av.pack(side="left")
     info = tk.Frame(row, bg=A.BG_PANEL, cursor="hand2")
     info.pack(side="left", fill="x", expand=True, padx=(8, 0))
-    name = tk.Label(info, text="Asistan", font=(A.FONT, 10, "bold"),
+    name = tk.Label(info, text=_tr("Asistan"), font=(A.FONT, 10, "bold"),
                     fg=A.FG, bg=A.BG_PANEL, anchor="w", cursor="hand2")
     name.pack(fill="x")
     sub = tk.Label(info, text=subtitle, font=(A.FONT, 7), fg=A.FG_DIM,
@@ -327,7 +333,7 @@ def render_members(members_list, members_label, room_members):
     mbrs = room_members or {}
     count = len(mbrs)
     members_label.config(
-        text=f"KATILIMCILAR — {count}" if count else "KATILIMCILAR")
+        text=_tr("KATILIMCILAR — {}").format(count) if count else _tr("KATILIMCILAR"))
     if not mbrs:
         return index_map
 
@@ -416,12 +422,12 @@ def show_contact_card(parent, jid, name, pshow, av_data, photo_refs,
     tk.Label(inner, text=jid, font=(A.FONT, 7),
              fg=A.FG_DIM, bg=A.BG_CARD).grid(row=1, column=1, sticky="w")
 
-    status_text = pshow if pshow != "unavailable" else "Çevrimdışı"
+    status_text = pshow if pshow != "unavailable" else _tr("Çevrimdışı")
     tk.Label(inner, text=f"● {status_text}", font=(A.FONT, 8),
              fg=color, bg=A.BG_CARD).grid(row=2, column=1, sticky="w")
 
     if common_count:
-        tk.Label(inner, text=f"Ortak grup: {common_count}", font=(A.FONT, 7),
+        tk.Label(inner, text=_tr("Ortak grup: {}").format(common_count), font=(A.FONT, 7),
                  fg=A.FG_DIM, bg=A.BG_CARD).grid(row=3, column=0, columnspan=2,
                                                  sticky="w", pady=(4, 0))
 
