@@ -72,8 +72,16 @@ def test_catalog_has_no_stale_entries():
 
 
 def _fields(text):
-    return [(name, conv, spec) for _lit, name, spec, conv
-            in string.Formatter().parse(text) if name is not None]
+    """Yer tutucular (sıra numarası, dönüşüm, biçim); `{}` sırayla numaralanır,
+    böylece çeviri `{1} … {0}` ile sözcük sırasını değiştirebilir."""
+    out, auto = [], 0
+    for _lit, name, spec, conv in string.Formatter().parse(text):
+        if name is None:
+            continue
+        if name == "":
+            name, auto = str(auto), auto + 1
+        out.append((name, conv, spec))
+    return sorted(out)
 
 
 @pytest.mark.parametrize("msgid", sorted(m for m in MSGIDS if "{" in m))
@@ -246,3 +254,79 @@ def test_theme_names_display_in_language_but_keys_are_saved(english):
     assert theme_label("dracula") == "Dracula"          # özel ad çevrilmez
     src = (ROOT / "xmpp.py").read_text(encoding="utf-8")
     assert 'cfg["day_theme"] = to_key.get(day_var.get()' in src
+
+
+# ── Diğer diller (İngilizce dışı katalogların hepsi) ───────────────────────
+OTHER_LANGS = [code for code in i18n.LANGUAGES if code not in ("tr", "en")]
+# Dilden bağımsız metinler (İngilizcesi Türkçesiyle aynı: kısayollar, OMEMO,
+# JID…) diğer kataloglarda olmayabilir; İngilizce yedekten gelir
+NEUTRAL = {k for k, v in EN.items() if k == v}
+
+
+def _edges(text):
+    return (text[:len(text) - len(text.lstrip())],
+            text[len(text.rstrip()):])
+
+
+@pytest.mark.parametrize("lang", OTHER_LANGS)
+def test_other_language_catalog_is_complete(lang):
+    cat = i18n.catalog(lang)
+    missing = sorted(set(MSGIDS) - NEUTRAL - set(cat))
+    assert not missing, (lang, missing[:20])
+    stale = sorted(set(cat) - set(MSGIDS))
+    assert not stale, (lang, stale[:20])
+
+
+@pytest.mark.parametrize("lang", OTHER_LANGS)
+def test_other_language_keeps_placeholders_and_spacing(lang):
+    cat = i18n.catalog(lang)
+    bad = []
+    for msgid, text in cat.items():
+        if "{" in msgid:
+            try:
+                if _fields(text) != _fields(msgid):
+                    bad.append((msgid, text))
+            except ValueError:
+                if text.count("{") != msgid.count("{"):
+                    bad.append((msgid, text))
+        if _edges(text) != _edges(msgid):
+            bad.append(("boşluk", msgid, text))
+    assert not bad, (lang, bad[:10])
+
+
+@pytest.mark.parametrize("lang", OTHER_LANGS)
+def test_other_language_is_actually_translated(lang):
+    """Katalog İngilizce ya da Türkçe kopyası olmamalı (dilden bağımsızlar hariç)."""
+    cat = i18n.catalog(lang)
+    same_en = [k for k, v in cat.items() if v == EN.get(k) and len(v) > 12]
+    same_tr = [k for k, v in cat.items() if v == k and len(v) > 12]
+    assert len(same_en) < len(cat) * 0.05, (lang, same_en[:10])
+    assert len(same_tr) < len(cat) * 0.02, (lang, same_tr[:10])
+
+
+def test_missing_text_falls_back_to_english(monkeypatch):
+    monkeypatch.setattr(i18n, "_lang", "de")
+    monkeypatch.setitem(i18n._catalogs, "de", {})
+    assert xmpp._tr("Kaydet") == "Save"
+    assert xmpp._tr("Ctrl+F") == "Ctrl+F"
+
+
+def test_language_picker_lists_every_language_by_native_name():
+    assert len(i18n.LANGUAGES) == 14
+    assert set(i18n.AI_LANGUAGE_NAMES) == set(i18n.LANGUAGES)
+    assert i18n.LANGUAGES["de"] == "Deutsch" and i18n.LANGUAGES["ja"] == "日本語"
+
+
+@pytest.mark.parametrize("lang, name", [("de", "German"), ("ja", "Japanese"),
+                                        ("zh", "Simplified Chinese")])
+def test_ai_reply_language_follows_every_ui_language(monkeypatch, lang, name):
+    monkeypatch.setattr(i18n, "_lang", lang)
+    assert _ai.load_settings({})["target_language"] == name
+
+
+def test_other_languages_translate_at_runtime(monkeypatch):
+    monkeypatch.setattr(i18n, "_lang", "de")
+    assert xmpp._tr("Kaydet") == "Speichern"
+    assert xmpp._tr("{} sonuç").format(3) == "3 Ergebnisse"
+    monkeypatch.setattr(i18n, "_lang", "ja")
+    assert xmpp._t("copy") == "コピー"

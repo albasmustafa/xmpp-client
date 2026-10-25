@@ -1252,7 +1252,7 @@ EN = {
     "Beklenmeyen hata: {}":
         "Unexpected error: {}",
     "{}\n\n{} kaynağın {} tanesi şifreli.\n\nEvet: şifreli içerik de yalnız bu istek için Claude'a (bulut) gönderilsin.\nHayır: şifreli içerik çıkarılsın, yalnız kalanı gönderilsin.\nİptal: hiçbir şey gönderilmesin.":
-        "{}\n\n{} of {} sources are encrypted.\n\nYes: send the encrypted content to Claude (cloud) too, for this request only.\nNo: leave the encrypted content out and send only the rest.\nCancel: send nothing.",
+        "{}\n\n{} sources, {} of them encrypted.\n\nYes: send the encrypted content to Claude (cloud) too, for this request only.\nNo: leave the encrypted content out and send only the rest.\nCancel: send nothing.",
     "✨ Asistan…":
         "✨ Assistant…",
     "📬 Okunmamışları özetle ({})":

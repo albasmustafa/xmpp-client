@@ -87,10 +87,19 @@ gerçekten çalıştır.
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.
-- **Arayüz dili (Türkçe / English):** gettext tarzı — Türkçe metnin kendisi anahtardır:
+- **Arayüz dili (14 dil):** gettext tarzı — Türkçe metnin kendisi anahtardır:
   `_tr("Kaydet")`, değişkenli metin şablonla `_tr("{} sonuç").format(n)` (f-string
-  çevrilmez). Katalog `xmppcore/locale_en.py` (`EN`), dil `xmppcore/i18n.py`
-  (`set_language`/`language`/`tr`; Türkçede metin aynen döner). Dil açılışta config
+  çevrilmez). Diller `i18n.LANGUAGES` (tr, en, de, fr, es, it, pt-BR, nl, pl, ru, uk,
+  zh-Hans, ja, ko; Ayarlar'da kendi adlarıyla açılır liste). Kataloglar
+  `xmppcore/locale_en.py` (`EN`) ve `xmppcore/locale_<kod>.py` (`CATALOG`); ilk
+  kullanımda yüklenir (`i18n.catalog`). Eksik metin İngilizceye, o da yoksa Türkçeye
+  düşer; dilden bağımsız metinler (EN'de kaynakla aynı: kısayollar, OMEMO, JID…)
+  diğer kataloglarda tutulmaz. Sözcük sırası farklı dillerde çeviri `{0}`/`{1}` ile
+  yer tutucuları yeniden sıralayabilir; Slav dillerinde sayılı metinler çoğul eki
+  gerektirmesin diye "Etiket: {}" kalıbındadır. Arapça/İbranice/Farsça/Hintçe
+  eklenmedi: Tk 8.6 sağdan sola yazıyı ve harf birleştirmeyi desteklemiyor. Dil:
+  `xmppcore/i18n.py` (`set_language`/`language`/`tr`/`tr_in`; Türkçede metin aynen
+  döner). Dil açılışta config
   `"language"`dan seçilir (`_load_saved_prefs`, `_build`'den önce); Ayarlar'da değişince
   canlı geçilmez, yeniden başlatınca uygulanır (toast; yarı çevrilmiş arayüz olmasın).
   Modül düzeyindeki görüntü metni içe aktarmada çevrilemez: `N_("…")` ile işaretlenir,
@@ -101,8 +110,8 @@ gerçekten çalıştır.
   gelir. **Çevrilmeyenler:** loglar, modele giden istemler, kabloya giden metin
   (`XMPPError` metni, OMEMO/PGP yedek gövdesi), MCP araç yanıtları ve saklanan işaret
   metinleri (`ai.RETRACTED_BODY`, `VOICE_PLACEHOLDER`, `NO_SPEECH` — DB'de Türkçe
-  kalır, ekranda `ai.display_text`). İngilizce arayüzde AI yanıt dili, kullanıcı
-  seçmediyse "English"tir (`ai.load_settings`); asistanın İngilizce kısa yolları
+  kalır, ekranda `ai.display_text`). AI yanıt dili, kullanıcı seçmediyse arayüz
+  dilidir (`i18n.AI_LANGUAGE_NAMES`, `ai.load_settings`); asistanın İngilizce kısa yolları
   ("Ask history: …", "Set my status to busy", "What have I missed?") modele gitmez.
   Tema adları `theme.theme_label` ile gösterilir (config'te anahtar). Web arayüzü
   (`webapp/static`) henüz yalnız Türkçedir.
@@ -153,9 +162,11 @@ gerçekten çalıştır.
    ayarı (`set_family`) ve tema yenilemesi (etiket/seçim renkleri) kutuları korur. Sahte
    Tk testleri `tests/fake_selectable.py` kullanır.
 9. **Yeni arayüz metni:** Türkçe yazılır, `_tr("…")` (modül düzeyinde `N_("…")`) ile
-   sarılır ve İngilizcesi `xmppcore/locale_en.py`'ye eklenir. `tests/test_i18n_catalog.py`
-   eksik/eskimiş katalog girdisini, `{}` yer tutucu uyumsuzluğunu ve `text=`/`label=`/
-   `title=`/messagebox gibi yerlere sarılmadan yazılmış Türkçe metni yakalar.
+   sarılır; çevirisi `xmppcore/locale_en.py`'ye ve 12 `locale_<kod>.py` kataloğunun
+   hepsine eklenir. `tests/test_i18n_catalog.py` her dilde eksik/eskimiş girdiyi, `{}`
+   yer tutucu ve baştaki/sondaki boşluk uyumsuzluğunu, katalogun İngilizce/Türkçe
+   kopyası olmasını ve `text=`/`label=`/`title=`/messagebox gibi yerlere sarılmadan
+   yazılmış Türkçe metni yakalar.
 
 ### Test desenleri
 - DB: `monkeypatch.setattr(xmpp, "_DB_PATH", tmp)` + `xmpp._db_conn = None` (teardown'da

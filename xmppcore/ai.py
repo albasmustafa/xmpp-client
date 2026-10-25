@@ -32,7 +32,7 @@ import urllib.request
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from xmppcore.i18n import N_
+from xmppcore.i18n import AI_LANGUAGE_NAMES, N_
 from xmppcore.i18n import language as _ui_language
 from xmppcore.i18n import tr as _tr
 
@@ -135,10 +135,10 @@ def load_settings(cfg: dict | None) -> dict:
                 s[key] = bool(val)
             elif isinstance(val, str):
                 s[key] = val.strip()
-    # Yanıt dili seçilmemişse arayüz diline uyar (İngilizce arayüz → English)
-    if (not (isinstance(raw, dict) and str(raw.get("target_language") or "").strip())
-            and _ui_language() == "en"):
-        s["target_language"] = "English"
+    # Yanıt dili seçilmemişse arayüz diline uyar (ör. Almanca arayüz → German)
+    if not (isinstance(raw, dict) and str(raw.get("target_language") or "").strip()):
+        s["target_language"] = AI_LANGUAGE_NAMES.get(
+            _ui_language(), DEFAULTS["target_language"])
     if s["provider"] not in PROVIDERS:
         s["provider"] = DEFAULTS["provider"]
     if s["whisper_model"] not in WHISPER_MODELS:

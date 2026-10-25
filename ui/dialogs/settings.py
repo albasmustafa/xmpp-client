@@ -360,12 +360,19 @@ def show_settings(parent, cfg, state, actions, on_save):
     _section(t_appear, _tr("DİL"))
     lang_f = tk.Frame(t_appear, bg=A.BG_CARD)
     lang_f.pack(fill="x")
-    lang_var = tk.StringVar(value=cfg.get("language", state["current_lang"]))
-    for val, txt, flag in [("tr", "Türkçe", "🇹🇷"), ("en", "English", "🇬🇧")]:
-        tk.Radiobutton(lang_f, text=f"{flag}  {txt}", variable=lang_var,
-                       value=val, bg=A.BG_CARD, fg=A.FG, selectcolor=A.BG_HOVER,
-                       activebackground=A.BG_CARD, font=(A.FONT, 9)).pack(
-                           side="left", padx=(0, 16))
+    # Diller kendi adıyla (seçim kayıtta koda çevrilir); 14 dil yan yana
+    # sığmadığından açılır liste
+    lang_names = state.get("languages") or dict(A._i18n.LANGUAGES)
+    lang_codes = {name: code for code, name in lang_names.items()}
+    current = cfg.get("language", state["current_lang"])
+    lang_var = tk.StringVar(value=current if current in lang_names else "tr")
+    lang_shown = tk.StringVar(value=lang_names[lang_var.get()])
+    lang_box = ttk.Combobox(lang_f, textvariable=lang_shown, state="readonly",
+                            values=list(lang_names.values()), width=18,
+                            font=(A.FONT, 9))
+    lang_box.pack(side="left")
+    lang_box.bind("<<ComboboxSelected>>",
+                  lambda _e: lang_var.set(lang_codes[lang_shown.get()]))
 
     # ── Kompakt Mod ──
     _section(t_appear, _tr("DÜZEN"))

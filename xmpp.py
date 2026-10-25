@@ -9917,6 +9917,7 @@ class MainWindow:
             "compact_mode": self._compact_mode,
             "wallpaper": self._chat_wallpaper,
             "current_lang": _i18n.language(),
+            "languages": dict(_i18n.LANGUAGES),
             "tray_active": bool(self._tray_icon),
             "has_omemo": HAS_OMEMO,
             "omemo_ok": omemo_ok,
