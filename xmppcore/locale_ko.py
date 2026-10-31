@@ -2427,4 +2427,253 @@ CATALOG = {
         "밝게",
     "Gece mavisi":
         "밤하늘색",
+    # ── webapp (tarayıcı arayüzü + sunucu iletileri) ──
+    "Bu sohbette özetlenecek mesaj yok.":
+        "이 채팅에는 요약할 메시지가 없습니다.",
+    "Okunmamış mesaj yok — her şeyi gördün.":
+        "읽지 않은 메시지가 없습니다 — 모두 확인했습니다.",
+    "Eşleşen mesajlar gönderilebilecek metin içermiyor.":
+        "일치하는 메시지에 보낼 수 있는 텍스트가 없습니다.",
+    "Oturum kapanıyor.":
+        "세션을 닫는 중입니다.",
+    "Boş mesaj.":
+        "빈 메시지입니다.",
+    "Eksik tepki hedefi.":
+        "반응 대상이 없습니다.",
+    "Geçersiz oda adresi ya da bağlantı yok.":
+        "방 주소가 잘못되었거나 연결되어 있지 않습니다.",
+    "Bilinmeyen komut: {}":
+        "알 수 없는 명령: {}",
+    "Eksik güvenlik başlığı.":
+        "보안 헤더가 없습니다.",
+    "Çok fazla giriş denemesi — bir dakika sonra tekrar deneyin.":
+        "로그인 시도가 너무 많습니다 — 1분 후에 다시 시도하세요.",
+    "JID (ad@sunucu) ve parola zorunlu.":
+        "JID(이름@서버)와 비밀번호가 필요합니다.",
+    "Geçersiz oturum.":
+        "잘못된 세션입니다.",
+    "jid zorunlu.":
+        "jid가 필요합니다.",
+    "Geçersiz JSON gövde.":
+        "잘못된 JSON 본문입니다.",
+    "Geçersiz Host.":
+        "잘못된 Host입니다.",
+    "Geçersiz Origin.":
+        "잘못된 Origin입니다.",
+    "Zaten açık bir oturum var.":
+        "이미 열린 세션이 있습니다.",
+    "Sayısal parametre hatalı.":
+        "숫자 매개변수가 잘못되었습니다.",
+    "Geçersiz WS bileti.":
+        "잘못된 WS 티켓입니다.",
+    "Çevrilecek metin boş.":
+        "번역할 텍스트가 비어 있습니다.",
+    "Geçersiz parametre: {}":
+        "잘못된 매개변수: {}",
+    "Soru boş.":
+        "질문이 비어 있습니다.",
+    "Bilinmeyen AI eylemi.":
+        "알 수 없는 AI 작업입니다.",
+    "Tarayıcıdan sohbet — masaüstü istemcinin web hâli":
+        "브라우저에서 채팅 — 데스크톱 클라이언트의 웹 버전",
+    "ad@sunucu.im":
+        "name@server.im",
+    "Parola":
+        "비밀번호",
+    "Sunucu (boş = otomatik)":
+        "서버 (비우면 자동)",
+    "ör. xmpp.sunucu.im:5222 değil — sadece host":
+        "호스트만 입력, 예: xmpp.server.im (:5222 제외)",
+    "Şifreyi hatırla":
+        "비밀번호 기억",
+    "Durum":
+        "상태",
+    "durum mesajı":
+        "상태 메시지",
+    "Ara…":
+        "검색…",
+    "Odaya katıl":
+        "방 참여",
+    "Oda keşfet":
+        "방 찾아보기",
+    "Şifreleme modu":
+        "암호화 모드",
+    "🔓 Düz":
+        "🔓 평문",
+    "Oda üyeleri":
+        "방 멤버",
+    "Odadan ayrıl":
+        "방 나가기",
+    "Soldan bir sohbet seçin":
+        "왼쪽에서 채팅을 선택하세요",
+    "yazıyor…":
+        "입력 중…",
+    "✎ düzenleme":
+        "✎ 편집 중",
+    "Mesaj yazın — Enter gönder, Shift+Enter satır":
+        "메시지 입력 — Enter로 보내기, Shift+Enter로 줄바꿈",
+    "Gönder":
+        "보내기",
+    "Üyeler":
+        "멤버",
+    "Geçmişe sor":
+        "기록에 질문",
+    "Çeviri":
+        "번역",
+    "Sohbet":
+        "채팅",
+    "Şifreli içerik buluta (Claude) gidebilir — bu istek için izin ver":
+        "암호화된 내용이 클라우드(Claude)로 전송될 수 있음 — 이번 요청에 허용",
+    "Soru ya da metin…":
+        "질문 또는 텍스트…",
+    "Oda (room@service)":
+        "방 (room@service)",
+    "oda@chat.sunucu.im":
+        "room@chat.server.im",
+    "Takma ad":
+        "닉네임",
+    "⚙ Ayarlar":
+        "⚙ 설정",
+    "Genel":
+        "일반",
+    "Dil":
+        "언어",
+    "Masaüstü bildirimleri":
+        "데스크톱 알림",
+    "Bildirim sesi":
+        "알림 소리",
+    "Okundu bilgisi gönder":
+        "읽음 확인 보내기",
+    "Yazıyor bildirimi gönder":
+        "입력 중 알림 보내기",
+    "Odalara otomatik katıl":
+        "방에 자동 참여",
+    "Bağlantılardan görsel önizleme yükle (gizlilik: kapalıysa yalnız bağlantı gösterilir)":
+        "링크에서 이미지 미리보기 불러오기 (개인정보: 끄면 링크만 표시)",
+    "Sağlayıcı":
+        "제공자",
+    "Yerel (Ollama)":
+        "로컬 (Ollama)",
+    "Bulut (Claude)":
+        "클라우드 (Claude)",
+    "Ollama adresi":
+        "Ollama 주소",
+    "Model sıcak (keep_alive)":
+        "모델 상주 유지 (keep_alive)",
+    "Claude modeli":
+        "Claude 모델",
+    "Claude API anahtarı":
+        "Claude API 키",
+    "değiştirmek için yazın":
+        "변경하려면 입력",
+    "Kayıtlı API anahtarını sil":
+        "저장된 API 키 삭제",
+    "Şifreli sohbetler de buluta gidebilir (her seferinde sorulur)":
+        "암호화된 채팅도 클라우드로 전송 가능 (매번 확인)",
+    "Hassas veri uyarısı (yerel)":
+        "민감한 데이터 경고 (로컬)",
+    "Sesli mesajları otomatik yazıya dök (yerel)":
+        "음성 메시지 자동 받아쓰기 (로컬)",
+    "Satır içi yazma önerisi (yalnız yerel)":
+        "인라인 작성 제안 (로컬 전용)",
+    "Uzaktayken yanıt taslağı hazırla":
+        "자리 비움 중 답장 초안 준비",
+    "⚠ Hassas veri uyarısı":
+        "⚠ 민감한 데이터 경고",
+    "Bu mesaj şifresiz gönderilecek. Yine de göndersin mi?":
+        "이 메시지는 암호화되지 않은 채 전송됩니다. 그래도 보낼까요?",
+    "Yine de gönder":
+        "그래도 보내기",
+    "Ben":
+        "나",
+    "Dün":
+        "어제",
+    "Oturum sona erdi.":
+        "세션이 만료되었습니다.",
+    "Zaman aşımı":
+        "시간 초과",
+    "✓ {} odasına katıldın":
+        "✓ {}에 참여했습니다",
+    "Oda bulunamadı.":
+        "방을 찾을 수 없습니다.",
+    "🍵 Davet: {}":
+        "🍵 초대: {}",
+    "Yok say":
+        "무시",
+    "👥 {} abonelik istiyor":
+        "👥 {} 님이 구독을 요청합니다",
+    "Kabul":
+        "수락",
+    "🔖 Yer imi güncellendi: {}":
+        "🔖 북마크 업데이트됨: {}",
+    "Bağlantı koptu — yeniden bağlanıyor…":
+        "연결이 끊어짐 — 다시 연결하는 중…",
+    "Bağlantı hatası: {}":
+        "연결 오류: {}",
+    "Kimlik doğrulama başarısız — parolayı kontrol edin.":
+        "인증 실패 — 비밀번호를 확인하세요.",
+    "şifreli":
+        "암호화됨",
+    "🔒 şifreli dosya (masaüstü istemcide açılır)":
+        "🔒 암호화된 파일 (데스크톱 클라이언트에서 열림)",
+    "Tepki":
+        "반응",
+    "Geri çek":
+        "회수",
+    "↑ daha eski":
+        "↑ 이전 메시지",
+    "Henüz mesaj yok":
+        "아직 메시지가 없습니다",
+    "uzakta":
+        "자리 비움",
+    "uzun süre uzakta":
+        "오래 자리 비움",
+    "meşgul":
+        "다른 용무 중",
+    "çevrimiçi":
+        "온라인",
+    "{} üye":
+        "멤버 {}명",
+    "çevrimdışı":
+        "오프라인",
+    "✍ yazıyor…":
+        "✍ 입력 중…",
+    "Kimse yok":
+        "아무도 없음",
+    "🖥 Yerel · {}":
+        "🖥 로컬 · {}",
+    "⏳ Çalışıyor…":
+        "⏳ 처리 중…",
+    "İzin gerekli.":
+        "권한이 필요합니다.",
+    "Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur.":
+        "확인란을 선택하고 다시 시도하세요 — 이번 요청에만 적용됩니다.",
+    "Yanıt alınamadı.":
+        "응답을 받지 못했습니다.",
+    "Geçmişte ara…":
+        "기록 검색…",
+    "Çevrilecek metin…":
+        "번역할 텍스트…",
+    "Asistana yaz…":
+        "어시스턴트에게 쓰기…",
+    "Kayıtlı anahtar var — değiştirmek için yazın":
+        "저장된 키가 있음 — 변경하려면 입력",
+    "Anahtar yok":
+        "키 없음",
+    "✓ Ayarlar kaydedildi":
+        "✓ 설정이 저장되었습니다",
+    "Ayarlar kaydedilemedi":
+        "설정을 저장할 수 없습니다",
+    "Zaten {} olarak bağlı bir oturum var. Kapatıp devam edilsin mi?":
+        "이미 {}(으)로 연결된 세션이 있습니다. 닫고 계속할까요?",
+    "Giriş başarısız.":
+        "로그인에 실패했습니다.",
+    "{} odasından ayrıl?":
+        "{}에서 나갈까요?",
+    "🔒 OMEMO açık — karşı tarafın OMEMO desteklemesi gerekir":
+        "🔒 OMEMO 켜짐 — 상대방도 OMEMO를 지원해야 합니다",
+    "🔓 Şifreleme kapalı":
+        "🔓 암호화 꺼짐",
+    "Çıkış yapıldı.":
+        "로그아웃했습니다.",
 }

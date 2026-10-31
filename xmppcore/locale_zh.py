@@ -2427,4 +2427,253 @@ CATALOG = {
         "浅色",
     "Gece mavisi":
         "夜蓝",
+    # ── webapp (tarayıcı arayüzü + sunucu iletileri) ──
+    "Bu sohbette özetlenecek mesaj yok.":
+        "此聊天中没有可总结的消息。",
+    "Okunmamış mesaj yok — her şeyi gördün.":
+        "没有未读消息——你已全部看过。",
+    "Eşleşen mesajlar gönderilebilecek metin içermiyor.":
+        "匹配的消息中没有可发送的文本。",
+    "Oturum kapanıyor.":
+        "会话正在关闭。",
+    "Boş mesaj.":
+        "消息为空。",
+    "Eksik tepki hedefi.":
+        "缺少回应目标。",
+    "Geçersiz oda adresi ya da bağlantı yok.":
+        "房间地址无效或未连接。",
+    "Bilinmeyen komut: {}":
+        "未知命令：{}",
+    "Eksik güvenlik başlığı.":
+        "缺少安全标头。",
+    "Çok fazla giriş denemesi — bir dakika sonra tekrar deneyin.":
+        "登录尝试次数过多——请一分钟后再试。",
+    "JID (ad@sunucu) ve parola zorunlu.":
+        "必须填写 JID（名称@服务器）和密码。",
+    "Geçersiz oturum.":
+        "会话无效。",
+    "jid zorunlu.":
+        "必须提供 jid。",
+    "Geçersiz JSON gövde.":
+        "JSON 正文无效。",
+    "Geçersiz Host.":
+        "Host 无效。",
+    "Geçersiz Origin.":
+        "Origin 无效。",
+    "Zaten açık bir oturum var.":
+        "已有一个打开的会话。",
+    "Sayısal parametre hatalı.":
+        "数字参数无效。",
+    "Geçersiz WS bileti.":
+        "WS 票据无效。",
+    "Çevrilecek metin boş.":
+        "要翻译的文本为空。",
+    "Geçersiz parametre: {}":
+        "参数无效：{}",
+    "Soru boş.":
+        "问题为空。",
+    "Bilinmeyen AI eylemi.":
+        "未知的 AI 操作。",
+    "Tarayıcıdan sohbet — masaüstü istemcinin web hâli":
+        "在浏览器中聊天——桌面客户端的网页版",
+    "ad@sunucu.im":
+        "name@server.im",
+    "Parola":
+        "密码",
+    "Sunucu (boş = otomatik)":
+        "服务器（留空 = 自动）",
+    "ör. xmpp.sunucu.im:5222 değil — sadece host":
+        "仅主机名，例如 xmpp.server.im（不含 :5222）",
+    "Şifreyi hatırla":
+        "记住密码",
+    "Durum":
+        "状态",
+    "durum mesajı":
+        "状态消息",
+    "Ara…":
+        "搜索…",
+    "Odaya katıl":
+        "加入房间",
+    "Oda keşfet":
+        "发现房间",
+    "Şifreleme modu":
+        "加密模式",
+    "🔓 Düz":
+        "🔓 明文",
+    "Oda üyeleri":
+        "房间成员",
+    "Odadan ayrıl":
+        "离开房间",
+    "Soldan bir sohbet seçin":
+        "从左侧选择一个聊天",
+    "yazıyor…":
+        "正在输入…",
+    "✎ düzenleme":
+        "✎ 编辑中",
+    "Mesaj yazın — Enter gönder, Shift+Enter satır":
+        "输入消息——Enter 发送，Shift+Enter 换行",
+    "Gönder":
+        "发送",
+    "Üyeler":
+        "成员",
+    "Geçmişe sor":
+        "询问历史",
+    "Çeviri":
+        "翻译",
+    "Sohbet":
+        "聊天",
+    "Şifreli içerik buluta (Claude) gidebilir — bu istek için izin ver":
+        "加密内容可以发送到云端（Claude）——允许本次请求",
+    "Soru ya da metin…":
+        "问题或文本…",
+    "Oda (room@service)":
+        "房间（room@service）",
+    "oda@chat.sunucu.im":
+        "room@chat.server.im",
+    "Takma ad":
+        "昵称",
+    "⚙ Ayarlar":
+        "⚙ 设置",
+    "Genel":
+        "常规",
+    "Dil":
+        "语言",
+    "Masaüstü bildirimleri":
+        "桌面通知",
+    "Bildirim sesi":
+        "通知声音",
+    "Okundu bilgisi gönder":
+        "发送已读回执",
+    "Yazıyor bildirimi gönder":
+        "发送正在输入通知",
+    "Odalara otomatik katıl":
+        "自动加入房间",
+    "Bağlantılardan görsel önizleme yükle (gizlilik: kapalıysa yalnız bağlantı gösterilir)":
+        "从链接加载图片预览（隐私：关闭时只显示链接）",
+    "Sağlayıcı":
+        "提供方",
+    "Yerel (Ollama)":
+        "本地（Ollama）",
+    "Bulut (Claude)":
+        "云端（Claude）",
+    "Ollama adresi":
+        "Ollama 地址",
+    "Model sıcak (keep_alive)":
+        "保持模型常驻（keep_alive）",
+    "Claude modeli":
+        "Claude 模型",
+    "Claude API anahtarı":
+        "Claude API 密钥",
+    "değiştirmek için yazın":
+        "输入以更改",
+    "Kayıtlı API anahtarını sil":
+        "删除已保存的 API 密钥",
+    "Şifreli sohbetler de buluta gidebilir (her seferinde sorulur)":
+        "加密聊天也可发送到云端（每次都会询问）",
+    "Hassas veri uyarısı (yerel)":
+        "敏感数据警告（本地）",
+    "Sesli mesajları otomatik yazıya dök (yerel)":
+        "自动转写语音消息（本地）",
+    "Satır içi yazma önerisi (yalnız yerel)":
+        "行内写作建议（仅本地）",
+    "Uzaktayken yanıt taslağı hazırla":
+        "离开时准备回复草稿",
+    "⚠ Hassas veri uyarısı":
+        "⚠ 敏感数据警告",
+    "Bu mesaj şifresiz gönderilecek. Yine de göndersin mi?":
+        "此消息将以未加密方式发送。仍要发送吗？",
+    "Yine de gönder":
+        "仍然发送",
+    "Ben":
+        "我",
+    "Dün":
+        "昨天",
+    "Oturum sona erdi.":
+        "会话已过期。",
+    "Zaman aşımı":
+        "超时",
+    "✓ {} odasına katıldın":
+        "✓ 你已加入 {}",
+    "Oda bulunamadı.":
+        "未找到房间。",
+    "🍵 Davet: {}":
+        "🍵 邀请：{}",
+    "Yok say":
+        "忽略",
+    "👥 {} abonelik istiyor":
+        "👥 {} 请求订阅",
+    "Kabul":
+        "接受",
+    "🔖 Yer imi güncellendi: {}":
+        "🔖 书签已更新：{}",
+    "Bağlantı koptu — yeniden bağlanıyor…":
+        "连接已断开——正在重新连接…",
+    "Bağlantı hatası: {}":
+        "连接错误：{}",
+    "Kimlik doğrulama başarısız — parolayı kontrol edin.":
+        "身份验证失败——请检查密码。",
+    "şifreli":
+        "已加密",
+    "🔒 şifreli dosya (masaüstü istemcide açılır)":
+        "🔒 加密文件（在桌面客户端中打开）",
+    "Tepki":
+        "回应",
+    "Geri çek":
+        "撤回",
+    "↑ daha eski":
+        "↑ 更早",
+    "Henüz mesaj yok":
+        "还没有消息",
+    "uzakta":
+        "离开",
+    "uzun süre uzakta":
+        "长时间离开",
+    "meşgul":
+        "忙碌",
+    "çevrimiçi":
+        "在线",
+    "{} üye":
+        "{} 位成员",
+    "çevrimdışı":
+        "离线",
+    "✍ yazıyor…":
+        "✍ 正在输入…",
+    "Kimse yok":
+        "没有人",
+    "🖥 Yerel · {}":
+        "🖥 本地 · {}",
+    "⏳ Çalışıyor…":
+        "⏳ 处理中…",
+    "İzin gerekli.":
+        "需要许可。",
+    "Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur.":
+        "勾选复选框后重试——仅对本次请求有效。",
+    "Yanıt alınamadı.":
+        "未收到回复。",
+    "Geçmişte ara…":
+        "搜索历史…",
+    "Çevrilecek metin…":
+        "要翻译的文本…",
+    "Asistana yaz…":
+        "给助手写信…",
+    "Kayıtlı anahtar var — değiştirmek için yazın":
+        "已保存密钥——输入以更改",
+    "Anahtar yok":
+        "没有密钥",
+    "✓ Ayarlar kaydedildi":
+        "✓ 设置已保存",
+    "Ayarlar kaydedilemedi":
+        "无法保存设置",
+    "Zaten {} olarak bağlı bir oturum var. Kapatıp devam edilsin mi?":
+        "已有以 {} 身份连接的会话。关闭它并继续吗？",
+    "Giriş başarısız.":
+        "登录失败。",
+    "{} odasından ayrıl?":
+        "离开 {}？",
+    "🔒 OMEMO açık — karşı tarafın OMEMO desteklemesi gerekir":
+        "🔒 OMEMO 已开启——对方必须支持 OMEMO",
+    "🔓 Şifreleme kapalı":
+        "🔓 加密已关闭",
+    "Çıkış yapıldı.":
+        "已退出登录。",
 }

@@ -2427,4 +2427,253 @@ CATALOG = {
         "ライト",
     "Gece mavisi":
         "ナイトブルー",
+    # ── webapp (tarayıcı arayüzü + sunucu iletileri) ──
+    "Bu sohbette özetlenecek mesaj yok.":
+        "このチャットには要約するメッセージがありません。",
+    "Okunmamış mesaj yok — her şeyi gördün.":
+        "未読メッセージはありません — すべて確認済みです。",
+    "Eşleşen mesajlar gönderilebilecek metin içermiyor.":
+        "一致したメッセージに送信できるテキストがありません。",
+    "Oturum kapanıyor.":
+        "セッションを終了しています。",
+    "Boş mesaj.":
+        "空のメッセージです。",
+    "Eksik tepki hedefi.":
+        "リアクションの対象がありません。",
+    "Geçersiz oda adresi ya da bağlantı yok.":
+        "ルームのアドレスが無効か、接続されていません。",
+    "Bilinmeyen komut: {}":
+        "不明なコマンド: {}",
+    "Eksik güvenlik başlığı.":
+        "セキュリティヘッダーがありません。",
+    "Çok fazla giriş denemesi — bir dakika sonra tekrar deneyin.":
+        "ログインの試行が多すぎます — 1 分後にもう一度お試しください。",
+    "JID (ad@sunucu) ve parola zorunlu.":
+        "JID（名前@サーバー）とパスワードが必要です。",
+    "Geçersiz oturum.":
+        "無効なセッションです。",
+    "jid zorunlu.":
+        "jid が必要です。",
+    "Geçersiz JSON gövde.":
+        "無効な JSON 本文です。",
+    "Geçersiz Host.":
+        "無効な Host です。",
+    "Geçersiz Origin.":
+        "無効な Origin です。",
+    "Zaten açık bir oturum var.":
+        "すでにセッションが開いています。",
+    "Sayısal parametre hatalı.":
+        "数値パラメーターが無効です。",
+    "Geçersiz WS bileti.":
+        "無効な WS チケットです。",
+    "Çevrilecek metin boş.":
+        "翻訳するテキストが空です。",
+    "Geçersiz parametre: {}":
+        "無効なパラメーター: {}",
+    "Soru boş.":
+        "質問が空です。",
+    "Bilinmeyen AI eylemi.":
+        "不明な AI 操作です。",
+    "Tarayıcıdan sohbet — masaüstü istemcinin web hâli":
+        "ブラウザーでチャット — デスクトップクライアントのウェブ版",
+    "ad@sunucu.im":
+        "name@server.im",
+    "Parola":
+        "パスワード",
+    "Sunucu (boş = otomatik)":
+        "サーバー（空欄 = 自動）",
+    "ör. xmpp.sunucu.im:5222 değil — sadece host":
+        "ホスト名のみ、例: xmpp.server.im（:5222 なし）",
+    "Şifreyi hatırla":
+        "パスワードを記憶",
+    "Durum":
+        "状態",
+    "durum mesajı":
+        "状態メッセージ",
+    "Ara…":
+        "検索…",
+    "Odaya katıl":
+        "ルームに参加",
+    "Oda keşfet":
+        "ルームを探す",
+    "Şifreleme modu":
+        "暗号化モード",
+    "🔓 Düz":
+        "🔓 平文",
+    "Oda üyeleri":
+        "ルームのメンバー",
+    "Odadan ayrıl":
+        "ルームから退出",
+    "Soldan bir sohbet seçin":
+        "左側でチャットを選択してください",
+    "yazıyor…":
+        "入力中…",
+    "✎ düzenleme":
+        "✎ 編集中",
+    "Mesaj yazın — Enter gönder, Shift+Enter satır":
+        "メッセージを入力 — Enter で送信、Shift+Enter で改行",
+    "Gönder":
+        "送信",
+    "Üyeler":
+        "メンバー",
+    "Geçmişe sor":
+        "履歴に質問",
+    "Çeviri":
+        "翻訳",
+    "Sohbet":
+        "チャット",
+    "Şifreli içerik buluta (Claude) gidebilir — bu istek için izin ver":
+        "暗号化された内容をクラウド（Claude）に送信できます — このリクエストに限り許可",
+    "Soru ya da metin…":
+        "質問またはテキスト…",
+    "Oda (room@service)":
+        "ルーム（room@service）",
+    "oda@chat.sunucu.im":
+        "room@chat.server.im",
+    "Takma ad":
+        "ニックネーム",
+    "⚙ Ayarlar":
+        "⚙ 設定",
+    "Genel":
+        "一般",
+    "Dil":
+        "言語",
+    "Masaüstü bildirimleri":
+        "デスクトップ通知",
+    "Bildirim sesi":
+        "通知音",
+    "Okundu bilgisi gönder":
+        "既読通知を送信",
+    "Yazıyor bildirimi gönder":
+        "入力中通知を送信",
+    "Odalara otomatik katıl":
+        "ルームに自動参加",
+    "Bağlantılardan görsel önizleme yükle (gizlilik: kapalıysa yalnız bağlantı gösterilir)":
+        "リンクから画像プレビューを読み込む（プライバシー: オフの場合はリンクのみ表示）",
+    "Sağlayıcı":
+        "プロバイダー",
+    "Yerel (Ollama)":
+        "ローカル（Ollama）",
+    "Bulut (Claude)":
+        "クラウド（Claude）",
+    "Ollama adresi":
+        "Ollama のアドレス",
+    "Model sıcak (keep_alive)":
+        "モデルを常駐させる（keep_alive）",
+    "Claude modeli":
+        "Claude モデル",
+    "Claude API anahtarı":
+        "Claude API キー",
+    "değiştirmek için yazın":
+        "変更するには入力",
+    "Kayıtlı API anahtarını sil":
+        "保存した API キーを削除",
+    "Şifreli sohbetler de buluta gidebilir (her seferinde sorulur)":
+        "暗号化チャットもクラウドに送信可（毎回確認）",
+    "Hassas veri uyarısı (yerel)":
+        "機密データの警告（ローカル）",
+    "Sesli mesajları otomatik yazıya dök (yerel)":
+        "音声メッセージを自動で文字起こし（ローカル）",
+    "Satır içi yazma önerisi (yalnız yerel)":
+        "インライン入力候補（ローカルのみ）",
+    "Uzaktayken yanıt taslağı hazırla":
+        "不在中に返信の下書きを用意",
+    "⚠ Hassas veri uyarısı":
+        "⚠ 機密データの警告",
+    "Bu mesaj şifresiz gönderilecek. Yine de göndersin mi?":
+        "このメッセージは暗号化されずに送信されます。それでも送信しますか？",
+    "Yine de gönder":
+        "それでも送信",
+    "Ben":
+        "自分",
+    "Dün":
+        "昨日",
+    "Oturum sona erdi.":
+        "セッションの有効期限が切れました。",
+    "Zaman aşımı":
+        "タイムアウト",
+    "✓ {} odasına katıldın":
+        "✓ {} に参加しました",
+    "Oda bulunamadı.":
+        "ルームが見つかりません。",
+    "🍵 Davet: {}":
+        "🍵 招待: {}",
+    "Yok say":
+        "無視",
+    "👥 {} abonelik istiyor":
+        "👥 {} が購読を希望しています",
+    "Kabul":
+        "承認",
+    "🔖 Yer imi güncellendi: {}":
+        "🔖 ブックマークを更新しました: {}",
+    "Bağlantı koptu — yeniden bağlanıyor…":
+        "接続が切れました — 再接続中…",
+    "Bağlantı hatası: {}":
+        "接続エラー: {}",
+    "Kimlik doğrulama başarısız — parolayı kontrol edin.":
+        "認証に失敗しました — パスワードを確認してください。",
+    "şifreli":
+        "暗号化済み",
+    "🔒 şifreli dosya (masaüstü istemcide açılır)":
+        "🔒 暗号化ファイル（デスクトップクライアントで開きます）",
+    "Tepki":
+        "リアクション",
+    "Geri çek":
+        "取り消す",
+    "↑ daha eski":
+        "↑ さらに古い",
+    "Henüz mesaj yok":
+        "まだメッセージはありません",
+    "uzakta":
+        "離席中",
+    "uzun süre uzakta":
+        "長時間離席",
+    "meşgul":
+        "取り込み中",
+    "çevrimiçi":
+        "オンライン",
+    "{} üye":
+        "メンバー {} 人",
+    "çevrimdışı":
+        "オフライン",
+    "✍ yazıyor…":
+        "✍ 入力中…",
+    "Kimse yok":
+        "誰もいません",
+    "🖥 Yerel · {}":
+        "🖥 ローカル · {}",
+    "⏳ Çalışıyor…":
+        "⏳ 処理中…",
+    "İzin gerekli.":
+        "許可が必要です。",
+    "Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur.":
+        "チェックボックスをオンにして再試行してください — このリクエストにのみ適用されます。",
+    "Yanıt alınamadı.":
+        "応答がありませんでした。",
+    "Geçmişte ara…":
+        "履歴を検索…",
+    "Çevrilecek metin…":
+        "翻訳するテキスト…",
+    "Asistana yaz…":
+        "アシスタントに書く…",
+    "Kayıtlı anahtar var — değiştirmek için yazın":
+        "キーが保存されています — 変更するには入力",
+    "Anahtar yok":
+        "キーなし",
+    "✓ Ayarlar kaydedildi":
+        "✓ 設定を保存しました",
+    "Ayarlar kaydedilemedi":
+        "設定を保存できませんでした",
+    "Zaten {} olarak bağlı bir oturum var. Kapatıp devam edilsin mi?":
+        "すでに {} として接続中のセッションがあります。閉じて続行しますか？",
+    "Giriş başarısız.":
+        "ログインに失敗しました。",
+    "{} odasından ayrıl?":
+        "{} から退出しますか？",
+    "🔒 OMEMO açık — karşı tarafın OMEMO desteklemesi gerekir":
+        "🔒 OMEMO オン — 相手側も OMEMO に対応している必要があります",
+    "🔓 Şifreleme kapalı":
+        "🔓 暗号化オフ",
+    "Çıkış yapıldı.":
+        "ログアウトしました。",
 }

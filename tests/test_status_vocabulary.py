@@ -78,7 +78,7 @@ def test_web_presence_select_uses_menu_vocabulary():
 def test_web_chat_subtitle_uses_menu_vocabulary():
     js = (ROOT / "webapp/static/app.js").read_text(encoding="utf-8")
     m = re.search(r"const awayTxt = \{(.*?)\};", js, re.S)
-    pairs = dict(re.findall(r'(\w+): "([^"]+)"', m.group(1)))
+    pairs = dict(re.findall(r'(\w+): _t\("([^"]+)"\)', m.group(1)))
     assert pairs == {"away": STATUS_LABELS["away"].lower(),
                      "xa": STATUS_LABELS["xa"].lower(),
                      "dnd": STATUS_LABELS["dnd"].lower(),

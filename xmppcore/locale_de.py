@@ -2427,4 +2427,253 @@ CATALOG = {
         "Hell",
     "Gece mavisi":
         "Nachtblau",
+    # ── webapp (tarayıcı arayüzü + sunucu iletileri) ──
+    "Bu sohbette özetlenecek mesaj yok.":
+        "In diesem Chat gibt es keine Nachrichten zum Zusammenfassen.",
+    "Okunmamış mesaj yok — her şeyi gördün.":
+        "Keine ungelesenen Nachrichten — du bist auf dem neuesten Stand.",
+    "Eşleşen mesajlar gönderilebilecek metin içermiyor.":
+        "Die passenden Nachrichten enthalten keinen sendbaren Text.",
+    "Oturum kapanıyor.":
+        "Die Sitzung wird beendet.",
+    "Boş mesaj.":
+        "Leere Nachricht.",
+    "Eksik tepki hedefi.":
+        "Reaktionsziel fehlt.",
+    "Geçersiz oda adresi ya da bağlantı yok.":
+        "Ungültige Raumadresse oder keine Verbindung.",
+    "Bilinmeyen komut: {}":
+        "Unbekannter Befehl: {}",
+    "Eksik güvenlik başlığı.":
+        "Sicherheits-Header fehlt.",
+    "Çok fazla giriş denemesi — bir dakika sonra tekrar deneyin.":
+        "Zu viele Anmeldeversuche — bitte in einer Minute erneut versuchen.",
+    "JID (ad@sunucu) ve parola zorunlu.":
+        "JID (name@server) und Passwort sind erforderlich.",
+    "Geçersiz oturum.":
+        "Ungültige Sitzung.",
+    "jid zorunlu.":
+        "jid ist erforderlich.",
+    "Geçersiz JSON gövde.":
+        "Ungültiger JSON-Body.",
+    "Geçersiz Host.":
+        "Ungültiger Host.",
+    "Geçersiz Origin.":
+        "Ungültiger Origin.",
+    "Zaten açık bir oturum var.":
+        "Es ist bereits eine Sitzung geöffnet.",
+    "Sayısal parametre hatalı.":
+        "Ungültiger numerischer Parameter.",
+    "Geçersiz WS bileti.":
+        "Ungültiges WS-Ticket.",
+    "Çevrilecek metin boş.":
+        "Der zu übersetzende Text ist leer.",
+    "Geçersiz parametre: {}":
+        "Ungültiger Parameter: {}",
+    "Soru boş.":
+        "Die Frage ist leer.",
+    "Bilinmeyen AI eylemi.":
+        "Unbekannte KI-Aktion.",
+    "Tarayıcıdan sohbet — masaüstü istemcinin web hâli":
+        "Chatten im Browser — die Web-Version des Desktop-Clients",
+    "ad@sunucu.im":
+        "name@server.im",
+    "Parola":
+        "Passwort",
+    "Sunucu (boş = otomatik)":
+        "Server (leer = automatisch)",
+    "ör. xmpp.sunucu.im:5222 değil — sadece host":
+        "nur Host, z. B. xmpp.server.im (ohne :5222)",
+    "Şifreyi hatırla":
+        "Passwort merken",
+    "Durum":
+        "Status",
+    "durum mesajı":
+        "Statusnachricht",
+    "Ara…":
+        "Suchen…",
+    "Odaya katıl":
+        "Raum beitreten",
+    "Oda keşfet":
+        "Räume entdecken",
+    "Şifreleme modu":
+        "Verschlüsselungsmodus",
+    "🔓 Düz":
+        "🔓 Unverschlüsselt",
+    "Oda üyeleri":
+        "Raummitglieder",
+    "Odadan ayrıl":
+        "Raum verlassen",
+    "Soldan bir sohbet seçin":
+        "Wähle links einen Chat aus",
+    "yazıyor…":
+        "schreibt…",
+    "✎ düzenleme":
+        "✎ Bearbeiten",
+    "Mesaj yazın — Enter gönder, Shift+Enter satır":
+        "Nachricht eingeben — Enter sendet, Umschalt+Enter für neue Zeile",
+    "Gönder":
+        "Senden",
+    "Üyeler":
+        "Mitglieder",
+    "Geçmişe sor":
+        "Verlauf fragen",
+    "Çeviri":
+        "Übersetzen",
+    "Sohbet":
+        "Chat",
+    "Şifreli içerik buluta (Claude) gidebilir — bu istek için izin ver":
+        "Verschlüsselte Inhalte dürfen in die Cloud (Claude) — für diese Anfrage erlauben",
+    "Soru ya da metin…":
+        "Frage oder Text…",
+    "Oda (room@service)":
+        "Raum (room@service)",
+    "oda@chat.sunucu.im":
+        "raum@chat.server.im",
+    "Takma ad":
+        "Spitzname",
+    "⚙ Ayarlar":
+        "⚙ Einstellungen",
+    "Genel":
+        "Allgemein",
+    "Dil":
+        "Sprache",
+    "Masaüstü bildirimleri":
+        "Desktop-Benachrichtigungen",
+    "Bildirim sesi":
+        "Benachrichtigungston",
+    "Okundu bilgisi gönder":
+        "Lesebestätigungen senden",
+    "Yazıyor bildirimi gönder":
+        "Tippbenachrichtigungen senden",
+    "Odalara otomatik katıl":
+        "Räumen automatisch beitreten",
+    "Bağlantılardan görsel önizleme yükle (gizlilik: kapalıysa yalnız bağlantı gösterilir)":
+        "Bildvorschauen aus Links laden (Datenschutz: wenn aus, wird nur der Link angezeigt)",
+    "Sağlayıcı":
+        "Anbieter",
+    "Yerel (Ollama)":
+        "Lokal (Ollama)",
+    "Bulut (Claude)":
+        "Cloud (Claude)",
+    "Ollama adresi":
+        "Ollama-Adresse",
+    "Model sıcak (keep_alive)":
+        "Modell warm halten (keep_alive)",
+    "Claude modeli":
+        "Claude-Modell",
+    "Claude API anahtarı":
+        "Claude-API-Schlüssel",
+    "değiştirmek için yazın":
+        "zum Ändern eingeben",
+    "Kayıtlı API anahtarını sil":
+        "Gespeicherten API-Schlüssel löschen",
+    "Şifreli sohbetler de buluta gidebilir (her seferinde sorulur)":
+        "Auch verschlüsselte Chats dürfen in die Cloud (jedes Mal wird gefragt)",
+    "Hassas veri uyarısı (yerel)":
+        "Warnung vor sensiblen Daten (lokal)",
+    "Sesli mesajları otomatik yazıya dök (yerel)":
+        "Sprachnachrichten automatisch transkribieren (lokal)",
+    "Satır içi yazma önerisi (yalnız yerel)":
+        "Inline-Schreibvorschläge (nur lokal)",
+    "Uzaktayken yanıt taslağı hazırla":
+        "Antwortentwürfe vorbereiten, während ich abwesend bin",
+    "⚠ Hassas veri uyarısı":
+        "⚠ Warnung vor sensiblen Daten",
+    "Bu mesaj şifresiz gönderilecek. Yine de göndersin mi?":
+        "Diese Nachricht wird unverschlüsselt gesendet. Trotzdem senden?",
+    "Yine de gönder":
+        "Trotzdem senden",
+    "Ben":
+        "Ich",
+    "Dün":
+        "Gestern",
+    "Oturum sona erdi.":
+        "Sitzung abgelaufen.",
+    "Zaman aşımı":
+        "Zeitüberschreitung",
+    "✓ {} odasına katıldın":
+        "✓ Du bist {} beigetreten",
+    "Oda bulunamadı.":
+        "Keine Räume gefunden.",
+    "🍵 Davet: {}":
+        "🍵 Einladung: {}",
+    "Yok say":
+        "Ignorieren",
+    "👥 {} abonelik istiyor":
+        "👥 {} möchte abonnieren",
+    "Kabul":
+        "Annehmen",
+    "🔖 Yer imi güncellendi: {}":
+        "🔖 Lesezeichen aktualisiert: {}",
+    "Bağlantı koptu — yeniden bağlanıyor…":
+        "Verbindung verloren — verbinde neu…",
+    "Bağlantı hatası: {}":
+        "Verbindungsfehler: {}",
+    "Kimlik doğrulama başarısız — parolayı kontrol edin.":
+        "Authentifizierung fehlgeschlagen — Passwort prüfen.",
+    "şifreli":
+        "verschlüsselt",
+    "🔒 şifreli dosya (masaüstü istemcide açılır)":
+        "🔒 verschlüsselte Datei (öffnet sich im Desktop-Client)",
+    "Tepki":
+        "Reagieren",
+    "Geri çek":
+        "Zurückziehen",
+    "↑ daha eski":
+        "↑ ältere",
+    "Henüz mesaj yok":
+        "Noch keine Nachrichten",
+    "uzakta":
+        "abwesend",
+    "uzun süre uzakta":
+        "länger abwesend",
+    "meşgul":
+        "beschäftigt",
+    "çevrimiçi":
+        "online",
+    "{} üye":
+        "{} Mitglieder",
+    "çevrimdışı":
+        "offline",
+    "✍ yazıyor…":
+        "✍ schreibt…",
+    "Kimse yok":
+        "Niemand da",
+    "🖥 Yerel · {}":
+        "🖥 Lokal · {}",
+    "⏳ Çalışıyor…":
+        "⏳ Wird ausgeführt…",
+    "İzin gerekli.":
+        "Erlaubnis erforderlich.",
+    "Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur.":
+        "Setze das Häkchen und versuche es erneut — es gilt nur für diese Anfrage.",
+    "Yanıt alınamadı.":
+        "Keine Antwort erhalten.",
+    "Geçmişte ara…":
+        "Im Verlauf suchen…",
+    "Çevrilecek metin…":
+        "Zu übersetzender Text…",
+    "Asistana yaz…":
+        "An den Assistenten schreiben…",
+    "Kayıtlı anahtar var — değiştirmek için yazın":
+        "Ein Schlüssel ist gespeichert — zum Ändern eingeben",
+    "Anahtar yok":
+        "Kein Schlüssel",
+    "✓ Ayarlar kaydedildi":
+        "✓ Einstellungen gespeichert",
+    "Ayarlar kaydedilemedi":
+        "Einstellungen konnten nicht gespeichert werden",
+    "Zaten {} olarak bağlı bir oturum var. Kapatıp devam edilsin mi?":
+        "Es besteht bereits eine Sitzung als {}. Schließen und fortfahren?",
+    "Giriş başarısız.":
+        "Anmeldung fehlgeschlagen.",
+    "{} odasından ayrıl?":
+        "{} verlassen?",
+    "🔒 OMEMO açık — karşı tarafın OMEMO desteklemesi gerekir":
+        "🔒 OMEMO an — die Gegenseite muss OMEMO unterstützen",
+    "🔓 Şifreleme kapalı":
+        "🔓 Verschlüsselung aus",
+    "Çıkış yapıldı.":
+        "Abgemeldet.",
 }

@@ -19,6 +19,7 @@ from xmppcore.ai import RETRACTED_BODY
 from xmppcore.config import _load_config, _save_config
 from xmppcore.constants import _log
 from xmppcore.helpers import _new_msg_id
+from xmppcore.i18n import tr as _tr
 
 
 def _safe_put(q, ev):
@@ -110,7 +111,7 @@ class WebSession:
         except Exception as e:
             _log.error("Web XMPP thread'i durdu", exc_info=True)
             try:
-                self.gui_q.put(("error", f"XMPP bağlantı thread'i durdu: {e}"))
+                self.gui_q.put(("error", _tr("XMPP bağlantı thread'i durdu: {}").format(e)))
             except Exception:
                 pass
         finally:
@@ -507,7 +508,7 @@ class WebSession:
     def command(self, cmd: str, args: dict) -> dict:
         """WS komutunu uygula; {"ok": bool, ...} döndürür."""
         if self._closing:
-            return {"ok": False, "error": "Oturum kapanıyor."}
+            return {"ok": False, "error": _tr("Oturum kapanıyor.")}
         bot = self.bot
         if cmd == "send":
             return self._cmd_send(args)
@@ -570,7 +571,7 @@ class WebSession:
         if cmd == "join_room":
             ok = self.join_room(args.get("room"), args.get("nick"))
             return {"ok": ok, "error": "" if ok else
-                    "Geçersiz oda adresi ya da bağlantı yok."}
+                    _tr("Geçersiz oda adresi ya da bağlantı yok.")}
         if cmd == "leave_room":
             self.leave_room(args.get("room", ""))
             return {"ok": True}
@@ -598,15 +599,15 @@ class WebSession:
             self._leak_guard = bool((cfg.get("ai") or {}).get("leak_guard",
                                                               True))
             return {"ok": True}
-        return {"ok": False, "error": f"Bilinmeyen komut: {cmd}"}
+        return {"ok": False, "error": _tr("Bilinmeyen komut: {}").format(cmd)}
 
     def _cmd_send(self, args) -> dict:
         to = (args.get("to") or "").strip()
         body = (args.get("body") or "").strip()
         if not to or not body:
-            return {"ok": False, "error": "Boş mesaj."}
+            return {"ok": False, "error": _tr("Boş mesaj.")}
         if self.bot is None:
-            return {"ok": False, "error": "Bağlı değil."}
+            return {"ok": False, "error": _tr("Bağlı değil")}
         enc = args.get("enc") or self.enc_modes.get(to, "none")
         if not args.get("force") and enc == "none" and self._leak_guard:
             findings = _sensitive.scan(body)
@@ -638,7 +639,7 @@ class WebSession:
         to, mid = args.get("to"), args.get("mid")
         emojis = set(args.get("emojis") or [])
         if not (self.bot and to and mid):
-            return {"ok": False, "error": "Eksik tepki hedefi."}
+            return {"ok": False, "error": _tr("Eksik tepki hedefi.")}
         mtype = "groupchat" if to in self.rooms else "chat"
         self.bot.send_reaction(to, mid, emojis, mtype)
         # Kendi tepkilerim: eski kümemi sil, yenisini yaz (MainWindow ile aynı)

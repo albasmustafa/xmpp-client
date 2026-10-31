@@ -19,9 +19,12 @@ Saldırı yüzeyi savunmaları (pentest 2026-10):
 import argparse
 import asyncio
 import collections
+import functools
 import json
+import re
 import secrets
 import time
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -29,6 +32,8 @@ from aiohttp import WSMsgType, web
 
 from webapp import aiapi
 from webapp.bridge import WebSession
+from xmppcore import i18n as _i18n
+from xmppcore.i18n import tr as _tr
 
 STATIC_DIR = Path(__file__).parent / "static"
 _TOKENS: dict[str, WebSession] = {}
@@ -57,7 +62,7 @@ def _session(request) -> WebSession:
     token = request.headers.get("X-Auth-Token") or ""
     session = _TOKENS.get(token)
     if session is None:
-        raise web.HTTPUnauthorized(text="Geçersiz oturum.")
+        raise web.HTTPUnauthorized(text=_tr("Geçersiz oturum."))
     return session
 
 
@@ -66,9 +71,9 @@ async def _body(request) -> dict:
         data = await request.content.read(_MAX_BODY + 1)
         obj = json.loads(data or b"{}")
     except Exception:
-        raise web.HTTPBadRequest(text="Geçersiz JSON gövde.")
+        raise web.HTTPBadRequest(text=_tr("Geçersiz JSON gövde."))
     if not isinstance(obj, dict):
-        raise web.HTTPBadRequest(text="Geçersiz JSON gövde.")
+        raise web.HTTPBadRequest(text=_tr("Geçersiz JSON gövde."))
     return obj
 
 
@@ -89,10 +94,10 @@ async def _origin_guard(request, handler):
     if not request.app[APP_INSECURE]:
         if _host_of(request.headers.get("Host", "127.0.0.1")) \
                 not in _LOCAL_HOSTS:
-            return _err("Geçersiz Host.", 403)
+            return _err(_tr("Geçersiz Host."), 403)
         origin = request.headers.get("Origin")
         if origin and _host_of(urlsplit(origin).netloc) not in _LOCAL_HOSTS:
-            return _err("Geçersiz Origin.", 403)
+            return _err(_tr("Geçersiz Origin."), 403)
     return await handler(request)
 
 
@@ -138,10 +143,10 @@ async def handle_login(request) -> web.Response:
     from xmppcore.config import _store_login
     if request.headers.get(_CSRF_HEADER) != _CSRF_VALUE:
         # Tarayıcı "basit istek"iyle (text/plain JSON) oturum açma/CDRF kapısı.
-        return _err("Eksik güvenlik başlığı.", 403)
+        return _err(_tr("Eksik güvenlik başlığı."), 403)
     if not request.app[APP_LOGIN_RATE].allow():
-        return _err("Çok fazla giriş denemesi — bir dakika sonra tekrar "
-                    "deneyin.", 429)
+        return _err(_tr("Çok fazla giriş denemesi — bir dakika sonra tekrar "
+                        "deneyin."), 429)
     body = await _body(request)
     jid = (body.get("jid") or "").strip()
     password = body.get("password") or ""
@@ -151,13 +156,13 @@ async def handle_login(request) -> web.Response:
     except (TypeError, ValueError):
         port = 5222
     if "@" not in jid or not password:
-        return _err("JID (ad@sunucu) ve parola zorunlu.", 400)
+        return _err(_tr("JID (ad@sunucu) ve parola zorunlu."), 400)
     # Açık oturum: force yoksa engelle, varsa kapat. Eski oturum yalnız
     # güvenlik başlığı ve hız sınırını geçen istekle kapanır; yeni oturumun
     # kimliği XMPP'de doğrulanana kadar eskisi zaten durur (bkz. WebSession).
     alive = [(t, s) for t, s in _TOKENS.items() if not s.dead]
     if alive and not body.get("force"):
-        return _json({"error": "Zaten açık bir oturum var.",
+        return _json({"error": _tr("Zaten açık bir oturum var."),
                       "connected_as": alive[0][1].jid,
                       "conflict": True}, 409)
     for token, old in alive:
@@ -202,7 +207,7 @@ def token_for(session: WebSession) -> str:
     for token, s in _TOKENS.items():
         if s is session:
             return token
-    raise web.HTTPUnauthorized(text="Geçersiz oturum.")
+    raise web.HTTPUnauthorized(text=_tr("Geçersiz oturum."))
 
 
 # ── Geçmiş / ayarlar ────────────────────────────────────────────────────────
@@ -210,7 +215,7 @@ async def handle_history(request) -> web.Response:
     session = _session(request)
     jid = request.query.get("jid", "")
     if not jid:
-        return _err("jid zorunlu.", 400)
+        return _err(_tr("jid zorunlu."), 400)
     try:
         limit = min(int(request.query.get("limit") or 60), 300)
         before = None
@@ -220,7 +225,7 @@ async def handle_history(request) -> web.Response:
             before = (request.query.get("before_stored_at") or "",
                       int(request.query.get("before_id")))
     except ValueError:
-        return _err("Sayısal parametre hatalı.", 400)
+        return _err(_tr("Sayısal parametre hatalı."), 400)
     return _json(session.history(jid, before=before, limit=limit))
 
 
@@ -233,7 +238,7 @@ def _ai_public(values: dict) -> dict:
 async def handle_settings_get(request) -> web.Response:
     _session(request)
     from xmppcore.ai import KEEP_ALIVE_CHOICES, TTS_ENGINES, WHISPER_MODELS, load_settings
-    from xmppcore.theme import _THEMES
+    from xmppcore.theme import _THEMES, theme_label
     cfg = _load_cfg()
     general = {k: cfg.get(k, d) for k, d in
                (("notifications", True), ("sounds", True),
@@ -245,6 +250,7 @@ async def handle_settings_get(request) -> web.Response:
         "ai": _ai_public(load_settings(cfg)),
         "themes": sorted(_THEMES),
         "theme_colors": _THEMES,
+        "theme_labels": {name: theme_label(name) for name in _THEMES},
         "choices": {"whisper_models": list(WHISPER_MODELS),
                     "tts_engines": list(TTS_ENGINES),
                     "keep_alive": list(KEEP_ALIVE_CHOICES)},
@@ -256,6 +262,10 @@ async def handle_settings_post(request) -> web.Response:
     from xmppcore.ai import api_key, merge_settings
     body = await _body(request)
     cfg = _load_cfg()
+    if body.get("language") in _i18n.LANGUAGES:
+        # Masaüstüyle ortak ayar (masaüstü yeniden başlatınca uygular)
+        cfg["language"] = body["language"]
+        _i18n.set_language(cfg["language"])
     general = body.get("general")
     if isinstance(general, dict):
         for key in _SETTINGS_GENERAL:
@@ -291,7 +301,7 @@ async def handle_ai(request) -> web.Response:
         elif action == "translate":
             text = (body.get("text") or "").strip()
             if not text:
-                return _err("Çevrilecek metin boş.", 400)
+                return _err(_tr("Çevrilecek metin boş."), 400)
             out = await asyncio.to_thread(aiapi.translate, text, allow)
         elif action == "digest":
             out = await asyncio.to_thread(aiapi.digest, dict(session.unread),
@@ -299,7 +309,7 @@ async def handle_ai(request) -> web.Response:
         elif action == "ask":
             q = (body.get("question") or "").strip()
             if not q:
-                return _err("Soru boş.", 400)
+                return _err(_tr("Soru boş."), 400)
             out = await asyncio.to_thread(aiapi.ask_history, q,
                                           body.get("previous") or "", allow,
                                           contacts)
@@ -307,11 +317,11 @@ async def handle_ai(request) -> web.Response:
             out = await asyncio.to_thread(aiapi.assistant,
                                           body.get("history") or [], allow)
         else:
-            return _err("Bilinmeyen AI eylemi.", 404)
+            return _err(_tr("Bilinmeyen AI eylemi."), 404)
     except aiapi.AIPrivacyError as e:
         return _json({"error": str(e), "privacy": True}, 403)
     except ValueError as e:
-        return _err(f"Geçersiz parametre: {e}", 400)
+        return _err(_tr("Geçersiz parametre: {}").format(e), 400)
     except Exception as e:
         from xmppcore.ai import AIError
         if isinstance(e, AIError):
@@ -336,11 +346,11 @@ async def handle_ws(request) -> web.WebSocketResponse:
     ticket = request.query.get("ticket", "")
     entry = _WS_TICKETS.pop(ticket, None)      # tek kullanım: önce düş
     if entry is None or entry[1] < time.monotonic():
-        raise web.HTTPUnauthorized(text="Geçersiz WS bileti.")
+        raise web.HTTPUnauthorized(text=_tr("Geçersiz WS bileti."))
     token, _exp = entry
     session = _TOKENS.get(token)
     if session is None:
-        raise web.HTTPUnauthorized(text="Geçersiz oturum.")
+        raise web.HTTPUnauthorized(text=_tr("Geçersiz oturum."))
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
     sink: asyncio.Queue = asyncio.Queue(maxsize=1000)
@@ -374,6 +384,68 @@ async def handle_ws(request) -> web.WebSocketResponse:
     return ws
 
 
+# ── Arayüz dili ─────────────────────────────────────────────────────────────
+# Web metinleri masaüstünün kataloglarını paylaşır (Türkçe metin anahtardır).
+# Anahtarlar statik dosyalardan okunur: app.js'te `_t("…")`/`fmt("…")`,
+# index.html'de <body> içindeki metinler ve placeholder/title. Küçük harf
+# içermeyenler (JID, AI, OMEMO, simgeler) dilden bağımsızdır, çevrilmez.
+_JS_MSGID = re.compile(r'\b(?:_t|fmt)\("((?:[^"\\\n]|\\.)*)"')
+_HAS_LOWER = re.compile(r"[a-zçğıöşü]")
+
+
+class _HtmlTexts(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.in_body = False
+        self.skip = 0
+        self.found: list[str] = []
+
+    def _add(self, text):
+        text = (text or "").strip()
+        if text and _HAS_LOWER.search(text):
+            self.found.append(text)
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "body":
+            self.in_body = True
+        elif tag in ("script", "style"):
+            self.skip += 1
+        if self.in_body:
+            for name, value in attrs:
+                if name in ("placeholder", "title"):
+                    self._add(value)
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style"):
+            self.skip -= 1
+
+    def handle_data(self, data):
+        if self.in_body and not self.skip:
+            self._add(data)
+
+
+@functools.cache
+def web_msgids() -> tuple[str, ...]:
+    """Web arayüzünün çevrilecek metinleri (kaynak sırasıyla, tekrarsız)."""
+    parser = _HtmlTexts()
+    parser.feed((STATIC_DIR / "index.html").read_text(encoding="utf-8"))
+    js = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    found = parser.found + [json.loads(f'"{m}"') for m in _JS_MSGID.findall(js)]
+    return tuple(dict.fromkeys(found))
+
+
+async def handle_i18n(request) -> web.Response:
+    """Seçili dil + web kataloğu (girişten önce de gerekir: oturum istemez)."""
+    lang = _i18n.set_language(_load_cfg().get("language"))
+    catalog = {}
+    for msgid in web_msgids():
+        text = _i18n.tr_in(lang, msgid)
+        if text != msgid:
+            catalog[msgid] = text
+    return _json({"lang": lang, "languages": dict(_i18n.LANGUAGES),
+                  "catalog": catalog})
+
+
 # ── Statik ve uygulama ──────────────────────────────────────────────────────
 async def handle_index(request) -> web.FileResponse:
     return web.FileResponse(STATIC_DIR / "index.html")
@@ -390,6 +462,7 @@ def make_app(insecure: bool = False) -> web.Application:
     app.router.add_post("/api/logout", handle_logout)
     app.router.add_post("/api/ws-ticket", handle_ws_ticket)
     app.router.add_get("/api/prefill", handle_prefill)
+    app.router.add_get("/api/i18n", handle_i18n)
     app.router.add_get("/api/history", handle_history)
     app.router.add_get("/api/settings", handle_settings_get)
     app.router.add_post("/api/settings", handle_settings_post)
@@ -413,6 +486,7 @@ def main():
         raise SystemExit(
             f"✗ --host {args.host} yerel döngü dışı. Ağa açmak için "
             "--insecure ekleyin (trafik şifrelenmez, düz HTTP'dir).")
+    _i18n.set_language(_load_cfg().get("language"))
     app = make_app(insecure=insecure)
     print(f"XMPP web arayüzü: http://{args.host}:{args.port}/"
           + ("  [GÜVENSİZ MOD — ağa açık]" if insecure else ""))

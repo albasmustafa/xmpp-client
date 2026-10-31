@@ -10,7 +10,8 @@ Dosyalar: `xmpp.py` (facade, ~12,8K satır) · `xmppcore/` (config, storage, i18
 XMPPBot mixin'leri, `ai.py`) · `ui/` (durumsuz Tk görünüm katmanı: `chat/`, `dialogs/`,
 `sidebar.py`…) · `jingle_ft.py` (P2P dosya aktarımı) · `xmpp_mcp.py` (MCP sunucusu) ·
 `webapp/` (tarayıcı arayüzü: headless köprü + aiohttp sunucusu; aşağıda) ·
-`tests/` · `tools/` (uçtan uca betikler) · `docs/` (tasarım belgeleri) · `xmpp-client.sh`
+`tests/` · `tools/` (uçtan uca betikler; `phone_check.py`: telefonla çoklu cihaz
+denetimi, kullanıcıyla birlikte) · `docs/` (tasarım belgeleri) · `xmpp-client.sh`
 (başlatıcı) · `xmpp-web.sh` (web başlatıcısı) · `_arsiv/` (eski yedekler; git dışı).
 
 > Dikkat: Klasör Ekim 2026'da diskin kökünden buraya taşındı (taşıma commit'i `90f32f8f`).
@@ -113,8 +114,16 @@ gerçekten çalıştır.
   kalır, ekranda `ai.display_text`). AI yanıt dili, kullanıcı seçmediyse arayüz
   dilidir (`i18n.AI_LANGUAGE_NAMES`, `ai.load_settings`); asistanın İngilizce kısa yolları
   ("Ask history: …", "Set my status to busy", "What have I missed?") modele gitmez.
-  Tema adları `theme.theme_label` ile gösterilir (config'te anahtar). Web arayüzü
-  (`webapp/static`) henüz yalnız Türkçedir.
+  Tema adları `theme.theme_label` ile gösterilir (config'te anahtar). **Web arayüzü**
+  aynı katalogları kullanır: `app.js`'te `_t("…")` ve şablon `fmt("{} üye", n)`
+  (yalnız düz çift tırnaklı sabit; `{0}`/`{1}` sırası çeviride değişebilir),
+  `index.html`'de `<body>` metinleri ve placeholder/title açılışta `translateDom` ile
+  çevrilir. Anahtarları `webapp.server.web_msgids()` statik dosyalardan okur (küçük
+  harfsiz JID/AI/OMEMO dilden bağımsız); `/api/i18n` (oturumsuz) seçili dili ve
+  yalnız web metinlerinin kataloğunu verir. Web Ayarlar'daki dil config `"language"`a
+  yazılır, sayfa yeniden yüklenir (masaüstü yeniden başlatınca uygular). Testler:
+  `test_i18n_catalog.py` web anahtarlarını da kapsar; `test_webapp.py` app.js'te
+  sarılmamış Türkçe metni yakalar.
 
 ### Geliştirme kuralları
 1. OMEMO/PGP davranışına dokunma.

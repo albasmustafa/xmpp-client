@@ -37,6 +37,7 @@ from xmppcore.ai import (
     translate_request,
 )
 from xmppcore.config import _load_config
+from xmppcore.i18n import tr as _tr
 
 __all__ = ["AIPrivacyError", "settings", "summary", "translate", "digest",
            "ask_history", "assistant", "index_pending"]
@@ -70,7 +71,7 @@ def summary(jid: str, unread: int = 0, allow_cloud: bool = False,
     transcript, count = build_transcript(
         _entries(jid), max_chars=transcript_budget(s))
     if not count:
-        return {"text": "Bu sohbette özetlenecek mesaj yok.",
+        return {"text": _tr("Bu sohbette özetlenecek mesaj yok."),
                 "provider": provider}
     system, user = summary_request(transcript, s["target_language"], unread)
     return {"text": chat(s, system, user, max_tokens=1200),
@@ -103,12 +104,12 @@ def digest(unread_map: dict, allow_cloud: bool = False,
         if entries:
             chats.append((_label(jid, contacts), entries, unread))
     if not chats:
-        return {"text": "Okunmamış mesaj yok — her şeyi gördün.",
+        return {"text": _tr("Okunmamış mesaj yok — her şeyi gördün."),
                 "provider": provider}
     digest_text, _inc, omitted_idx = build_digest(
         chats, budget=transcript_budget(s))
     if not digest_text:
-        return {"text": "Okunmamış mesaj yok — her şeyi gördün.",
+        return {"text": _tr("Okunmamış mesaj yok — her şeyi gördün."),
                 "provider": provider}
     system, user = digest_request(
         digest_text, s["target_language"],
@@ -174,8 +175,8 @@ def ask_history(question: str, previous: str = "", allow_cloud: bool = False,
     context = (_storage._db_ai_context(ids, RAG_BEFORE, RAG_AFTER)
                if ids else [])
     if not context:
-        return {"text": "Bu soruyla ilgili bir mesaj bulunamadı. Farklı "
-                        "kelimelerle sormayı deneyin.",
+        return {"text": _tr("Bu soruyla ilgili bir mesaj bulunamadı. Farklı "
+                            "kelimelerle sormayı deneyin."),
                 "sources": [], "provider": s.get("provider")}
     # Bağlamda şifreli satır varsa buluta gitmeden önce izin şart.
     has_secret = any(r[7] for r in context)
@@ -185,7 +186,7 @@ def ask_history(question: str, previous: str = "", allow_cloud: bool = False,
         context, {msg_id: i for i, msg_id in enumerate(ids)}, labels,
         max_chars=transcript_budget(s))
     if not ctx:
-        return {"text": "Eşleşen mesajlar gönderilebilecek metin içermiyor.",
+        return {"text": _tr("Eşleşen mesajlar gönderilebilecek metin içermiyor."),
                 "sources": [], "provider": provider}
     system = rag_system(s["target_language"],
                         datetime.now().strftime("%Y-%m-%d"))

@@ -606,3 +606,94 @@ def test_insecure_mode_skips_guard(monkeypatch):
             await client.close()
 
     asyncio.run(go())
+
+
+# ── Arayüz dili (web) ───────────────────────────────────────────────────────
+def test_i18n_endpoint_serves_web_catalog_without_session(monkeypatch):
+    """Giriş ekranı da çevrilir: /api/i18n oturum istemez, dil config'ten."""
+    from xmppcore import i18n
+    monkeypatch.setattr(i18n, "_lang", "tr")
+    monkeypatch.setattr(srv, "_load_cfg", lambda: {"language": "de"})
+
+    async def go():
+        client = await _client(monkeypatch)
+        try:
+            resp = await client.get("/api/i18n")
+            assert resp.status == 200
+            data = await resp.json()
+            assert data["lang"] == "de"
+            assert data["languages"]["ja"] == "日本語"
+            cat = data["catalog"]
+            assert cat["Bağlan"] and cat["Bağlan"] != "Bağlan"   # index.html
+            assert cat["{} üye"] == "{} Mitglieder"              # app.js fmt
+            assert cat["Kayıtlı anahtar var — değiştirmek için yazın"]
+            assert set(cat) <= set(srv.web_msgids())   # yalnız web metinleri
+        finally:
+            await client.close()
+
+    asyncio.run(go())
+    monkeypatch.setattr(srv, "_load_cfg", lambda: {})
+
+    async def go_tr():
+        client = await _client(monkeypatch)
+        try:
+            data = await (await client.get("/api/i18n")).json()
+            assert data["lang"] == "tr" and data["catalog"] == {}
+        finally:
+            await client.close()
+
+    asyncio.run(go_tr())
+
+
+def test_settings_saves_language_and_sends_theme_labels(monkeypatch):
+    from xmppcore import i18n
+    monkeypatch.setattr(i18n, "_lang", "tr")
+    monkeypatch.setattr(srv, "_TOKENS", {"tok": object.__new__(wb.WebSession)})
+    cfg = {}
+    monkeypatch.setattr(srv, "_load_cfg", lambda: cfg)
+    monkeypatch.setattr(srv, "_save_cfg", lambda c: None)
+
+    async def go():
+        client = await _client(monkeypatch)
+        hdr = {"X-Auth-Token": "tok"}
+        try:
+            data = await (await client.get("/api/settings", headers=hdr)).json()
+            assert data["theme_labels"]["koyu"] == "Koyu"
+            await client.post("/api/settings", headers=hdr,
+                              json={"language": "xx"})
+            assert "language" not in cfg                    # bilinmeyen dil
+            await client.post("/api/settings", headers=hdr,
+                              json={"language": "en"})
+            assert cfg["language"] == "en"
+            data = await (await client.get("/api/settings", headers=hdr)).json()
+            assert data["theme_labels"]["koyu"] == "Dark"
+            resp = await client.get("/api/history", headers=hdr)
+            assert (await resp.json())["error"] == "jid is required."
+        finally:
+            await client.close()
+
+    asyncio.run(go())
+
+
+def test_web_msgids_cover_html_and_js():
+    ids = srv.web_msgids()
+    assert "Şifreyi hatırla" in ids                 # metin düğümü
+    assert "Mesaj yazın — Enter gönder, Shift+Enter satır" in ids  # placeholder
+    assert "Ayarlar" in ids                         # title
+    assert "✓ {} odasına katıldın" in ids           # fmt(...)
+    assert "XMPP — Web" not in ids                  # <head> çevrilmez
+    assert "JID" not in ids and "OMEMO" not in ids  # dilden bağımsız
+
+
+def test_app_js_has_no_unwrapped_turkish_text():
+    """Arayüz metni app.js'e `_t(…)`/`fmt(…)` dışında Türkçe yazılamaz."""
+    import re
+    js = (srv.STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    js = re.sub(r"/\*.*?\*/", "", js, flags=re.S)       # blok yorumlar
+    js = re.sub(r"(^|\s)//.*$", "", js, flags=re.M)     # satır yorumları
+    js = srv._JS_MSGID.sub("", js)                      # sarılmış metinler
+    turkish = re.compile(r"[çğıöşüÇĞİÖŞÜ]")
+    literals = re.findall(r'"(?:[^"\\\n]|\\.)*"|\'(?:[^\'\\\n]|\\.)*\'|'
+                          r'`(?:[^`\\]|\\.)*`', js)
+    bad = [s for s in literals if turkish.search(s)]
+    assert not bad, bad

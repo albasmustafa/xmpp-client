@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 import xmpp
+from webapp.server import web_msgids
 from xmppcore import agent, i18n
 from xmppcore import ai as _ai
 from xmppcore.locale_en import EN
@@ -22,7 +23,8 @@ from xmppcore.locale_en import EN
 ROOT = Path(__file__).resolve().parent.parent
 SOURCES = ([ROOT / "xmpp.py", ROOT / "jingle_ft.py"]
            + sorted((ROOT / "ui").rglob("*.py"))
-           + sorted((ROOT / "xmppcore").rglob("*.py")))
+           + sorted((ROOT / "xmppcore").rglob("*.py"))
+           + sorted((ROOT / "webapp").glob("*.py")))
 _TR_CALLS = {"_tr", "tr", "N_"}
 _TURKISH = re.compile(r"[çğıöşüÇĞİÖŞÜ]")
 
@@ -49,6 +51,8 @@ def _msgids():
                 found.setdefault(arg.value, f"{path.name}:{n.lineno}")
     for key, text in i18n.KEYS.items():
         found.setdefault(text, f"KEYS[{key}]")
+    for text in web_msgids():                  # index.html + app.js
+        found.setdefault(text, "webapp/static")
     return found
 
 

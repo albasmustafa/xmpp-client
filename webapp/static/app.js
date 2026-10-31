@@ -13,6 +13,49 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
            "'": "&#39;"}[c]));
 const LINK_RE = /\bhttps?:\/\/[^\s<>"']+/g;
 
+/* ── arayüz dili ─────────────────────────────────────────────────────────
+ * Masaüstüyle aynı gettext düzeni: Türkçe metin anahtardır, katalog
+ * sunucudan gelir (/api/i18n; xmppcore/locale_*.py). Metin `_t(…)` ile,
+ * şablon `fmt(…, n)` ile çevrilir; `{0}`/`{1}` sırası çeviride değişebilir.
+ * Yeni metin bu iki çağrıya düz çift tırnaklı sabitle yazılır: sunucu ve
+ * testler anahtarları bu kalıptan okur. */
+const I18N = {lang: "tr", languages: {}, catalog: {}};
+const _t = (text) => I18N.catalog[text] ?? text;
+
+function fmt(text, ...args) {
+  let auto = 0;
+  return _t(text).replace(/\{(\d*)\}/g, (_, n) =>
+    String(args[n === "" ? auto++ : Number(n)] ?? ""));
+}
+
+async function loadI18n() {
+  try {
+    const res = await fetch("/api/i18n",
+                            {headers: {"X-Requested-With": "xmpp-web"}});
+    if (res.ok) Object.assign(I18N, await res.json());
+  } catch (_) { /* Türkçe kalır */ }
+  document.documentElement.lang = I18N.lang;
+}
+
+/* index.html'deki sabit metinler: metin düğümleri + placeholder/title */
+function translateDom(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const key = n.nodeValue.trim();
+    const val = key && I18N.catalog[key];
+    if (val) n.nodeValue = n.nodeValue.replace(key, val);
+  }
+  root.querySelectorAll("[placeholder], [title]").forEach((el) => {
+    for (const attr of ["placeholder", "title"]) {
+      const val = I18N.catalog[el.getAttribute(attr) || ""];
+      if (val) el.setAttribute(attr, val);
+    }
+  });
+}
+
+// Kendi mesajlarımın göndericisi veride "Ben" kalır (DB/tepki eşleşmesi)
+const who = (name) => (name === "Ben" ? _t("Ben") : name);
+
 function linkify(body) {
   let html = esc(body);
   html = html.replace(LINK_RE, (u) =>
@@ -27,8 +70,8 @@ function dayLabel(storedAt) {
   const now = new Date();
   const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
   const diff = Math.round((day(now) - day(d)) / 86400000);
-  if (diff === 0) return "Bugün";
-  if (diff === 1) return "Dün";
+  if (diff === 0) return _t("Bugün");
+  if (diff === 1) return _t("Dün");
   const p = (n) => String(n).padStart(2, "0");
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
 }
@@ -97,7 +140,7 @@ async function api(path, opts = {}) {
   const res = await fetch(url, opts);
   let data = {};
   try { data = await res.json(); } catch (_) { /* boş gövde */ }
-  if (res.status === 401) { showLogin("Oturum sona erdi."); throw new Error("401"); }
+  if (res.status === 401) { showLogin(_t("Oturum sona erdi.")); throw new Error("401"); }
   return { status: res.status, ok: res.ok, data };
 }
 
@@ -145,7 +188,7 @@ function wsSend(cmd, args = {}) {
     setTimeout(() => {
       if (S.wsWait.has(req)) {
         S.wsWait.delete(req);
-        resolve({ok: false, error: "Zaman aşımı"});
+        resolve({ok: false, error: _t("Zaman aşımı")});
       }
     }, 10000);
   });
@@ -179,7 +222,7 @@ const EVENTS = {
     }
     for (const [jid, c] of known) if (c.room) S.contacts.set(jid, c);
     renderContacts();
-    toast("✓ Bağlandı");
+    toast(_t("✓ Bağlandı"));
   },
   presence(data) {
     const c = S.contacts.get(data.jid);
@@ -272,7 +315,7 @@ const EVENTS = {
     S.contacts.set(room, c);
     renderContacts();
     openChat(room);
-    toast(`✓ ${room} odasına katıldın`);
+    toast(fmt("✓ {} odasına katıldın", room));
   },
   room_left(data) {
     S.contacts.delete(data.room);
@@ -283,7 +326,7 @@ const EVENTS = {
     const list = $("rooms-list");
     list.innerHTML = "";
     if (!Array.isArray(data) || !data.length) {
-      list.innerHTML = '<li class="dim">Oda bulunamadı.</li>';
+      list.innerHTML = `<li class="dim">${esc(_t("Oda bulunamadı."))}</li>`;
       return;
     }
     for (const room of data) {
@@ -291,7 +334,7 @@ const EVENTS = {
       const name = typeof room === "string" ? room : (room.jid || "?");
       li.innerHTML = `<span>${esc(name)}</span>`;
       const b = document.createElement("button");
-      b.textContent = "Katıl";
+      b.textContent = _t("Katıl");
       b.onclick = () => {
         $("dlg-rooms").close();
         $("j-room").value = name;
@@ -302,21 +345,21 @@ const EVENTS = {
     }
   },
   muc_invite(data) {
-    toastActions(`🍵 Davet: ${data.room}` +
+    toastActions(fmt("🍵 Davet: {}", data.room) +
                  (data.reason ? ` — ${data.reason}` : ""),
-                 [["Katıl", () => {
+                 [[_t("Katıl"), () => {
                    $("j-room").value = data.room;
                    $("dlg-join").showModal();
-                 }], ["Yok say", () => {}]]);
+                 }], [_t("Yok say"), () => {}]]);
   },
   subscribe_req(data) {
-    toastActions(`👥 ${data} abonelik istiyor`,
-      [["Kabul", () => wsSend("approve_subscribe",
-                             {jid: data, approve: true})],
-       ["Reddet", () => wsSend("approve_subscribe",
+    toastActions(fmt("👥 {} abonelik istiyor", data),
+      [[_t("Kabul"), () => wsSend("approve_subscribe",
+                                 {jid: data, approve: true})],
+       [_t("Reddet"), () => wsSend("approve_subscribe",
                                {jid: data, approve: false})]]);
   },
-  bookmarks_update(data) { toast(`🔖 Yer imi güncellendi: ${data.kind || ""}`); },
+  bookmarks_update(data) { toast(fmt("🔖 Yer imi güncellendi: {}", data.kind || "")); },
   read_elsewhere(data) {
     const c = S.contacts.get(data.jid);
     if (c) { c.unread = 0; renderContacts(); }
@@ -334,11 +377,11 @@ const EVENTS = {
   },
   sys_msg(data) { toast(data); },
   error(data) { toast(data, true); },
-  disconnected() { toast("Bağlantı koptu — yeniden bağlanıyor…", true);
+  disconnected() { toast(_t("Bağlantı koptu — yeniden bağlanıyor…"), true);
                    $("me-dot").className = "dot"; },
-  conn_failed(data) { toast(`Bağlantı hatası: ${data}`, true); },
+  conn_failed(data) { toast(fmt("Bağlantı hatası: {}", data), true); },
   auth_failed() {
-    showLogin("Kimlik doğrulama başarısız — parolayı kontrol edin.");
+    showLogin(_t("Kimlik doğrulama başarısız — parolayı kontrol edin."));
   },
 };
 
@@ -361,7 +404,7 @@ function notify(title, body) {
   if (!S.settings?.general?.notifications) return;
   if (document.hasFocus()) return;
   if (Notification.permission === "granted") {
-    new Notification(`Mesaj — ${title}`, {body: (body || "").slice(0, 100)});
+    new Notification(fmt("Mesaj — {}", title), {body: (body || "").slice(0, 100)});
   } else if (Notification.permission !== "denied") {
     Notification.requestPermission();
   }
@@ -395,7 +438,7 @@ function renderContacts() {
     li.innerHTML =
       `<span class="dot ${esc(cls)}"></span>` +
       `<div class="name"><b>${esc(label)}</b>` +
-      `<div class="sub">${esc(c.typing ? "yazıyor…" :
+      `<div class="sub">${esc(c.typing ? _t("yazıyor…") :
         c.room ? (c.subject || c.jid) : c.jid)}</div></div>` +
       (c.unread ? `<span class="badge">${c.unread}</span>` : "");
     li.onclick = () => openChat(c.jid);
@@ -454,13 +497,14 @@ function rowHtml(m, prev) {
   const showSender = room && !m.is_me && m.sender !== prev?.sender;
   const ticks = m.is_me
     ? `<span class="ticks">${tickFor(m)}</span>` : "";
-  const enc = m.encrypted ? '<span title="şifreli">🔒</span>' : "";
+  const enc = m.encrypted
+    ? `<span title="${esc(_t("şifreli"))}">🔒</span>` : "";
   const reply = m.reply
-    ? `<div class="reply-q">↩ <b>${esc(m.reply.sender || "")}</b> ` +
+    ? `<div class="reply-q">↩ <b>${esc(who(m.reply.sender || ""))}</b> ` +
       `${esc((m.reply.body || "").slice(0, 90))}</div>` : "";
   let bodyHtml;
   if (m.body === RETRACTED) {
-    bodyHtml = `<span class="enc-chip">${esc(m.body)}</span>`;
+    bodyHtml = `<span class="enc-chip">${esc(_t(RETRACTED))}</span>`;
   } else if (m.oob && /^https?:\/\//.test(m.oob)) {
     const isImg = /\.(png|jpe?g|gif|webp|avif)(\?|$)/i.test(m.oob) &&
       S.settings?.general?.remote_previews !== false;
@@ -471,7 +515,7 @@ function rowHtml(m, prev) {
       `</a>`;
   } else if (/^aesgcm:\/\//.test(m.oob || "")) {
     bodyHtml = linkify(m.body) +
-      `<div class="enc-chip">🔒 şifreli dosya (masaüstü istemcide açılır)</div>`;
+      `<div class="enc-chip">${esc(_t("🔒 şifreli dosya (masaüstü istemcide açılır)"))}</div>`;
   } else {
     bodyHtml = linkify(m.body);
   }
@@ -479,15 +523,15 @@ function rowHtml(m, prev) {
     .filter(([, senders]) => senders.length)
     .map(([emoji, senders]) =>
       `<span class="${senders.includes("Ben") ? "mine" : ""}" ` +
-      `title="${esc(senders.join(", "))}" data-react="${esc(emoji)}">` +
+      `title="${esc(senders.map(who).join(", "))}" data-react="${esc(emoji)}">` +
       `${esc(emoji)} ${senders.length}</span>`).join("");
   const canAct = m.mid && m.body !== RETRACTED;
   const tools = canAct
     ? `<div class="row-tools">` +
-      `<button data-act="reply" title="Yanıtla">↩</button>` +
-      `<button data-act="react" title="Tepki">😊</button>` +
-      (m.is_me ? `<button data-act="edit" title="Düzenle">✎</button>` +
-                 `<button data-act="retract" title="Geri çek">🗑</button>`
+      `<button data-act="reply" title="${esc(_t("Yanıtla"))}">↩</button>` +
+      `<button data-act="react" title="${esc(_t("Tepki"))}">😊</button>` +
+      (m.is_me ? `<button data-act="edit" title="${esc(_t("Düzenle"))}">✎</button>` +
+                 `<button data-act="retract" title="${esc(_t("Geri çek"))}">🗑</button>`
                : "") +
       `</div>` : "";
   const midAttr = m.mid ? ` data-mid="${esc(m.mid)}"` : "";
@@ -510,13 +554,13 @@ function renderMessages() {
   const box = $("messages");
   const h = S.history.get(S.active);
   if (!h) {
-    box.innerHTML = `<div class="empty-hint">Soldan bir sohbet seçin</div>`;
+    box.innerHTML = `<div class="empty-hint">${esc(_t("Soldan bir sohbet seçin"))}</div>`;
     return;
   }
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
   let html = "";
   if (h.has_more && h.msgs.length) {
-    html += `<div class="sysline"><button id="btn-older">↑ daha eski</button></div>`;
+    html += `<div class="sysline"><button id="btn-older">${esc(_t("↑ daha eski"))}</button></div>`;
   }
   let prev = null, prevDay = null;
   for (const m of h.msgs) {
@@ -528,7 +572,7 @@ function renderMessages() {
     html += rowHtml(m, prev);
     prev = m;
   }
-  box.innerHTML = html || `<div class="empty-hint">Henüz mesaj yok</div>`;
+  box.innerHTML = html || `<div class="empty-hint">${esc(_t("Henüz mesaj yok"))}</div>`;
   box.querySelectorAll("[data-act]").forEach((b) => {
     b.onclick = () => rowAction(b.dataset.act, b.closest(".row"));
   });
@@ -581,7 +625,7 @@ function renderChatHeader() {
   const encBtn = $("btn-enc"), memBtn = $("btn-members"),
         leaveBtn = $("btn-leave-room"), dot = $("chat-dot");
   if (!c) {
-    $("chat-name").textContent = "Bir sohbet seçin";
+    $("chat-name").textContent = _t("Bir sohbet seçin");
     $("chat-sub").textContent = "";
     dot.classList.add("hidden");
     encBtn.classList.add("hidden");
@@ -592,13 +636,13 @@ function renderChatHeader() {
   $("chat-name").textContent = c.room ? `# ${c.name}` : c.name;
   const p = c.presence || {};
   // Durum adları masaüstü menüsüyle aynı (agent.STATUS_LABELS)
-  const awayTxt = {away: "uzakta", xa: "uzun süre uzakta", dnd: "meşgul",
-                   chat: "çevrimiçi"};
+  const awayTxt = {away: _t("uzakta"), xa: _t("uzun süre uzakta"),
+                   dnd: _t("meşgul"), chat: _t("çevrimiçi")};
   const sub = c.room
-    ? (c.subject || `${Object.keys(c.members).length} üye`)
-    : (p.ptype === "unavailable" ? "çevrimdışı"
-       : awayTxt[p.pshow] || (p.ptype === "available" ? "çevrimiçi" : "—"));
-  $("chat-sub").textContent = c.typing ? "✍ yazıyor…" : sub;
+    ? (c.subject || fmt("{} üye", Object.keys(c.members).length))
+    : (p.ptype === "unavailable" ? _t("çevrimdışı")
+       : awayTxt[p.pshow] || (p.ptype === "available" ? _t("çevrimiçi") : "—"));
+  $("chat-sub").textContent = c.typing ? _t("✍ yazıyor…") : sub;
   if (!c.room) {
     dot.classList.remove("hidden");
     dot.className = "dot " + presenceClass(c);
@@ -608,7 +652,7 @@ function renderChatHeader() {
   encBtn.classList.remove("hidden");
   memBtn.classList.toggle("hidden", !c.room);
   leaveBtn.classList.toggle("hidden", !c.room);
-  encBtn.textContent = c.enc === "omemo" ? "🔒 OMEMO" : "🔓 Düz";
+  encBtn.textContent = c.enc === "omemo" ? "🔒 OMEMO" : _t("🔓 Düz");
   renderTyping();
 }
 
@@ -627,7 +671,7 @@ function renderMembers() {
     return `<li><span class="dot ${esc(cls)}"></span>` +
       `<span>${esc(nick)}</span>` +
       `<span class="affil">${esc(info.affil || info.role || "")}</span></li>`;
-  }).join("") || `<li class="dim">Kimse yok</li>`;
+  }).join("") || `<li class="dim">${esc(_t("Kimse yok"))}</li>`;
 }
 
 /* ── satır eylemleri ─────────────────────────────────────────────────── */
@@ -641,7 +685,7 @@ function rowAction(act, rowEl) {
                body: (row.body || "").slice(0, 120),
                to: S.active};
     $("reply-preview").innerHTML =
-      `↩ <b>${esc(S.reply.sender)}</b> ${esc(S.reply.body)}`;
+      `↩ <b>${esc(who(S.reply.sender))}</b> ${esc(S.reply.body)}`;
     $("reply-bar").classList.remove("hidden");
     $("composer").focus();
   } else if (act === "edit") {
@@ -729,24 +773,24 @@ function aiProviderLabel() {
   const ai = S.settings?.ai || {};
   if (ai.provider === "claude") return `☁ Claude · ${ai.claude_model}`;
   if (ai.provider === "ollama")
-    return `🖥 Yerel · ${ai.ollama_model}`;
-  return "AI kapalı";
+    return fmt("🖥 Yerel · {}", ai.ollama_model);
+  return _t("AI kapalı");
 }
 
 async function aiRun(mode, extra = {}) {
   const out = $("ai-output");
   const body = {allow_cloud: $("ai-allow-cloud").checked, ...extra};
   $("ai-provider").textContent = aiProviderLabel();
-  out.innerHTML = `<span class="ai-busy">⏳ Çalışıyor…</span>`;
+  out.innerHTML = `<span class="ai-busy">${esc(_t("⏳ Çalışıyor…"))}</span>`;
   const {status, data} = await apiPost(`/api/ai/${mode}`, body);
   if (status === 403) {
     $("ai-cloud-row").classList.remove("hidden");
-    out.innerHTML = `🛡 ${esc(data.error || "İzin gerekli.")}` +
-      `<div class="src">Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur.</div>`;
+    out.innerHTML = `🛡 ${esc(data.error || _t("İzin gerekli."))}` +
+      `<div class="src">${esc(_t("Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur."))}</div>`;
     return;
   }
   if (!data.text) {
-    out.innerHTML = `✗ ${esc(data.error || "Yanıt alınamadı.")}`;
+    out.innerHTML = `✗ ${esc(data.error || _t("Yanıt alınamadı."))}`;
     return;
   }
   const srcs = (data.sources || []).map((s) =>
@@ -763,8 +807,8 @@ function aiSelect(mode) {
     mode === "assistant";
   $("ai-input-row").classList.toggle("hidden", !needsInput);
   $("ai-input").placeholder =
-    mode === "ask" ? "Geçmişte ara…" :
-    mode === "translate" ? "Çevrilecek metin…" : "Asistana yaz…";
+    mode === "ask" ? _t("Geçmişte ara…") :
+    mode === "translate" ? _t("Çevrilecek metin…") : _t("Asistana yaz…");
 }
 
 async function aiSubmit() {
@@ -796,8 +840,13 @@ async function openSettings() {
   const {data} = await api("/api/settings");
   S.settings = data;
   const g = data.general, ai = data.ai;
+  const themeLabels = data.theme_labels || {};
   $("s-theme").innerHTML = (data.themes || []).map((t) =>
-    `<option value="${esc(t)}" ${t === g.theme ? "selected" : ""}>${esc(t)}</option>`).join("");
+    `<option value="${esc(t)}" ${t === g.theme ? "selected" : ""}>` +
+    `${esc(themeLabels[t] || t)}</option>`).join("");
+  $("s-language").innerHTML = Object.entries(I18N.languages).map(([code, name]) =>
+    `<option value="${esc(code)}" ${code === I18N.lang ? "selected" : ""}>` +
+    `${esc(name)}</option>`).join("");
   $("s-keep-alive").innerHTML = (data.choices.keep_alive || []).map((k) =>
     `<option value="${esc(k)}" ${k === ai.keep_alive ? "selected" : ""}>${esc(k)}</option>`).join("");
   $("s-notifications").checked = !!g.notifications;
@@ -813,7 +862,7 @@ async function openSettings() {
   $("s-embed").value = ai.embed_model;
   $("s-claude-model").value = ai.claude_model;
   $("s-api-key").placeholder = ai.has_api_key
-    ? "Kayıtlı anahtar var — değiştirmek için yazın" : "Anahtar yok";
+    ? _t("Kayıtlı anahtar var — değiştirmek için yazın") : _t("Anahtar yok");
   $("s-cloud-enc").checked = !!ai.cloud_for_encrypted;
   $("s-leak").checked = !!ai.leak_guard;
   $("s-auto-stt").checked = !!ai.auto_transcribe;
@@ -838,7 +887,9 @@ async function saveSettings() {
     inline_complete: $("s-inline").checked,
     away_drafts: $("s-away").checked,
   };
+  const language = $("s-language").value;
   const body = {
+    language,
     general: {
       theme: $("s-theme").value,
       notifications: $("s-notifications").checked,
@@ -858,9 +909,15 @@ async function saveSettings() {
     const {data: fresh} = await api("/api/settings");
     S.settings = fresh;
     applyTheme((fresh.theme_colors || {})[body.general.theme]);
-    toast("✓ Ayarlar kaydedildi");
+    toast(_t("✓ Ayarlar kaydedildi"));
+    if (language !== I18N.lang) {
+      // Yeni dil: sayfayı yeniden yükle (oturum sessionStorage'da sürer)
+      $("dlg-settings").close();
+      location.reload();
+      return;
+    }
   } else {
-    toast(data.error || "Ayarlar kaydedilemedi", true);
+    toast(data.error || _t("Ayarlar kaydedilemedi"), true);
   }
   $("dlg-settings").close();
 }
@@ -903,7 +960,7 @@ function bind() {
     e.preventDefault();
     const btn = $("l-submit");
     btn.disabled = true;
-    btn.textContent = "Bağlanıyor…";
+    btn.textContent = _t("Bağlanıyor…");
     try {
       const {status, data} = await apiPost("/api/login", {
         jid: $("l-jid").value.trim(),
@@ -918,7 +975,8 @@ function bind() {
         sessionStorage.setItem("xmpp_web_token", data.token);
         await showMain();
       } else if (data.conflict) {
-        if (confirm(`Zaten ${data.connected_as} olarak bağlı bir oturum var. Kapatıp devam edilsin mi?`)) {
+        if (confirm(fmt("Zaten {} olarak bağlı bir oturum var. Kapatıp devam edilsin mi?",
+                        data.connected_as))) {
           const r2 = await apiPost("/api/login", {
             jid: $("l-jid").value.trim(), password: $("l-pw").value,
             server: $("l-server").value.trim(),
@@ -928,15 +986,15 @@ function bind() {
             S.token = r2.data.token;
             sessionStorage.setItem("xmpp_web_token", r2.data.token);
             await showMain();
-          } else toast(r2.data.error || "Giriş başarısız", true);
+          } else toast(r2.data.error || _t("Giriş başarısız."), true);
         }
       } else {
-        $("l-error").textContent = data.error || "Giriş başarısız.";
+        $("l-error").textContent = data.error || _t("Giriş başarısız.");
         $("l-error").classList.remove("hidden");
       }
     } finally {
       btn.disabled = false;
-      btn.textContent = "Bağlan";
+      btn.textContent = _t("Bağlan");
     }
   };
 
@@ -957,7 +1015,7 @@ function bind() {
     await wsSend("discover_rooms", {});
   });
   $("btn-leave-room").onclick = () => {
-    if (S.active && confirm(`${S.active} odasından ayrıl?`))
+    if (S.active && confirm(fmt("{} odasından ayrıl?", S.active)))
       wsSend("leave_room", {room: S.active});
   };
   $("btn-enc").onclick = () => {
@@ -967,8 +1025,8 @@ function bind() {
     wsSend("set_enc", {jid: S.active, mode: c.enc});
     renderChatHeader();
     toast(c.enc === "omemo"
-      ? "🔒 OMEMO açık — karşı tarafın OMEMO desteklemesi gerekir"
-      : "🔓 Şifreleme kapalı");
+      ? _t("🔒 OMEMO açık — karşı tarafın OMEMO desteklemesi gerekir")
+      : _t("🔓 Şifreleme kapalı"));
   };
   $("btn-members").onclick = () => {
     const p = $("members-panel");
@@ -986,7 +1044,7 @@ function bind() {
   $("s-cancel").onclick = () => $("dlg-settings").close();
   $("btn-logout").onclick = async () => {
     await apiPost("/api/logout", {});
-    showLogin("Çıkış yapıldı.");
+    showLogin(_t("Çıkış yapıldı."));
   };
 
   const composer = $("composer");
@@ -1021,6 +1079,10 @@ function bind() {
       }
     };
   });
+  $("btn-ai").onclick = () => {
+    $("ai-panel").classList.toggle("hidden");
+    $("ai-provider").textContent = aiProviderLabel();
+  };
   $("ai-close").onclick = () => $("ai-panel").classList.add("hidden");
   $("ai-submit").onclick = aiSubmit;
   $("ai-input").addEventListener("keydown", (e) => {
@@ -1030,6 +1092,8 @@ function bind() {
 
 /* ── açılış ──────────────────────────────────────────────────────────── */
 async function init() {
+  await loadI18n();
+  translateDom(document.body);
   bind();
   if (S.token) {
     try {

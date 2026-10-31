@@ -2427,4 +2427,253 @@ CATALOG = {
         "Светлая",
     "Gece mavisi":
         "Ночная синяя",
+    # ── webapp (tarayıcı arayüzü + sunucu iletileri) ──
+    "Bu sohbette özetlenecek mesaj yok.":
+        "В этом чате нет сообщений для пересказа.",
+    "Okunmamış mesaj yok — her şeyi gördün.":
+        "Непрочитанных сообщений нет — вы всё видели.",
+    "Eşleşen mesajlar gönderilebilecek metin içermiyor.":
+        "Найденные сообщения не содержат текста, который можно отправить.",
+    "Oturum kapanıyor.":
+        "Сеанс закрывается.",
+    "Boş mesaj.":
+        "Пустое сообщение.",
+    "Eksik tepki hedefi.":
+        "Не указана цель реакции.",
+    "Geçersiz oda adresi ya da bağlantı yok.":
+        "Неверный адрес комнаты или нет подключения.",
+    "Bilinmeyen komut: {}":
+        "Неизвестная команда: {}",
+    "Eksik güvenlik başlığı.":
+        "Отсутствует заголовок безопасности.",
+    "Çok fazla giriş denemesi — bir dakika sonra tekrar deneyin.":
+        "Слишком много попыток входа — повторите через минуту.",
+    "JID (ad@sunucu) ve parola zorunlu.":
+        "Требуются JID (имя@сервер) и пароль.",
+    "Geçersiz oturum.":
+        "Недействительный сеанс.",
+    "jid zorunlu.":
+        "Требуется jid.",
+    "Geçersiz JSON gövde.":
+        "Неверное тело JSON.",
+    "Geçersiz Host.":
+        "Неверный Host.",
+    "Geçersiz Origin.":
+        "Неверный Origin.",
+    "Zaten açık bir oturum var.":
+        "Сеанс уже открыт.",
+    "Sayısal parametre hatalı.":
+        "Неверный числовой параметр.",
+    "Geçersiz WS bileti.":
+        "Недействительный WS-билет.",
+    "Çevrilecek metin boş.":
+        "Текст для перевода пуст.",
+    "Geçersiz parametre: {}":
+        "Неверный параметр: {}",
+    "Soru boş.":
+        "Вопрос пуст.",
+    "Bilinmeyen AI eylemi.":
+        "Неизвестное действие ИИ.",
+    "Tarayıcıdan sohbet — masaüstü istemcinin web hâli":
+        "Общение в браузере — веб-версия настольного клиента",
+    "ad@sunucu.im":
+        "имя@сервер.im",
+    "Parola":
+        "Пароль",
+    "Sunucu (boş = otomatik)":
+        "Сервер (пусто = автоматически)",
+    "ör. xmpp.sunucu.im:5222 değil — sadece host":
+        "только хост, напр. xmpp.server.im (без :5222)",
+    "Şifreyi hatırla":
+        "Запомнить пароль",
+    "Durum":
+        "Статус",
+    "durum mesajı":
+        "текст статуса",
+    "Ara…":
+        "Поиск…",
+    "Odaya katıl":
+        "Войти в комнату",
+    "Oda keşfet":
+        "Обзор комнат",
+    "Şifreleme modu":
+        "Режим шифрования",
+    "🔓 Düz":
+        "🔓 Без шифрования",
+    "Oda üyeleri":
+        "Участники комнаты",
+    "Odadan ayrıl":
+        "Покинуть комнату",
+    "Soldan bir sohbet seçin":
+        "Выберите чат слева",
+    "yazıyor…":
+        "печатает…",
+    "✎ düzenleme":
+        "✎ редактирование",
+    "Mesaj yazın — Enter gönder, Shift+Enter satır":
+        "Введите сообщение — Enter отправляет, Shift+Enter — новая строка",
+    "Gönder":
+        "Отправить",
+    "Üyeler":
+        "Участники",
+    "Geçmişe sor":
+        "Спросить историю",
+    "Çeviri":
+        "Перевести",
+    "Sohbet":
+        "Чат",
+    "Şifreli içerik buluta (Claude) gidebilir — bu istek için izin ver":
+        "Зашифрованное содержимое может уйти в облако (Claude) — разрешить для этого запроса",
+    "Soru ya da metin…":
+        "Вопрос или текст…",
+    "Oda (room@service)":
+        "Комната (room@service)",
+    "oda@chat.sunucu.im":
+        "komnata@chat.server.im",
+    "Takma ad":
+        "Псевдоним",
+    "⚙ Ayarlar":
+        "⚙ Настройки",
+    "Genel":
+        "Общие",
+    "Dil":
+        "Язык",
+    "Masaüstü bildirimleri":
+        "Уведомления на рабочем столе",
+    "Bildirim sesi":
+        "Звук уведомления",
+    "Okundu bilgisi gönder":
+        "Отправлять отчёты о прочтении",
+    "Yazıyor bildirimi gönder":
+        "Отправлять уведомление о наборе",
+    "Odalara otomatik katıl":
+        "Автоматически входить в комнаты",
+    "Bağlantılardan görsel önizleme yükle (gizlilik: kapalıysa yalnız bağlantı gösterilir)":
+        "Загружать превью изображений по ссылкам (приватность: если выключено, показывается только ссылка)",
+    "Sağlayıcı":
+        "Провайдер",
+    "Yerel (Ollama)":
+        "Локально (Ollama)",
+    "Bulut (Claude)":
+        "Облако (Claude)",
+    "Ollama adresi":
+        "Адрес Ollama",
+    "Model sıcak (keep_alive)":
+        "Держать модель загруженной (keep_alive)",
+    "Claude modeli":
+        "Модель Claude",
+    "Claude API anahtarı":
+        "API-ключ Claude",
+    "değiştirmek için yazın":
+        "введите, чтобы изменить",
+    "Kayıtlı API anahtarını sil":
+        "Удалить сохранённый API-ключ",
+    "Şifreli sohbetler de buluta gidebilir (her seferinde sorulur)":
+        "Зашифрованные чаты тоже могут уходить в облако (спрашивать каждый раз)",
+    "Hassas veri uyarısı (yerel)":
+        "Предупреждение о конфиденциальных данных (локально)",
+    "Sesli mesajları otomatik yazıya dök (yerel)":
+        "Автоматически расшифровывать голосовые сообщения (локально)",
+    "Satır içi yazma önerisi (yalnız yerel)":
+        "Подсказки при наборе (только локально)",
+    "Uzaktayken yanıt taslağı hazırla":
+        "Готовить черновики ответов, пока я отошёл",
+    "⚠ Hassas veri uyarısı":
+        "⚠ Предупреждение о конфиденциальных данных",
+    "Bu mesaj şifresiz gönderilecek. Yine de göndersin mi?":
+        "Это сообщение будет отправлено без шифрования. Всё равно отправить?",
+    "Yine de gönder":
+        "Всё равно отправить",
+    "Ben":
+        "Я",
+    "Dün":
+        "Вчера",
+    "Oturum sona erdi.":
+        "Сеанс истёк.",
+    "Zaman aşımı":
+        "Время ожидания истекло",
+    "✓ {} odasına katıldın":
+        "✓ Вы вошли в {}",
+    "Oda bulunamadı.":
+        "Комнаты не найдены.",
+    "🍵 Davet: {}":
+        "🍵 Приглашение: {}",
+    "Yok say":
+        "Игнорировать",
+    "👥 {} abonelik istiyor":
+        "👥 {} хочет подписаться",
+    "Kabul":
+        "Принять",
+    "🔖 Yer imi güncellendi: {}":
+        "🔖 Закладка обновлена: {}",
+    "Bağlantı koptu — yeniden bağlanıyor…":
+        "Соединение потеряно — переподключение…",
+    "Bağlantı hatası: {}":
+        "Ошибка подключения: {}",
+    "Kimlik doğrulama başarısız — parolayı kontrol edin.":
+        "Ошибка аутентификации — проверьте пароль.",
+    "şifreli":
+        "зашифровано",
+    "🔒 şifreli dosya (masaüstü istemcide açılır)":
+        "🔒 зашифрованный файл (открывается в настольном клиенте)",
+    "Tepki":
+        "Реакция",
+    "Geri çek":
+        "Отозвать",
+    "↑ daha eski":
+        "↑ более ранние",
+    "Henüz mesaj yok":
+        "Сообщений пока нет",
+    "uzakta":
+        "отошёл",
+    "uzun süre uzakta":
+        "давно отошёл",
+    "meşgul":
+        "занят",
+    "çevrimiçi":
+        "в сети",
+    "{} üye":
+        "Участников: {}",
+    "çevrimdışı":
+        "не в сети",
+    "✍ yazıyor…":
+        "✍ печатает…",
+    "Kimse yok":
+        "Никого нет",
+    "🖥 Yerel · {}":
+        "🖥 Локально · {}",
+    "⏳ Çalışıyor…":
+        "⏳ Выполняется…",
+    "İzin gerekli.":
+        "Требуется разрешение.",
+    "Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur.":
+        "Отметьте флажок и повторите — это действует только для этого запроса.",
+    "Yanıt alınamadı.":
+        "Ответ не получен.",
+    "Geçmişte ara…":
+        "Поиск по истории…",
+    "Çevrilecek metin…":
+        "Текст для перевода…",
+    "Asistana yaz…":
+        "Напишите ассистенту…",
+    "Kayıtlı anahtar var — değiştirmek için yazın":
+        "Ключ сохранён — введите, чтобы изменить",
+    "Anahtar yok":
+        "Ключа нет",
+    "✓ Ayarlar kaydedildi":
+        "✓ Настройки сохранены",
+    "Ayarlar kaydedilemedi":
+        "Не удалось сохранить настройки",
+    "Zaten {} olarak bağlı bir oturum var. Kapatıp devam edilsin mi?":
+        "Уже есть сеанс, подключённый как {}. Закрыть его и продолжить?",
+    "Giriş başarısız.":
+        "Не удалось войти.",
+    "{} odasından ayrıl?":
+        "Покинуть {}?",
+    "🔒 OMEMO açık — karşı tarafın OMEMO desteklemesi gerekir":
+        "🔒 OMEMO включено — собеседник должен поддерживать OMEMO",
+    "🔓 Şifreleme kapalı":
+        "🔓 Шифрование выключено",
+    "Çıkış yapıldı.":
+        "Вы вышли.",
 }

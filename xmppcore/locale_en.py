@@ -2581,4 +2581,253 @@ EN = {
         "Light",
     "Gece mavisi":
         "Night blue",
+    # ── webapp (tarayıcı arayüzü + sunucu iletileri) ──
+    "Bu sohbette özetlenecek mesaj yok.":
+        "There are no messages to summarize in this chat.",
+    "Okunmamış mesaj yok — her şeyi gördün.":
+        "No unread messages — you're all caught up.",
+    "Eşleşen mesajlar gönderilebilecek metin içermiyor.":
+        "The matching messages contain no text that can be sent.",
+    "Oturum kapanıyor.":
+        "The session is closing.",
+    "Boş mesaj.":
+        "Empty message.",
+    "Eksik tepki hedefi.":
+        "Missing reaction target.",
+    "Geçersiz oda adresi ya da bağlantı yok.":
+        "Invalid room address or not connected.",
+    "Bilinmeyen komut: {}":
+        "Unknown command: {}",
+    "Eksik güvenlik başlığı.":
+        "Missing security header.",
+    "Çok fazla giriş denemesi — bir dakika sonra tekrar deneyin.":
+        "Too many login attempts — try again in a minute.",
+    "JID (ad@sunucu) ve parola zorunlu.":
+        "JID (name@server) and password are required.",
+    "Geçersiz oturum.":
+        "Invalid session.",
+    "jid zorunlu.":
+        "jid is required.",
+    "Geçersiz JSON gövde.":
+        "Invalid JSON body.",
+    "Geçersiz Host.":
+        "Invalid Host.",
+    "Geçersiz Origin.":
+        "Invalid Origin.",
+    "Zaten açık bir oturum var.":
+        "A session is already open.",
+    "Sayısal parametre hatalı.":
+        "Invalid numeric parameter.",
+    "Geçersiz WS bileti.":
+        "Invalid WS ticket.",
+    "Çevrilecek metin boş.":
+        "The text to translate is empty.",
+    "Geçersiz parametre: {}":
+        "Invalid parameter: {}",
+    "Soru boş.":
+        "The question is empty.",
+    "Bilinmeyen AI eylemi.":
+        "Unknown AI action.",
+    "Tarayıcıdan sohbet — masaüstü istemcinin web hâli":
+        "Chat from your browser — the web version of the desktop client",
+    "ad@sunucu.im":
+        "name@server.im",
+    "Parola":
+        "Password",
+    "Sunucu (boş = otomatik)":
+        "Server (empty = automatic)",
+    "ör. xmpp.sunucu.im:5222 değil — sadece host":
+        "host only, e.g. xmpp.server.im (no :5222)",
+    "Şifreyi hatırla":
+        "Remember password",
+    "Durum":
+        "Status",
+    "durum mesajı":
+        "status message",
+    "Ara…":
+        "Search…",
+    "Odaya katıl":
+        "Join room",
+    "Oda keşfet":
+        "Discover rooms",
+    "Şifreleme modu":
+        "Encryption mode",
+    "🔓 Düz":
+        "🔓 Plain",
+    "Oda üyeleri":
+        "Room members",
+    "Odadan ayrıl":
+        "Leave room",
+    "Soldan bir sohbet seçin":
+        "Select a chat on the left",
+    "yazıyor…":
+        "typing…",
+    "✎ düzenleme":
+        "✎ editing",
+    "Mesaj yazın — Enter gönder, Shift+Enter satır":
+        "Type a message — Enter sends, Shift+Enter adds a line",
+    "Gönder":
+        "Send",
+    "Üyeler":
+        "Members",
+    "Geçmişe sor":
+        "Ask history",
+    "Çeviri":
+        "Translate",
+    "Sohbet":
+        "Chat",
+    "Şifreli içerik buluta (Claude) gidebilir — bu istek için izin ver":
+        "Encrypted content may go to the cloud (Claude) — allow for this request",
+    "Soru ya da metin…":
+        "Question or text…",
+    "Oda (room@service)":
+        "Room (room@service)",
+    "oda@chat.sunucu.im":
+        "room@chat.server.im",
+    "Takma ad":
+        "Nickname",
+    "⚙ Ayarlar":
+        "⚙ Settings",
+    "Genel":
+        "General",
+    "Dil":
+        "Language",
+    "Masaüstü bildirimleri":
+        "Desktop notifications",
+    "Bildirim sesi":
+        "Notification sound",
+    "Okundu bilgisi gönder":
+        "Send read receipts",
+    "Yazıyor bildirimi gönder":
+        "Send typing notifications",
+    "Odalara otomatik katıl":
+        "Join rooms automatically",
+    "Bağlantılardan görsel önizleme yükle (gizlilik: kapalıysa yalnız bağlantı gösterilir)":
+        "Load image previews from links (privacy: when off, only the link is shown)",
+    "Sağlayıcı":
+        "Provider",
+    "Yerel (Ollama)":
+        "Local (Ollama)",
+    "Bulut (Claude)":
+        "Cloud (Claude)",
+    "Ollama adresi":
+        "Ollama address",
+    "Model sıcak (keep_alive)":
+        "Keep model warm (keep_alive)",
+    "Claude modeli":
+        "Claude model",
+    "Claude API anahtarı":
+        "Claude API key",
+    "değiştirmek için yazın":
+        "type to change",
+    "Kayıtlı API anahtarını sil":
+        "Delete the saved API key",
+    "Şifreli sohbetler de buluta gidebilir (her seferinde sorulur)":
+        "Encrypted chats may also go to the cloud (asked every time)",
+    "Hassas veri uyarısı (yerel)":
+        "Sensitive data warning (local)",
+    "Sesli mesajları otomatik yazıya dök (yerel)":
+        "Transcribe voice messages automatically (local)",
+    "Satır içi yazma önerisi (yalnız yerel)":
+        "Inline writing suggestions (local only)",
+    "Uzaktayken yanıt taslağı hazırla":
+        "Prepare reply drafts while away",
+    "⚠ Hassas veri uyarısı":
+        "⚠ Sensitive data warning",
+    "Bu mesaj şifresiz gönderilecek. Yine de göndersin mi?":
+        "This message will be sent unencrypted. Send it anyway?",
+    "Yine de gönder":
+        "Send anyway",
+    "Ben":
+        "Me",
+    "Dün":
+        "Yesterday",
+    "Oturum sona erdi.":
+        "Session expired.",
+    "Zaman aşımı":
+        "Timed out",
+    "✓ {} odasına katıldın":
+        "✓ You joined {}",
+    "Oda bulunamadı.":
+        "No rooms found.",
+    "🍵 Davet: {}":
+        "🍵 Invitation: {}",
+    "Yok say":
+        "Ignore",
+    "👥 {} abonelik istiyor":
+        "👥 {} wants to subscribe",
+    "Kabul":
+        "Accept",
+    "🔖 Yer imi güncellendi: {}":
+        "🔖 Bookmark updated: {}",
+    "Bağlantı koptu — yeniden bağlanıyor…":
+        "Connection lost — reconnecting…",
+    "Bağlantı hatası: {}":
+        "Connection error: {}",
+    "Kimlik doğrulama başarısız — parolayı kontrol edin.":
+        "Authentication failed — check your password.",
+    "şifreli":
+        "encrypted",
+    "🔒 şifreli dosya (masaüstü istemcide açılır)":
+        "🔒 encrypted file (opens in the desktop client)",
+    "Tepki":
+        "React",
+    "Geri çek":
+        "Retract",
+    "↑ daha eski":
+        "↑ older",
+    "Henüz mesaj yok":
+        "No messages yet",
+    "uzakta":
+        "away",
+    "uzun süre uzakta":
+        "extended away",
+    "meşgul":
+        "busy",
+    "çevrimiçi":
+        "online",
+    "{} üye":
+        "{} members",
+    "çevrimdışı":
+        "offline",
+    "✍ yazıyor…":
+        "✍ typing…",
+    "Kimse yok":
+        "Nobody here",
+    "🖥 Yerel · {}":
+        "🖥 Local · {}",
+    "⏳ Çalışıyor…":
+        "⏳ Working…",
+    "İzin gerekli.":
+        "Permission required.",
+    "Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur.":
+        "Tick the checkbox and try again — it applies to this request only.",
+    "Yanıt alınamadı.":
+        "No reply received.",
+    "Geçmişte ara…":
+        "Search history…",
+    "Çevrilecek metin…":
+        "Text to translate…",
+    "Asistana yaz…":
+        "Write to the assistant…",
+    "Kayıtlı anahtar var — değiştirmek için yazın":
+        "A key is saved — type to change it",
+    "Anahtar yok":
+        "No key",
+    "✓ Ayarlar kaydedildi":
+        "✓ Settings saved",
+    "Ayarlar kaydedilemedi":
+        "Could not save settings",
+    "Zaten {} olarak bağlı bir oturum var. Kapatıp devam edilsin mi?":
+        "A session is already connected as {}. Close it and continue?",
+    "Giriş başarısız.":
+        "Login failed.",
+    "{} odasından ayrıl?":
+        "Leave {}?",
+    "🔒 OMEMO açık — karşı tarafın OMEMO desteklemesi gerekir":
+        "🔒 OMEMO on — the other side must support OMEMO",
+    "🔓 Şifreleme kapalı":
+        "🔓 Encryption off",
+    "Çıkış yapıldı.":
+        "Logged out.",
 }

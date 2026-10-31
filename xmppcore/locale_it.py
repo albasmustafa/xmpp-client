@@ -2427,4 +2427,253 @@ CATALOG = {
         "Chiaro",
     "Gece mavisi":
         "Blu notte",
+    # ── webapp (tarayıcı arayüzü + sunucu iletileri) ──
+    "Bu sohbette özetlenecek mesaj yok.":
+        "Non ci sono messaggi da riassumere in questa chat.",
+    "Okunmamış mesaj yok — her şeyi gördün.":
+        "Nessun messaggio non letto — sei in pari.",
+    "Eşleşen mesajlar gönderilebilecek metin içermiyor.":
+        "I messaggi corrispondenti non contengono testo inviabile.",
+    "Oturum kapanıyor.":
+        "La sessione si sta chiudendo.",
+    "Boş mesaj.":
+        "Messaggio vuoto.",
+    "Eksik tepki hedefi.":
+        "Destinazione della reazione mancante.",
+    "Geçersiz oda adresi ya da bağlantı yok.":
+        "Indirizzo della stanza non valido o nessuna connessione.",
+    "Bilinmeyen komut: {}":
+        "Comando sconosciuto: {}",
+    "Eksik güvenlik başlığı.":
+        "Intestazione di sicurezza mancante.",
+    "Çok fazla giriş denemesi — bir dakika sonra tekrar deneyin.":
+        "Troppi tentativi di accesso — riprova tra un minuto.",
+    "JID (ad@sunucu) ve parola zorunlu.":
+        "JID (nome@server) e password sono obbligatori.",
+    "Geçersiz oturum.":
+        "Sessione non valida.",
+    "jid zorunlu.":
+        "jid obbligatorio.",
+    "Geçersiz JSON gövde.":
+        "Corpo JSON non valido.",
+    "Geçersiz Host.":
+        "Host non valido.",
+    "Geçersiz Origin.":
+        "Origin non valido.",
+    "Zaten açık bir oturum var.":
+        "C'è già una sessione aperta.",
+    "Sayısal parametre hatalı.":
+        "Parametro numerico non valido.",
+    "Geçersiz WS bileti.":
+        "Ticket WS non valido.",
+    "Çevrilecek metin boş.":
+        "Il testo da tradurre è vuoto.",
+    "Geçersiz parametre: {}":
+        "Parametro non valido: {}",
+    "Soru boş.":
+        "La domanda è vuota.",
+    "Bilinmeyen AI eylemi.":
+        "Azione IA sconosciuta.",
+    "Tarayıcıdan sohbet — masaüstü istemcinin web hâli":
+        "Chatta dal browser — la versione web del client desktop",
+    "ad@sunucu.im":
+        "nome@server.im",
+    "Parola":
+        "Password",
+    "Sunucu (boş = otomatik)":
+        "Server (vuoto = automatico)",
+    "ör. xmpp.sunucu.im:5222 değil — sadece host":
+        "solo l'host, es. xmpp.server.im (senza :5222)",
+    "Şifreyi hatırla":
+        "Ricorda la password",
+    "Durum":
+        "Stato",
+    "durum mesajı":
+        "messaggio di stato",
+    "Ara…":
+        "Cerca…",
+    "Odaya katıl":
+        "Entra in una stanza",
+    "Oda keşfet":
+        "Scopri stanze",
+    "Şifreleme modu":
+        "Modalità di cifratura",
+    "🔓 Düz":
+        "🔓 In chiaro",
+    "Oda üyeleri":
+        "Membri della stanza",
+    "Odadan ayrıl":
+        "Esci dalla stanza",
+    "Soldan bir sohbet seçin":
+        "Seleziona una chat a sinistra",
+    "yazıyor…":
+        "sta scrivendo…",
+    "✎ düzenleme":
+        "✎ modifica",
+    "Mesaj yazın — Enter gönder, Shift+Enter satır":
+        "Scrivi un messaggio — Invio invia, Maiusc+Invio va a capo",
+    "Gönder":
+        "Invia",
+    "Üyeler":
+        "Membri",
+    "Geçmişe sor":
+        "Chiedi alla cronologia",
+    "Çeviri":
+        "Traduci",
+    "Sohbet":
+        "Chat",
+    "Şifreli içerik buluta (Claude) gidebilir — bu istek için izin ver":
+        "Il contenuto cifrato può andare nel cloud (Claude) — consenti per questa richiesta",
+    "Soru ya da metin…":
+        "Domanda o testo…",
+    "Oda (room@service)":
+        "Stanza (room@service)",
+    "oda@chat.sunucu.im":
+        "stanza@chat.server.im",
+    "Takma ad":
+        "Soprannome",
+    "⚙ Ayarlar":
+        "⚙ Impostazioni",
+    "Genel":
+        "Generale",
+    "Dil":
+        "Lingua",
+    "Masaüstü bildirimleri":
+        "Notifiche desktop",
+    "Bildirim sesi":
+        "Suono di notifica",
+    "Okundu bilgisi gönder":
+        "Invia conferme di lettura",
+    "Yazıyor bildirimi gönder":
+        "Invia notifiche di scrittura",
+    "Odalara otomatik katıl":
+        "Entra automaticamente nelle stanze",
+    "Bağlantılardan görsel önizleme yükle (gizlilik: kapalıysa yalnız bağlantı gösterilir)":
+        "Carica anteprime delle immagini dai link (privacy: se disattivato, viene mostrato solo il link)",
+    "Sağlayıcı":
+        "Fornitore",
+    "Yerel (Ollama)":
+        "Locale (Ollama)",
+    "Bulut (Claude)":
+        "Cloud (Claude)",
+    "Ollama adresi":
+        "Indirizzo di Ollama",
+    "Model sıcak (keep_alive)":
+        "Mantieni il modello caldo (keep_alive)",
+    "Claude modeli":
+        "Modello Claude",
+    "Claude API anahtarı":
+        "Chiave API di Claude",
+    "değiştirmek için yazın":
+        "scrivi per cambiarla",
+    "Kayıtlı API anahtarını sil":
+        "Elimina la chiave API salvata",
+    "Şifreli sohbetler de buluta gidebilir (her seferinde sorulur)":
+        "Anche le chat cifrate possono andare nel cloud (chiesto ogni volta)",
+    "Hassas veri uyarısı (yerel)":
+        "Avviso dati sensibili (locale)",
+    "Sesli mesajları otomatik yazıya dök (yerel)":
+        "Trascrivi automaticamente i messaggi vocali (locale)",
+    "Satır içi yazma önerisi (yalnız yerel)":
+        "Suggerimenti di scrittura in linea (solo locale)",
+    "Uzaktayken yanıt taslağı hazırla":
+        "Prepara bozze di risposta quando sono assente",
+    "⚠ Hassas veri uyarısı":
+        "⚠ Avviso dati sensibili",
+    "Bu mesaj şifresiz gönderilecek. Yine de göndersin mi?":
+        "Questo messaggio verrà inviato senza cifratura. Inviarlo comunque?",
+    "Yine de gönder":
+        "Invia comunque",
+    "Ben":
+        "Io",
+    "Dün":
+        "Ieri",
+    "Oturum sona erdi.":
+        "Sessione scaduta.",
+    "Zaman aşımı":
+        "Tempo scaduto",
+    "✓ {} odasına katıldın":
+        "✓ Sei entrato in {}",
+    "Oda bulunamadı.":
+        "Nessuna stanza trovata.",
+    "🍵 Davet: {}":
+        "🍵 Invito: {}",
+    "Yok say":
+        "Ignora",
+    "👥 {} abonelik istiyor":
+        "👥 {} vuole iscriversi",
+    "Kabul":
+        "Accetta",
+    "🔖 Yer imi güncellendi: {}":
+        "🔖 Segnalibro aggiornato: {}",
+    "Bağlantı koptu — yeniden bağlanıyor…":
+        "Connessione persa — riconnessione…",
+    "Bağlantı hatası: {}":
+        "Errore di connessione: {}",
+    "Kimlik doğrulama başarısız — parolayı kontrol edin.":
+        "Autenticazione non riuscita — controlla la password.",
+    "şifreli":
+        "cifrato",
+    "🔒 şifreli dosya (masaüstü istemcide açılır)":
+        "🔒 file cifrato (si apre nel client desktop)",
+    "Tepki":
+        "Reagisci",
+    "Geri çek":
+        "Ritira",
+    "↑ daha eski":
+        "↑ più vecchi",
+    "Henüz mesaj yok":
+        "Ancora nessun messaggio",
+    "uzakta":
+        "assente",
+    "uzun süre uzakta":
+        "assente a lungo",
+    "meşgul":
+        "occupato",
+    "çevrimiçi":
+        "online",
+    "{} üye":
+        "{} membri",
+    "çevrimdışı":
+        "offline",
+    "✍ yazıyor…":
+        "✍ sta scrivendo…",
+    "Kimse yok":
+        "Non c'è nessuno",
+    "🖥 Yerel · {}":
+        "🖥 Locale · {}",
+    "⏳ Çalışıyor…":
+        "⏳ In corso…",
+    "İzin gerekli.":
+        "Autorizzazione necessaria.",
+    "Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur.":
+        "Spunta la casella e riprova — vale solo per questa richiesta.",
+    "Yanıt alınamadı.":
+        "Nessuna risposta ricevuta.",
+    "Geçmişte ara…":
+        "Cerca nella cronologia…",
+    "Çevrilecek metin…":
+        "Testo da tradurre…",
+    "Asistana yaz…":
+        "Scrivi all'assistente…",
+    "Kayıtlı anahtar var — değiştirmek için yazın":
+        "C'è una chiave salvata — scrivi per cambiarla",
+    "Anahtar yok":
+        "Nessuna chiave",
+    "✓ Ayarlar kaydedildi":
+        "✓ Impostazioni salvate",
+    "Ayarlar kaydedilemedi":
+        "Impossibile salvare le impostazioni",
+    "Zaten {} olarak bağlı bir oturum var. Kapatıp devam edilsin mi?":
+        "C'è già una sessione connessa come {}. Chiuderla e continuare?",
+    "Giriş başarısız.":
+        "Accesso non riuscito.",
+    "{} odasından ayrıl?":
+        "Uscire da {}?",
+    "🔒 OMEMO açık — karşı tarafın OMEMO desteklemesi gerekir":
+        "🔒 OMEMO attivo — l'altra parte deve supportare OMEMO",
+    "🔓 Şifreleme kapalı":
+        "🔓 Cifratura disattivata",
+    "Çıkış yapıldı.":
+        "Disconnesso.",
 }
