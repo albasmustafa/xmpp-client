@@ -5,6 +5,8 @@ import os
 import sys
 import types
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import xmpp  # noqa: E402
@@ -629,3 +631,44 @@ def test_room_search_ui_worker_sizintisi_yok_ve_wrapper_ince():
         assert token not in src, f"worker/domain sızıntısı: {token}"
     wrapper = inspect.getsource(xmpp.MainWindow._search_rooms_dialog)
     assert len(wrapper.splitlines()) < 12
+
+
+def test_rooms_browser_sort_button_shows_label_not_key(monkeypatch):
+    """Sıralama düğmesi "name_asc" gibi iç anahtarı değil etiketi gösterir."""
+    if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
+        pytest.skip("Tk testleri bir ekran veya Xvfb gerektiriyor")
+    import tkinter as tk
+    from tkinter import ttk
+
+    from ui.dialogs import rooms as ui_dialogs_rooms
+
+    # Modal bekleme yerine pencereyi haritalamadan gizle (odak çalmasın)
+    monkeypatch.setattr(tk.Misc, "wait_window",
+                        lambda self, w=None: (w or self).withdraw())
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        ui_dialogs_rooms.show_rooms_browser(
+            root, "ben", [("b@conf", "Beta"), ("a@conf", "Alfa")],
+            lambda r, n: None)
+        dlg = root.winfo_children()[-1]
+        found = []
+
+        def walk(w):
+            for c in w.winfo_children():
+                if isinstance(c, ttk.Menubutton):
+                    found.append(c)
+                if isinstance(c, tk.Listbox):
+                    found.append(c)
+                walk(c)
+        walk(dlg)
+        menu_btn = next(w for w in found if isinstance(w, ttk.Menubutton))
+        lb = next(w for w in found if isinstance(w, tk.Listbox))
+        assert menu_btn.cget("text") == "İsim A→Z"
+        assert "Alfa" in lb.get(0)
+        menu = root.nametowidget(menu_btn.cget("menu"))
+        menu.invoke(1)                                  # İsim Z→A
+        assert menu_btn.cget("text") == "İsim Z→A"
+        assert "Beta" in lb.get(0)
+    finally:
+        root.destroy()

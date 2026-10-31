@@ -661,18 +661,22 @@ def show_rooms_browser(parent, default_nick, rooms, on_join):
         font=(A.FONT, 9), style="Modern.TEntry")
     filter_entry.pack(fill="x", ipady=5, padx=2, pady=2)
 
+    # Anahtar sort_var'da, düğme çevrilmiş etiketi gösterir (OptionMenu
+    # değişkenini gösterir: anahtar orada olsaydı "name_asc" görünürdü)
     sort_var = tk.StringVar(value="name_asc")
-    sort_menu = ttk.OptionMenu(toolbar, sort_var, "name_asc",
-                               "name_asc", "name_desc",
-                               "jid_asc", "jid_desc",
-                               command=lambda _: _apply_filter())
+    sort_shown = tk.StringVar(value=_tr(_SORT_LABELS["name_asc"]))
+    sort_menu = ttk.OptionMenu(toolbar, sort_shown, sort_shown.get())
     sort_menu.grid(row=0, column=1, padx=(8, 0))
+
+    def _pick_sort(key):
+        sort_var.set(key)
+        sort_shown.set(_tr(_SORT_LABELS[key]))
+        _apply_filter()
 
     sort_menu["menu"].delete(0, "end")
     for key, label in _SORT_LABELS.items():
         sort_menu["menu"].add_command(
-            label=_tr(label),
-            command=lambda v=key: (sort_var.set(v), _apply_filter()))
+            label=_tr(label), command=lambda v=key: _pick_sort(v))
 
     # -- Oda listesi
     lb = tk.Listbox(card, bg=A.BG_HOVER, fg=A.FG,
