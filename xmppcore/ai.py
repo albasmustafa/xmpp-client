@@ -63,6 +63,9 @@ DEFAULTS = {
     "leak_guard": True,                    # şifresiz gönderimde hassas veri uyarısı
     "inline_complete": False,              # yazarken öneri (yalnız yerel model)
     "away_drafts": False,                  # uzaktayken yanıt taslakları (göndermez)
+    "auto_translate": False,               # yabancı dildeki gelen mesaja çeviri satırı (yerel)
+    "morning_digest": False,               # her sabah "Neler kaçırdım?" özeti
+    "morning_time": "08:30",               # sabah özetinin saati (SS:DD)
     "tts_engine": "auto",                  # sesli okuma motoru (xmppcore/tts)
     "tts_voice": "",                       # Piper ses modeli (.onnx) yolu
     "tts_lang": "tr",                      # espeak/spd-say dil kodu
@@ -149,6 +152,10 @@ def load_settings(cfg: dict | None) -> dict:
         s["ollama_gpu"] = DEFAULTS["ollama_gpu"]
     if s["tts_engine"] not in TTS_ENGINES:
         s["tts_engine"] = DEFAULTS["tts_engine"]
+    if parse_time(s["morning_time"]) is None:
+        s["morning_time"] = DEFAULTS["morning_time"]
+    else:
+        s["morning_time"] = parse_time(s["morning_time"]).strftime("%H:%M")
     if not re.fullmatch(r"[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})?",
                         s["tts_lang"]):
         s["tts_lang"] = DEFAULTS["tts_lang"]
@@ -1417,6 +1424,25 @@ def reminder_from_action(item: dict, jid: str, now: datetime):
             "notes": item.get("notes") or ""}
 
 
+def add_reminders(cfg: dict, items, jid: str, now: datetime):
+    """Tarih+saati ileride olan öğeleri config'e hatırlatıcı olarak ekle
+    → (başarılı, mesaj). Masaüstü ve web ortak; kaydetmek çağıranın işi."""
+    valid, errors = validate_actions(items)
+    if errors:
+        return (False, f"⚠ {errors[0]}")
+    new = [r for r in (reminder_from_action(i, jid, now) for i in valid) if r]
+    if not new:
+        return (False, _tr("Hatırlatıcı için seçili öğelerde ileri bir "
+                           "tarih ve saat olmalı."))
+    stored = cfg.get(REMINDER_KEY)
+    cfg[REMINDER_KEY] = (stored if isinstance(stored, list) else []) + new
+    msg = _tr("⏰ {} hatırlatıcı kuruldu.").format(len(new))
+    skipped = len(valid) - len(new)
+    if skipped:
+        msg += _tr(" {} öğede ileri tarih/saat olmadığı için kurulmadı.").format(skipped)
+    return (True, msg)
+
+
 def reminder_time(reminder) -> datetime | None:
     try:
         return datetime.strptime(str(reminder.get("when", "")),
@@ -1435,6 +1461,165 @@ def split_due_reminders(reminders, now: datetime):
             continue
         (due if when <= now else pending).append(r)
     return due, pending
+
+
+# ── Sabah özeti ─────────────────────────────────────────────────────────────
+# Günün ilk özeti bir kez çalışır; masaüstü ve web aynı config'i paylaşır:
+# çalıştıran önce günü yazar (MORNING_KEY), öteki o gün atlar.
+MORNING_KEY = "ai_morning_last"
+
+
+def morning_due(settings: dict, now: datetime, last_run) -> bool:
+    """Sabah özeti şimdi mi? (açık, saat geçti, bugün çalışmadı)."""
+    if not settings.get("morning_digest"):
+        return False
+    if settings.get("provider") == PROVIDER_OFF:
+        return False
+    at = parse_time(settings.get("morning_time")) or parse_time(
+        DEFAULTS["morning_time"])
+    if now.time() < at:
+        return False
+    return str(last_run or "") != now.date().isoformat()
+
+
+def claim_morning(cfg: dict, now: datetime) -> None:
+    """Bugünü işaretle (özet çalışmadan önce: iki istemci aynı anda koşmasın)."""
+    cfg[MORNING_KEY] = now.date().isoformat()
+
+
+# ── Otomatik çeviri: dil algılama ───────────────────────────────────────────
+# Modelsiz, hızlı ve muhafazakâr: emin olunmayan (kısa, karışık) metinde
+# None döner ve çeviri yapılmaz — her gelen mesaj modele gitmesin diye.
+_LANG_STOPWORDS = {
+    "tr": "ve bir bu da de ne için ama çok ben sen o mi mı mu mü var yok "
+          "gibi daha şey nasıl neden evet hayır değil olarak ile kadar şimdi "
+          "bana sana benim senin yarın bugün tamam",
+    "en": "the and is are you to of it that in for on with this be have not "
+          "was what can will just do i my me we they your at so but there",
+    "de": "der die das und ist nicht ich du ein eine zu mit auf den es sie "
+          "wir ihr auch noch wie was bin hast haben sind kein heute morgen",
+    "fr": "le la les et est un une des je tu il nous vous pas de du que qui "
+          "pour dans avec sur ce mais ou est-ce bien oui non très aujourd'hui",
+    "es": "el la los las y es un una de que en por para con no yo tú está "
+          "pero como más muy sí hoy mañana bien hola gracias qué",
+    "it": "il la lo gli le e è un una di che non per con sono ho hai ma come "
+          "più anche oggi domani bene ciao grazie cosa sei",
+    "pt": "o a os as e é um uma de que não para com em eu você está mas como "
+          "mais muito sim hoje amanhã obrigado tudo bem",
+    "nl": "de het een en is niet ik je jij wij zijn van op te met voor dat "
+          "maar ook nog wat hoe heb hebt vandaag morgen goed",
+    "pl": "i w na nie jest to że się z do jak co tak ale już jestem masz "
+          "dzisiaj jutro dobrze dzięki czy",
+}
+_LANG_WORDS = {code: frozenset(words.split())
+               for code, words in _LANG_STOPWORDS.items()}
+_LANG_LETTERS = {"tr": "ğışİ", "de": "ßäöü", "es": "ñ¿¡", "pt": "ãõ",
+                 "pl": "łąęśźżń", "fr": "œèêëàâ", "it": "ìò"}
+_SCRIPT_RANGES = (
+    ("ja", ((0x3040, 0x30FF),)),                    # hiragana + katakana
+    ("ko", ((0xAC00, 0xD7AF), (0x1100, 0x11FF))),   # hangul
+    ("zh", ((0x4E00, 0x9FFF),)),                    # han (kana yoksa)
+    ("cyr", ((0x0400, 0x04FF),)),
+    ("ar", ((0x0600, 0x06FF),)),
+    ("he", ((0x0590, 0x05FF),)),
+    ("el", ((0x0370, 0x03FF),)),
+    ("hi", ((0x0900, 0x097F),)),
+    ("th", ((0x0E00, 0x0E7F),)),
+)
+_WORD_RE = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)?", re.UNICODE)
+_DETECT_MIN_LETTERS = 12
+
+
+def _script_counts(text: str) -> dict:
+    counts = {}
+    for ch in text:
+        cp = ord(ch)
+        for name, ranges in _SCRIPT_RANGES:
+            if any(a <= cp <= b for a, b in ranges):
+                counts[name] = counts.get(name, 0) + 1
+                break
+    return counts
+
+
+def detect_language(text: str) -> str | None:
+    """Metnin dil kodu (ISO 639-1) ya da emin değilse None."""
+    text = strip_media_urls(text or "")
+    letters = sum(ch.isalpha() for ch in text)
+    if letters < _DETECT_MIN_LETTERS:
+        return None
+    scripts = _script_counts(text)
+    if scripts:
+        name, n = max(scripts.items(), key=lambda kv: kv[1])
+        if n >= letters * 0.5:
+            if name == "zh" and scripts.get("ja"):
+                return "ja"
+            if name == "cyr":
+                return "uk" if re.search(r"[іїєґІЇЄҐ]", text) else "ru"
+            return name
+    words = [w.lower() for w in _WORD_RE.findall(text)]
+    if len(words) < 3:
+        return None
+    scores = {}
+    for code, vocab in _LANG_WORDS.items():
+        score = sum(1 for w in words if w in vocab)
+        score += 2 * sum(1 for ch in text if ch in _LANG_LETTERS.get(code, ""))
+        scores[code] = score
+    ranked = sorted(scores.items(), key=lambda kv: -kv[1])
+    best, top = ranked[0]
+    runner = ranked[1][1]
+    if top < 2 or top < runner * 1.5 + 1:
+        return None
+    return best
+
+
+def language_code(name: str) -> str | None:
+    """Yanıt dili adı ("Türkçe", "German", "Deutsch", "de") → kod."""
+    from xmppcore.i18n import LANGUAGES
+    key = (name or "").strip().lower()
+    if key in LANGUAGES:
+        return key
+    for table in (AI_LANGUAGE_NAMES, LANGUAGES):
+        for code, label in table.items():
+            if label.lower() == key:
+                return code
+    return None
+
+
+def translation_target(settings: dict, text: str) -> str | None:
+    """Otomatik çeviri gerekiyorsa algılanan dil kodu, yoksa None.
+
+    Hedef, yanıt dili (bilinmeyen adsa arayüz dili); algılanan dil hedefle
+    aynıysa ya da emin olunamıyorsa çeviri yapılmaz.
+    """
+    found = detect_language(message_text(text))
+    if not found:
+        return None
+    target = language_code(settings.get("target_language", "")) \
+        or _ui_language()
+    return None if found == target else found
+
+
+def auto_translate(settings: dict, text: str, *, key: str = "", jid: str = "",
+                   cache_get=None, cache_set=None) -> str:
+    """Otomatik çeviri (worker thread): önbellek → yerel model.
+
+    Yalnız Ollama ile çalışır (sensitive=True: bulut yolu kapalı kalır);
+    model metni aynen döndürürse "" döner (gösterilecek çeviri yok).
+    """
+    if settings.get("provider") != PROVIDER_OLLAMA:
+        return ""
+    if key and cache_get is not None:
+        cached = cache_get(key)
+        if cached:
+            return cached
+    system, user = translate_request(text, settings["target_language"])
+    out = clean_output(chat(settings, system, user, effort="low",
+                            sensitive=True, max_tokens=600)).strip()
+    if not out or out == text.strip():
+        return ""
+    if key and cache_set is not None:
+        cache_set(key, jid, out)
+    return out
 
 
 # ── Sesle yazma (dikte) ─────────────────────────────────────────────────────

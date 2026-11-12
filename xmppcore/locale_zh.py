@@ -2614,8 +2614,6 @@ CATALOG = {
         "身份验证失败——请检查密码。",
     "şifreli":
         "已加密",
-    "🔒 şifreli dosya (masaüstü istemcide açılır)":
-        "🔒 加密文件（在桌面客户端中打开）",
     "Tepki":
         "回应",
     "Geri çek":
@@ -2676,4 +2674,34 @@ CATALOG = {
         "🔓 加密已关闭",
     "Çıkış yapıldı.":
         "已退出登录。",
+
+    "Alıcı yok.": "没有收件人。",
+    "Boş dosya.": "空文件。",
+    "Bu tarayıcı ses kaydı yapamıyor (HTTPS ya da localhost gerekir).": "此浏览器无法录音（需要HTTPS或localhost）。",
+    "Bu şifreleme modunda dosya web arayüzünden gönderilemez.": "此加密模式下无法从网页界面发送文件。",
+    "Dosya açılamadı.": "无法打开文件。",
+    "Dosya bulunamadı.": "未找到文件。",
+    "Dosya gönder": "发送文件",
+    "Dosya gönderilemedi.": "无法发送文件。",
+    "Dosya çok büyük (en çok 25 MB).": "文件过大（最大25 MB）。",
+    "Görev ya da etkinlik bulunamadı.": "未找到任务或事件。",
+    "Her sabah okunmamışların özetini aç (\"Neler kaçırdım?\")": "每天早上打开未读摘要（\"我错过了什么？\"）",
+    "Kaydediliyor — göndermek için ⏹": "录音中 — 按⏹发送",
+    "Mikrofon izni verilmedi.": "麦克风权限被拒绝。",
+    "SABAH ÖZETİ": "晨间摘要",
+    "Saat (SS:DD)": "时间（时:分）",
+    "Sabah özeti hazırlanıyor…": "正在准备晨间摘要…",
+    "Sesli mesaj": "语音消息",
+    "Sohbetler": "聊天",
+    "Yabancı dildeki gelen mesajların altına çeviri satırı ekle (yalnız yerel Ollama modeli)": "在外语 incoming 消息下方添加翻译行（仅限本地 Ollama 模型）",
+    "⏰ Hatırlat": "⏰ 提醒",
+    "⏳ Yazıya dökülüyor…": "⏳ 转录中…",
+    "☀ Günaydın": "☀ 早上好",
+    "☀ Sabah özeti": "☀ 晨间摘要",
+    "📅 Görevler": "📅 任务",
+    "📅 Takvime aktar (.ics)": "📅 导出到日历（.ics）",
+    "📝 Yazıya dök": "📝 转录",
+    "📤 Gönderiliyor: {}": "📤 发送中：{}",
+    "🔒 Dosya açılamadı.": "🔒 无法打开文件。",
+    "🔒 {} açılıyor…": "🔒 正在打开{}…",
 }

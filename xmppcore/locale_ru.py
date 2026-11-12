@@ -2614,8 +2614,6 @@ CATALOG = {
         "Ошибка аутентификации — проверьте пароль.",
     "şifreli":
         "зашифровано",
-    "🔒 şifreli dosya (masaüstü istemcide açılır)":
-        "🔒 зашифрованный файл (открывается в настольном клиенте)",
     "Tepki":
         "Реакция",
     "Geri çek":
@@ -2676,4 +2674,34 @@ CATALOG = {
         "🔓 Шифрование выключено",
     "Çıkış yapıldı.":
         "Вы вышли.",
+
+    "Alıcı yok.": "Нет получателя.",
+    "Boş dosya.": "Пустой файл.",
+    "Bu tarayıcı ses kaydı yapamıyor (HTTPS ya da localhost gerekir).": "Этот браузер не может записывать звук (требуется HTTPS или localhost).",
+    "Bu şifreleme modunda dosya web arayüzünden gönderilemez.": "Файлы нельзя отправлять из веб-интерфейса в этом режиме шифрования.",
+    "Dosya açılamadı.": "Не удалось открыть файл.",
+    "Dosya bulunamadı.": "Файл не найден.",
+    "Dosya gönder": "Отправить файл",
+    "Dosya gönderilemedi.": "Не удалось отправить файл.",
+    "Dosya çok büyük (en çok 25 MB).": "Файл слишком большой (макс. 25 МБ).",
+    "Görev ya da etkinlik bulunamadı.": "Задачи или события не найдены.",
+    "Her sabah okunmamışların özetini aç (\"Neler kaçırdım?\")": "Открывать сводку непрочитанных каждое утро (\"Что я пропустил?\")",
+    "Kaydediliyor — göndermek için ⏹": "Запись — ⏹ для отправки",
+    "Mikrofon izni verilmedi.": "Доступ к микрофону запрещён.",
+    "SABAH ÖZETİ": "УТРЕННЯЯ СВОДКА",
+    "Saat (SS:DD)": "Время (ЧЧ:ММ)",
+    "Sabah özeti hazırlanıyor…": "Подготовка утренней сводки…",
+    "Sesli mesaj": "Голосовое сообщение",
+    "Sohbetler": "Чаты",
+    "Yabancı dildeki gelen mesajların altına çeviri satırı ekle (yalnız yerel Ollama modeli)": "Добавлять строку перевода под входящими сообщениями на иностранном языке (только локальная модель Ollama)",
+    "⏰ Hatırlat": "⏰ Напомнить",
+    "⏳ Yazıya dökülüyor…": "⏳ Транскрипция…",
+    "☀ Günaydın": "☀ Доброе утро",
+    "☀ Sabah özeti": "☀ Утренняя сводка",
+    "📅 Görevler": "📅 Задачи",
+    "📅 Takvime aktar (.ics)": "📅 Экспорт в календарь (.ics)",
+    "📝 Yazıya dök": "📝 Транскрибировать",
+    "📤 Gönderiliyor: {}": "📤 Отправка: {}",
+    "🔒 Dosya açılamadı.": "🔒 Не удалось открыть файл.",
+    "🔒 {} açılıyor…": "🔒 Открытие {}…",
 }

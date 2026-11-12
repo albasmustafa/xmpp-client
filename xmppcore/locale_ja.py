@@ -2614,8 +2614,6 @@ CATALOG = {
         "認証に失敗しました — パスワードを確認してください。",
     "şifreli":
         "暗号化済み",
-    "🔒 şifreli dosya (masaüstü istemcide açılır)":
-        "🔒 暗号化ファイル（デスクトップクライアントで開きます）",
     "Tepki":
         "リアクション",
     "Geri çek":
@@ -2676,4 +2674,34 @@ CATALOG = {
         "🔓 暗号化オフ",
     "Çıkış yapıldı.":
         "ログアウトしました。",
+
+    "Alıcı yok.": "受信者がいません。",
+    "Boş dosya.": "空のファイル。",
+    "Bu tarayıcı ses kaydı yapamıyor (HTTPS ya da localhost gerekir).": "このブラウザは音声を録音できません（HTTPSまたはlocalhostが必要）。",
+    "Bu şifreleme modunda dosya web arayüzünden gönderilemez.": "この暗号化モードではWebインターフェースからファイルを送信できません。",
+    "Dosya açılamadı.": "ファイルを開けませんでした。",
+    "Dosya bulunamadı.": "ファイルが見つかりません。",
+    "Dosya gönder": "ファイル送信",
+    "Dosya gönderilemedi.": "ファイルを送信できませんでした。",
+    "Dosya çok büyük (en çok 25 MB).": "ファイルが大きすぎます（最大25 MB）。",
+    "Görev ya da etkinlik bulunamadı.": "タスクやイベントが見つかりません。",
+    "Her sabah okunmamışların özetini aç (\"Neler kaçırdım?\")": "毎朝未読の要約を開く（「何を見逃した？」）",
+    "Kaydediliyor — göndermek için ⏹": "録音中 — ⏹で送信",
+    "Mikrofon izni verilmedi.": "マイクの許可が得られませんでした。",
+    "SABAH ÖZETİ": "朝の要約",
+    "Saat (SS:DD)": "時刻（時:分）",
+    "Sabah özeti hazırlanıyor…": "朝の要約を準備中…",
+    "Sesli mesaj": "音声メッセージ",
+    "Sohbetler": "チャット",
+    "Yabancı dildeki gelen mesajların altına çeviri satırı ekle (yalnız yerel Ollama modeli)": "外国語の受信メッセージに翻訳行を追加（ローカルOllamaモデルのみ）",
+    "⏰ Hatırlat": "⏰ リマインド",
+    "⏳ Yazıya dökülüyor…": "⏳ 文字起こし中…",
+    "☀ Günaydın": "☀ おはよう",
+    "☀ Sabah özeti": "☀ 朝の要約",
+    "📅 Görevler": "📅 タスク",
+    "📅 Takvime aktar (.ics)": "📅 カレンダーにエクスポート (.ics)",
+    "📝 Yazıya dök": "📝 文字起こし",
+    "📤 Gönderiliyor: {}": "📤 送信中: {}",
+    "🔒 Dosya açılamadı.": "🔒 ファイルを開けませんでした。",
+    "🔒 {} açılıyor…": "🔒 {}を開いています…",
 }

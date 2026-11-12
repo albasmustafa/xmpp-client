@@ -2614,8 +2614,6 @@ CATALOG = {
         "Autenticazione non riuscita — controlla la password.",
     "şifreli":
         "cifrato",
-    "🔒 şifreli dosya (masaüstü istemcide açılır)":
-        "🔒 file cifrato (si apre nel client desktop)",
     "Tepki":
         "Reagisci",
     "Geri çek":
@@ -2676,4 +2674,34 @@ CATALOG = {
         "🔓 Cifratura disattivata",
     "Çıkış yapıldı.":
         "Disconnesso.",
+
+    "Alıcı yok.": "Nessun destinatario.",
+    "Boş dosya.": "File vuoto.",
+    "Bu tarayıcı ses kaydı yapamıyor (HTTPS ya da localhost gerekir).": "Questo browser non può registrare audio (richiesto HTTPS o localhost).",
+    "Bu şifreleme modunda dosya web arayüzünden gönderilemez.": "I file non possono essere inviati dall'interfaccia web in questa modalità di cifratura.",
+    "Dosya açılamadı.": "Impossibile aprire il file.",
+    "Dosya bulunamadı.": "File non trovato.",
+    "Dosya gönder": "Invia file",
+    "Dosya gönderilemedi.": "Impossibile inviare il file.",
+    "Dosya çok büyük (en çok 25 MB).": "File troppo grande (max 25 MB).",
+    "Görev ya da etkinlik bulunamadı.": "Nessuna attività o evento trovato.",
+    "Her sabah okunmamışların özetini aç (\"Neler kaçırdım?\")": "Apri riepilogo non letto ogni mattina (\"Cosa mi sono perso?\")",
+    "Kaydediliyor — göndermek için ⏹": "Registrazione — ⏹ per inviare",
+    "Mikrofon izni verilmedi.": "Permesso del microfono negato.",
+    "SABAH ÖZETİ": "RIEPILOGO MATTUTINO",
+    "Saat (SS:DD)": "Ora (HH:MM)",
+    "Sabah özeti hazırlanıyor…": "Preparazione del riepilogo mattutino…",
+    "Sesli mesaj": "Messaggio vocale",
+    "Sohbetler": "Chat",
+    "Yabancı dildeki gelen mesajların altına çeviri satırı ekle (yalnız yerel Ollama modeli)": "Aggiungi riga di traduzione sotto i messaggi in arrivo in lingua straniera (solo modello Ollama locale)",
+    "⏰ Hatırlat": "⏰ Promemoria",
+    "⏳ Yazıya dökülüyor…": "⏳ Trascrizione…",
+    "☀ Günaydın": "☀ Buongiorno",
+    "☀ Sabah özeti": "☀ Riepilogo mattutino",
+    "📅 Görevler": "📅 Attività",
+    "📅 Takvime aktar (.ics)": "📅 Esporta nel calendario (.ics)",
+    "📝 Yazıya dök": "📝 Trascrivi",
+    "📤 Gönderiliyor: {}": "📤 Invio: {}",
+    "🔒 Dosya açılamadı.": "🔒 Impossibile aprire il file.",
+    "🔒 {} açılıyor…": "🔒 Apertura di {}…",
 }

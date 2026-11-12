@@ -2614,8 +2614,6 @@ CATALOG = {
         "Authenticatie mislukt — controleer het wachtwoord.",
     "şifreli":
         "versleuteld",
-    "🔒 şifreli dosya (masaüstü istemcide açılır)":
-        "🔒 versleuteld bestand (opent in de desktopclient)",
     "Tepki":
         "Reageren",
     "Geri çek":
@@ -2676,4 +2674,34 @@ CATALOG = {
         "🔓 Versleuteling uit",
     "Çıkış yapıldı.":
         "Uitgelogd.",
+
+    "Alıcı yok.": "Geen ontvanger.",
+    "Boş dosya.": "Leeg bestand.",
+    "Bu tarayıcı ses kaydı yapamıyor (HTTPS ya da localhost gerekir).": "Deze browser kan geen audio opnemen (HTTPS of localhost vereist).",
+    "Bu şifreleme modunda dosya web arayüzünden gönderilemez.": "Bestanden kunnen in deze versleutelingsmodus niet via de webinterface worden verzonden.",
+    "Dosya açılamadı.": "Kan bestand niet openen.",
+    "Dosya bulunamadı.": "Bestand niet gevonden.",
+    "Dosya gönder": "Bestand verzenden",
+    "Dosya gönderilemedi.": "Kan bestand niet verzenden.",
+    "Dosya çok büyük (en çok 25 MB).": "Bestand te groot (max. 25 MB).",
+    "Görev ya da etkinlik bulunamadı.": "Geen taken of gebeurtenissen gevonden.",
+    "Her sabah okunmamışların özetini aç (\"Neler kaçırdım?\")": "Elke ochtend ongelezen overzicht openen (\"Wat heb ik gemist?\")",
+    "Kaydediliyor — göndermek için ⏹": "Opnemen — ⏹ om te verzenden",
+    "Mikrofon izni verilmedi.": "Microfoontoestemming geweigerd.",
+    "SABAH ÖZETİ": "OCHTENDOVERZICHT",
+    "Saat (SS:DD)": "Tijd (UU:MM)",
+    "Sabah özeti hazırlanıyor…": "Ochtendoverzicht wordt voorbereid…",
+    "Sesli mesaj": "Spraakbericht",
+    "Sohbetler": "Chats",
+    "Yabancı dildeki gelen mesajların altına çeviri satırı ekle (yalnız yerel Ollama modeli)": "Vertaalregel onder inkomende berichten in vreemde taal toevoegen (alleen lokaal Ollama-model)",
+    "⏰ Hatırlat": "⏰ Herinneren",
+    "⏳ Yazıya dökülüyor…": "⏳ Transcriberen…",
+    "☀ Günaydın": "☀ Goedemorgen",
+    "☀ Sabah özeti": "☀ Ochtendoverzicht",
+    "📅 Görevler": "📅 Taken",
+    "📅 Takvime aktar (.ics)": "📅 Exporteren naar agenda (.ics)",
+    "📝 Yazıya dök": "📝 Transcriberen",
+    "📤 Gönderiliyor: {}": "📤 Verzenden: {}",
+    "🔒 Dosya açılamadı.": "🔒 Kan bestand niet openen.",
+    "🔒 {} açılıyor…": "🔒 {} wordt geopend…",
 }

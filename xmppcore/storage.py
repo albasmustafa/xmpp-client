@@ -229,6 +229,34 @@ def _db_load_msgs(jid, limit=200):
         return []
 
 
+def _db_media_row(jid, row_id=None, mid=""):
+    """Web medya/döküm ucu: satırın (body, oob, local_path, encrypted)'i.
+
+    Salt okunur. `row_id` (DB kimliği) ya da `mid` (canlı mesajda kimlik
+    henüz yoktur) ile bulunur; aynı mid'li birden çok satırda en yenisi.
+    """
+    try:
+        db = _get_db()
+        with _db_lock:
+            if row_id is not None:
+                row = db.execute(
+                    "SELECT body, oob, local_path, encrypted FROM messages "
+                    "WHERE jid=? AND id=?", (jid, int(row_id))).fetchone()
+            elif mid:
+                row = db.execute(
+                    "SELECT body, oob, local_path, encrypted FROM messages "
+                    "WHERE jid=? AND mid=? ORDER BY id DESC LIMIT 1",
+                    (jid, mid)).fetchone()
+            else:
+                return None
+        if row is None:
+            return None
+        return (row[0] or "", row[1] or "", row[2] or "", bool(row[3]))
+    except Exception as e:
+        _log.error("Medya satırı okunamadı: %s", e)
+        return None
+
+
 def _db_load_msgs_full(jid, limit=200, before=None):
     """_db_load_msgs ile aynı alanlar + stored_at ve id (web arayüzü).
 

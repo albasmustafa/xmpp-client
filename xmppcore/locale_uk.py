@@ -2614,8 +2614,6 @@ CATALOG = {
         "Помилка автентифікації — перевірте пароль.",
     "şifreli":
         "зашифровано",
-    "🔒 şifreli dosya (masaüstü istemcide açılır)":
-        "🔒 зашифрований файл (відкривається в настільному клієнті)",
     "Tepki":
         "Реакція",
     "Geri çek":
@@ -2676,4 +2674,34 @@ CATALOG = {
         "🔓 Шифрування вимкнено",
     "Çıkış yapıldı.":
         "Ви вийшли.",
+
+    "Alıcı yok.": "Немає одержувача.",
+    "Boş dosya.": "Порожній файл.",
+    "Bu tarayıcı ses kaydı yapamıyor (HTTPS ya da localhost gerekir).": "Цей браузер не може записувати звук (потрібен HTTPS або localhost).",
+    "Bu şifreleme modunda dosya web arayüzünden gönderilemez.": "Файли не можна надсилати з веб-інтерфейсу в цьому режимі шифрування.",
+    "Dosya açılamadı.": "Не вдалося відкрити файл.",
+    "Dosya bulunamadı.": "Файл не знайдено.",
+    "Dosya gönder": "Надіслати файл",
+    "Dosya gönderilemedi.": "Не вдалося надіслати файл.",
+    "Dosya çok büyük (en çok 25 MB).": "Файл занадто великий (макс. 25 МБ).",
+    "Görev ya da etkinlik bulunamadı.": "Завдань або подій не знайдено.",
+    "Her sabah okunmamışların özetini aç (\"Neler kaçırdım?\")": "Відкривати підсумок непрочитаних щоранку (\"Що я пропустив?\")",
+    "Kaydediliyor — göndermek için ⏹": "Запис — ⏹ щоб надіслати",
+    "Mikrofon izni verilmedi.": "Доступ до мікрофона заборонено.",
+    "SABAH ÖZETİ": "РАНКОВИЙ ПІДСУМОК",
+    "Saat (SS:DD)": "Час (ГГ:ХХ)",
+    "Sabah özeti hazırlanıyor…": "Підготовка ранкового підсумку…",
+    "Sesli mesaj": "Голосове повідомлення",
+    "Sohbetler": "Чати",
+    "Yabancı dildeki gelen mesajların altına çeviri satırı ekle (yalnız yerel Ollama modeli)": "Додавати рядок перекладу під вхідними повідомленнями іноземною мовою (лише локальна модель Ollama)",
+    "⏰ Hatırlat": "⏰ Нагадати",
+    "⏳ Yazıya dökülüyor…": "⏳ Транскрипція…",
+    "☀ Günaydın": "☀ Доброго ранку",
+    "☀ Sabah özeti": "☀ Ранковий підсумок",
+    "📅 Görevler": "📅 Завдання",
+    "📅 Takvime aktar (.ics)": "📅 Експорт у календар (.ics)",
+    "📝 Yazıya dök": "📝 Транскрибувати",
+    "📤 Gönderiliyor: {}": "📤 Надсилання: {}",
+    "🔒 Dosya açılamadı.": "🔒 Не вдалося відкрити файл.",
+    "🔒 {} açılıyor…": "🔒 Відкриття {}…",
 }

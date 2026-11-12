@@ -23,7 +23,9 @@ import functools
 import json
 import re
 import secrets
+import ssl
 import time
+from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -31,8 +33,11 @@ from urllib.parse import urlsplit
 from aiohttp import WSMsgType, web
 
 from webapp import aiapi
+from webapp import media as _media
 from webapp.bridge import WebSession
+from xmppcore import aesgcm as _aesgcm
 from xmppcore import i18n as _i18n
+from xmppcore.constants import _log
 from xmppcore.i18n import tr as _tr
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -46,6 +51,10 @@ _CSRF_HEADER = "X-Requested-With"
 _CSRF_VALUE = "xmpp-web"
 APP_INSECURE = web.AppKey("insecure", bool)
 APP_LOGIN_RATE = web.AppKey("login_rate", object)   # değer: _LoginRate
+APP_HOSTS = web.AppKey("hosts", frozenset)          # izinli Host/Origin adları
+APP_TICKER = web.AppKey("ticker", object)           # asyncio.Task
+_TICK_S = 30.0                  # hatırlatıcı + sabah özeti denetimi
+_MORNING_SETTLE_S = 45.0        # bağlandıktan sonra çevrimdışı mesajlar
 _SETTINGS_GENERAL = ("notifications", "sounds", "send_read_receipts",
                      "send_typing", "auto_rejoin", "theme", "remote_previews")
 
@@ -92,11 +101,11 @@ async def _origin_guard(request, handler):
     yabancı Origin reddedilir. curl benzeri istemciler Origin göndermez →
     geçer; tarayıcılar aynı-kaynak istekte kendi Origin'ini yollar → geçer."""
     if not request.app[APP_INSECURE]:
-        if _host_of(request.headers.get("Host", "127.0.0.1")) \
-                not in _LOCAL_HOSTS:
+        hosts = request.app[APP_HOSTS]
+        if _host_of(request.headers.get("Host", "127.0.0.1")) not in hosts:
             return _err(_tr("Geçersiz Host."), 403)
         origin = request.headers.get("Origin")
-        if origin and _host_of(urlsplit(origin).netloc) not in _LOCAL_HOSTS:
+        if origin and _host_of(urlsplit(origin).netloc) not in hosts:
             return _err(_tr("Geçersiz Origin."), 403)
     return await handler(request)
 
@@ -316,6 +325,16 @@ async def handle_ai(request) -> web.Response:
         elif action == "assistant":
             out = await asyncio.to_thread(aiapi.assistant,
                                           body.get("history") or [], allow)
+        elif action == "tasks":
+            out = await asyncio.to_thread(aiapi.tasks, body.get("jid", ""),
+                                          allow, contacts)
+        elif action == "autotranslate":
+            out = await asyncio.to_thread(aiapi.autotranslate,
+                                          str(body.get("text") or ""))
+        elif action == "transcribe":
+            row_id, mid = _row_ref(body)
+            out = await asyncio.to_thread(_media.transcribe,
+                                          body.get("jid", ""), row_id, mid)
         else:
             return _err(_tr("Bilinmeyen AI eylemi."), 404)
     except aiapi.AIPrivacyError as e:
@@ -328,6 +347,177 @@ async def handle_ai(request) -> web.Response:
             return _err(str(e), 502)
         raise
     return _json(out)
+
+
+def _row_ref(source) -> tuple:
+    """İstekten (DB kimliği, mid): canlı mesajın kimliği yoktur, mid vardır."""
+    raw = source.get("id")
+    row_id = int(raw) if raw not in (None, "") else None
+    return row_id, str(source.get("mid") or "")
+
+
+# ── Medya, yükleme, takvim, hatırlatıcı ─────────────────────────────────────
+async def handle_media(request) -> web.Response:
+    """Şifreli (aesgcm://) ya da yerel kopyası olan medyayı çözüp döndür.
+
+    Düz https bağlantıları buradan geçmez: tarayıcı kendisi yükler (sunucu
+    keyfi adreslere istek atan bir vekile dönüşmesin)."""
+    _session(request)
+    try:
+        row_id, mid = _row_ref(request.query)
+    except ValueError:
+        return _err(_tr("Sayısal parametre hatalı."), 400)
+    found = _media.find(request.query.get("jid", ""), row_id, mid)
+    if not found:
+        return _err(_tr("Dosya bulunamadı."), 404)
+    url, local_path = found
+    if not local_path and not _aesgcm.parse(url):
+        return _err(_tr("Dosya bulunamadı."), 404)
+    try:
+        data = await asyncio.to_thread(_media.load, url, local_path)
+    except Exception as e:
+        _log.warning("Web medya açılamadı: %s", e)
+        return _err(_tr("Dosya açılamadı."), 502)
+    name = _media.file_name(url, local_path)
+    ctype, inline = _media.content_type(name)
+    safe = re.sub(r'[^\w.-]+', "_", name) or "dosya"
+    return web.Response(body=data, content_type=ctype, headers={
+        "Content-Disposition":
+            f'{"inline" if inline else "attachment"}; filename="{safe}"',
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, max-age=3600"})
+
+
+async def handle_upload(request) -> web.Response:
+    """Ham gövdeyi (dosya ya da tarayıcı ses kaydı) sohbete gönder."""
+    session = _session(request)
+    if request.headers.get(_CSRF_HEADER) != _CSRF_VALUE:
+        return _err(_tr("Eksik güvenlik başlığı."), 403)
+    to = (request.query.get("to") or "").strip()
+    if not to:
+        return _err(_tr("Alıcı yok."), 400)
+    data = bytearray()
+    while True:
+        chunk = await request.content.read(64 * 1024)
+        if not chunk:
+            break
+        data += chunk
+        if len(data) > _media.UPLOAD_MAX:
+            return _err(_tr("Dosya çok büyük (en çok 25 MB)."), 413)
+    if not data:
+        return _err(_tr("Boş dosya."), 400)
+    name = _media.safe_upload_name(request.query.get("name", ""),
+                                   request.headers.get("Content-Type", ""))
+    path = await asyncio.to_thread(_media.write_temp, bytes(data), name)
+    if _media.is_audio(name):
+        path = await asyncio.to_thread(_media.remux_to_ogg, path)
+    result = session.command("send_file", {"to": to, "path": path})
+    return _json(result, 200 if result.get("ok") else 400)
+
+
+def _items(body) -> list:
+    items = body.get("items")
+    return [i for i in items if isinstance(i, dict)] \
+        if isinstance(items, list) else []
+
+
+async def handle_ics(request) -> web.Response:
+    from xmppcore.ai import build_ics, validate_actions
+    _session(request)
+    valid, errors = validate_actions(_items(await _body(request)))
+    if errors:
+        return _err(f"⚠ {errors[0]}", 400)
+    if not valid:
+        return _err(_tr("Kaydedilecek öğe yok."), 400)
+    return web.Response(
+        text=build_ics(valid), content_type="text/calendar", charset="utf-8",
+        headers={"Content-Disposition": 'attachment; filename="gorevler.ics"'})
+
+
+async def handle_reminders(request) -> web.Response:
+    from xmppcore.ai import add_reminders
+    _session(request)
+    body = await _body(request)
+    cfg = _load_cfg()
+    ok, message = add_reminders(cfg, _items(body), str(body.get("jid") or ""),
+                                datetime.now())
+    if ok:
+        _save_cfg(cfg)
+    return _json({"ok": ok, "message": message}, 200 if ok else 400)
+
+
+# ── Zamanlayıcı: hatırlatıcılar ve sabah özeti ──────────────────────────────
+# Masaüstüyle aynı config kayıtları: çalan hatırlatıcı listeden düşer, sabah
+# özeti önce günü işaretler; iki istemci açıksa hangisi önce görürse o çalar.
+def _live_sessions() -> list:
+    return [s for s in _TOKENS.values()
+            if not s.dead and getattr(s, "connected_at", None) is not None]
+
+
+async def tick(now: datetime | None = None) -> None:
+    from xmppcore import ai as _ai
+    sessions = _live_sessions()
+    if not sessions:
+        return
+    now = now or datetime.now()
+    cfg = _load_cfg()
+    changed = False
+    stored = cfg.get(_ai.REMINDER_KEY)
+    due = []
+    if stored:
+        records = stored if isinstance(stored, list) else []
+        due, pending = _ai.split_due_reminders(records, now)
+        if len(pending) != len(records) or records is not stored:
+            cfg[_ai.REMINDER_KEY] = pending
+            changed = True
+    settings = _ai.load_settings(cfg)
+    settled = any(time.monotonic() - s.connected_at >= _MORNING_SETTLE_S
+                  for s in sessions)
+    morning = settled and _ai.morning_due(settings, now,
+                                          cfg.get(_ai.MORNING_KEY))
+    if morning:
+        _ai.claim_morning(cfg, now)
+        changed = True
+    if changed:
+        _save_cfg(cfg)
+    for r in due:
+        event = {"ev": "reminder", "data": {
+            "title": r.get("title", ""), "when": r.get("when", ""),
+            "location": r.get("location", ""), "jid": r.get("jid", "")}}
+        for s in sessions:
+            s._broadcast(event)
+    if morning:
+        session = sessions[0]
+        unread = {j: n for j, n in dict(session.unread).items() if n > 0}
+        if not unread:
+            return
+        try:
+            out = await asyncio.to_thread(aiapi.digest, unread, False,
+                                          dict(session.contacts))
+        except Exception as e:
+            _log.warning("Web sabah özeti başarısız: %s", e)
+            return
+        for s in sessions:
+            s._broadcast({"ev": "morning_digest", "data": out})
+
+
+async def _ticker():
+    while True:
+        await asyncio.sleep(_TICK_S)
+        try:
+            await tick()
+        except Exception:
+            _log.warning("Web zamanlayıcı turu başarısız", exc_info=True)
+
+
+async def _start_ticker(app):
+    app[APP_TICKER] = asyncio.create_task(_ticker())
+
+
+async def _stop_ticker(app):
+    task = app.get(APP_TICKER)
+    if task is not None:
+        task.cancel()
 
 
 # ── WebSocket ───────────────────────────────────────────────────────────────
@@ -451,11 +641,28 @@ async def handle_index(request) -> web.FileResponse:
     return web.FileResponse(STATIC_DIR / "index.html")
 
 
-def make_app(insecure: bool = False) -> web.Application:
+async def handle_sw(request) -> web.FileResponse:
+    """Service worker kökten sunulur (kapsamı tüm site olsun); hep tazelenir."""
+    return web.FileResponse(STATIC_DIR / "sw.js", headers={
+        "Content-Type": "text/javascript", "Cache-Control": "no-cache"})
+
+
+async def handle_manifest(request) -> web.FileResponse:
+    return web.FileResponse(STATIC_DIR / "manifest.webmanifest", headers={
+        "Content-Type": "application/manifest+json"})
+
+
+def make_app(insecure: bool = False, public_hosts=()) -> web.Application:
     app = web.Application(client_max_size=_MAX_BODY,
                           middlewares=[_origin_guard])
     app[APP_INSECURE] = insecure
+    app[APP_HOSTS] = _LOCAL_HOSTS | {h.strip().lower() for h in public_hosts
+                                     if h and h.strip()}
     app[APP_LOGIN_RATE] = _LoginRate()
+    app.on_startup.append(_start_ticker)
+    app.on_cleanup.append(_stop_ticker)
+    app.router.add_get("/sw.js", handle_sw)
+    app.router.add_get("/manifest.webmanifest", handle_manifest)
     app.router.add_get("/", handle_index)
     app.router.add_get("/ws", handle_ws)
     app.router.add_post("/api/login", handle_login)
@@ -467,6 +674,10 @@ def make_app(insecure: bool = False) -> web.Application:
     app.router.add_get("/api/settings", handle_settings_get)
     app.router.add_post("/api/settings", handle_settings_post)
     app.router.add_post("/api/ai/{action}", handle_ai)
+    app.router.add_get("/api/media", handle_media)
+    app.router.add_post("/api/upload", handle_upload)
+    app.router.add_post("/api/ics", handle_ics)
+    app.router.add_post("/api/reminders", handle_reminders)
     app.router.add_static("/static/", STATIC_DIR)
     return app
 
@@ -480,18 +691,35 @@ def main():
         "--insecure", action="store_true",
         help="Yerel döngü dışına aç: Host/Origin denetimi atlanır, trafik "
              "düz metin HTTP'de gider (yalnız güvenilir ağda).")
+    parser.add_argument("--cert", help="TLS sertifikası (PEM): HTTPS ile sun")
+    parser.add_argument("--key", help="TLS özel anahtarı (PEM)")
+    parser.add_argument(
+        "--public-host", action="append", default=[],
+        help="HTTPS'te kabul edilecek ad (ör. dizustu.tailnet.ts.net); "
+             "telefondan PWA kurulumu için. Birden çok verilebilir.")
     args = parser.parse_args()
     insecure = args.insecure
-    if _host_of(args.host) not in _LOCAL_HOSTS and not insecure:
+    if bool(args.cert) != bool(args.key):
+        raise SystemExit("✗ --cert ve --key birlikte verilmeli.")
+    ssl_ctx = None
+    if args.cert:
+        ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_ctx.load_cert_chain(args.cert, args.key)
+    lan_ok = ssl_ctx is not None and args.public_host
+    if _host_of(args.host) not in _LOCAL_HOSTS and not (insecure or lan_ok):
         raise SystemExit(
             f"✗ --host {args.host} yerel döngü dışı. Ağa açmak için "
-            "--insecure ekleyin (trafik şifrelenmez, düz HTTP'dir).")
+            "--cert/--key ile --public-host verin (HTTPS) ya da --insecure "
+            "ekleyin (trafik şifrelenmez, düz HTTP'dir).")
     _i18n.set_language(_load_cfg().get("language"))
-    app = make_app(insecure=insecure)
-    print(f"XMPP web arayüzü: http://{args.host}:{args.port}/"
+    app = make_app(insecure=insecure, public_hosts=args.public_host)
+    scheme = "https" if ssl_ctx else "http"
+    shown = args.public_host[0] if args.public_host else args.host
+    print(f"XMPP web arayüzü: {scheme}://{shown}:{args.port}/"
           + ("  [GÜVENSİZ MOD — ağa açık]" if insecure else ""))
     try:
-        web.run_app(app, host=args.host, port=args.port, print=None)
+        web.run_app(app, host=args.host, port=args.port, print=None,
+                    ssl_context=ssl_ctx)
     except OSError as e:
         if e.errno == 98:       # EADDRINUSE: arayüz muhtemelen zaten açık
             print(f"✗ Port {args.port} kullanımda — arayüz zaten çalışıyor "

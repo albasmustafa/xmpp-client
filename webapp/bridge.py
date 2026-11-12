@@ -8,11 +8,13 @@ yalnız sunucu tarafı davranışlar (okundu bildirimi, otomatik oda katılımı
 kayıt, OMEMO mod takibi) yaşar.
 """
 import asyncio
+import os
 import queue
 import threading
 import time
 from datetime import datetime
 
+from webapp import media as _media
 from xmppcore import sensitive as _sensitive
 from xmppcore import storage as _storage
 from xmppcore.ai import RETRACTED_BODY
@@ -72,6 +74,8 @@ class WebSession:
         self.bookmarks: list = []
         self.rooms_found: list = []
         self.active = ""                          # tarayıcıdaki açık sohbet
+        self._uploads: set[str] = set()           # gönderilmeyi bekleyen geçici dosyalar
+        self.connected_at: float | None = None    # ilk "connected" anı
         # ── MAM (XEP-0313) sayfalama durumu (MainWindow karşılıkları) ──
         self._mam_gen: dict[str, int] = {}        # jid → son token
         self._mam_intent: dict[str, dict] = {}    # jid → {"token", "intent"}
@@ -120,6 +124,9 @@ class WebSession:
     def stop(self):
         """Bağlantıyı kapat (MainWindow._quit karşılığı)."""
         self._closing = True
+        for path in list(self._uploads):
+            _media.discard_temp(path)
+        self._uploads.clear()
         bot = self.bot
         if bot is not None and getattr(bot, "loop", None) is not None:
             try:
@@ -170,6 +177,7 @@ class WebSession:
         """Olayı duruma uygula ve tarayıcıya izdüşür. MainWindow._handle'ın
         Tk'siz karşılığı; davranış farkları belgelenmiştir."""
         if kind == "connected":
+            self.connected_at = time.monotonic()    # sunucu zamanlayıcısı
             self.contacts = dict(data)
             self._rejoin_saved_rooms()
             self._broadcast({"ev": "connected",
@@ -298,8 +306,11 @@ class WebSession:
             self._auth_failed = True
             self._broadcast({"ev": "auth_failed", "data": {}})
 
+        elif kind == "file_uploaded":
+            self._file_uploaded(data)
+
         elif kind in ("sys_msg", "error", "disconnected", "conn_failed",
-                      "ft_error", "file_uploaded"):
+                      "ft_error"):
             self._broadcast({"ev": kind, "data":
                              data if isinstance(data, str) else dict(data)})
 
@@ -566,6 +577,8 @@ class WebSession:
                                  "data": {"jid": to, "mid": mid,
                                           "body": RETRACTED_BODY}})
             return {"ok": True}
+        if cmd == "send_file":
+            return self._cmd_send_file(args)
         if cmd == "react":
             return self._cmd_react(args)
         if cmd == "join_room":
@@ -634,6 +647,63 @@ class WebSession:
                  "reply": reply, "ts": datetime.now().strftime("%H:%M")}
         self._broadcast({"ev": "own_sent", "data": entry})
         return {"ok": True, "mid": mid}
+
+    def _cmd_send_file(self, args) -> dict:
+        """Geçici dosyayı (webapp.media.write_temp) HTTP Upload ile gönder.
+
+        OMEMO'lu sohbette şifreli yüklenir (aesgcm://); PGP gibi web'in
+        bilmediği bir modda düz yüklemeye düşülmez. Dosya, yükleme bitince
+        (file_uploaded) ya da on dakika sonra silinir.
+        """
+        to = (args.get("to") or "").strip()
+        path = args.get("path") or ""
+        if not to or not path or not os.path.isfile(path):
+            return {"ok": False, "error": _tr("Dosya bulunamadı.")}
+        if self.bot is None:
+            _media.discard_temp(path)
+            return {"ok": False, "error": _tr("Bağlı değil")}
+        enc = self.enc_modes.get(to, "none")
+        if enc not in ("none", "omemo"):
+            _media.discard_temp(path)
+            return {"ok": False, "error": _tr(
+                "Bu şifreleme modunda dosya web arayüzünden gönderilemez.")}
+        self._uploads.add(path)
+        timer = threading.Timer(600, self._forget_upload, args=(path,))
+        timer.daemon = True
+        timer.start()
+        self.bot.upload_file(path, to, encrypt=enc == "omemo")
+        return {"ok": True}
+
+    def _forget_upload(self, path):
+        self._uploads.discard(path)
+        _media.discard_temp(path)
+
+    def _file_uploaded(self, data):
+        """Yükleme bitti: masaüstüyle aynı biçimde kaydet ve gönder.
+
+        Şifreli dosyanın aesgcm:// bağlantısı yalnız OMEMO'lu gövdede gider
+        (OOB'ye yazılmaz: anahtar taşır) — MainWindow._handle ile aynı.
+        """
+        path = data.get("path") or ""
+        if path in self._uploads:
+            self._forget_upload(path)
+        target = data.get("cb") or ""
+        url = data.get("url") or ""
+        if not target or not url or self.bot is None:
+            return
+        encrypted = bool(data.get("encrypted"))
+        enc = "omemo" if encrypted else "none"
+        oob = "" if encrypted else url
+        mid = _new_msg_id()
+        self._store(target, url, tag="me", sender="Ben", is_me=True,
+                    oob=oob, encrypted=encrypted, mid=mid)
+        if target in self.rooms:
+            self.bot.send_gc(target, url, encryption=enc, mid=mid)
+        else:
+            self.bot.send_chat(target, url, encryption=enc, mid=mid)
+        self._broadcast({"ev": "own_sent", "data": {
+            "to": target, "body": url, "mid": mid, "enc": enc, "oob": oob,
+            "reply": None, "ts": datetime.now().strftime("%H:%M")}})
 
     def _cmd_react(self, args) -> dict:
         to, mid = args.get("to"), args.get("mid")

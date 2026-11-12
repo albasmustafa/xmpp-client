@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XMPP — Web</title>
+<meta name="theme-color" content="#7c3aed">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/static/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
@@ -69,6 +73,7 @@
     <!-- Sohbet -->
     <main class="chat">
       <div class="chat-header">
+        <button id="btn-back" class="back" title="Sohbetler">←</button>
         <div class="chat-title">
           <span id="chat-dot" class="dot hidden"></span>
           <div>
@@ -97,9 +102,18 @@
         <button id="edit-cancel">✕</button>
       </div>
 
+      <div id="rec-bar" class="rec-bar hidden">
+        <span class="rec-dot"></span>
+        <span id="rec-time">0:00</span>
+        <span class="dim small">Kaydediliyor — göndermek için ⏹</span>
+        <button id="rec-cancel" title="İptal">✕</button>
+      </div>
       <div class="composer">
+        <button id="btn-attach" title="Dosya gönder">📎</button>
+        <input id="file-input" type="file" multiple class="hidden">
         <textarea id="composer" rows="1"
           placeholder="Mesaj yazın — Enter gönder, Shift+Enter satır"></textarea>
+        <button id="btn-mic" title="Sesli mesaj">🎤</button>
         <button id="btn-send" title="Gönder">➤</button>
       </div>
     </main>
@@ -122,6 +136,7 @@
         <button data-ai="digest">Neler kaçırdım?</button>
         <button data-ai="ask">Geçmişe sor</button>
         <button data-ai="translate">Çeviri</button>
+        <button data-ai="tasks">📅 Görevler</button>
         <button data-ai="assistant">Sohbet</button>
       </div>
       <label class="chk hidden" id="ai-cloud-row">
@@ -206,6 +221,14 @@
       <label class="chk"><input id="s-auto-stt" type="checkbox"> Sesli mesajları otomatik yazıya dök (yerel)</label>
       <label class="chk"><input id="s-inline" type="checkbox"> Satır içi yazma önerisi (yalnız yerel)</label>
       <label class="chk"><input id="s-away" type="checkbox"> Uzaktayken yanıt taslağı hazırla</label>
+      <label class="chk"><input id="s-autotr" type="checkbox"> Yabancı dildeki gelen mesajların altına çeviri satırı ekle (yalnız yerel Ollama modeli)</label>
+    </section>
+    <section>
+      <h4>☀ Sabah özeti</h4>
+      <label class="chk"><input id="s-morning" type="checkbox"> Her sabah okunmamışların özetini aç ("Neler kaçırdım?")</label>
+      <label>Saat (SS:DD)
+        <input id="s-morning-time" type="time" value="08:30">
+      </label>
     </section>
     <menu>
       <button id="s-cancel">İptal</button>

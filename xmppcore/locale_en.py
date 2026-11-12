@@ -2768,8 +2768,6 @@ EN = {
         "Authentication failed — check your password.",
     "şifreli":
         "encrypted",
-    "🔒 şifreli dosya (masaüstü istemcide açılır)":
-        "🔒 encrypted file (opens in the desktop client)",
     "Tepki":
         "React",
     "Geri çek":
@@ -2830,4 +2828,52 @@ EN = {
         "🔓 Encryption off",
     "Çıkış yapıldı.":
         "Logged out.",
+
+    # ── yeni: AI sabah özeti + web dosya aktarımı (2026-11) ──
+    "☀ Günaydın":
+        "☀ Good morning",
+    "Sabah özeti hazırlanıyor…":
+        "Preparing morning summary…",
+    "SABAH ÖZETİ":
+        "MORNING SUMMARY",
+    "Her sabah okunmamışların özetini aç (\"Neler kaçırdım?\")":
+        "Open unread summary every morning (\"What did I miss?\")",
+    "Yabancı dildeki gelen mesajların altına çeviri satırı ekle (yalnız yerel Ollama modeli)":
+        "Add translation line under incoming foreign-language messages (local Ollama model only)",
+    "Saat (SS:DD)":
+        "Time (HH:MM)",
+    "Alıcı yok.":
+        "No recipient.",
+    "Boş dosya.":
+        "Empty file.",
+    "Dosya açılamadı.":
+        "Could not open file.",
+    "Dosya bulunamadı.":
+        "File not found.",
+    "Dosya çok büyük (en çok 25 MB).":
+        "File too large (max 25 MB).",
+    "Bu şifreleme modunda dosya web arayüzünden gönderilemez.":
+        "Files cannot be sent from the web interface in this encryption mode.",
+    "📤 Gönderiliyor: {}":
+        "📤 Sending: {}",
+    "🔒 {} açılıyor…":
+        "🔒 Opening {}…",
+
+    # ── webapp: yeni arayüz dizileri ──
+    "Sohbetler": "Chats",
+    "Dosya gönder": "Send file",
+    "Sesli mesaj": "Voice message",
+    "Kaydediliyor — göndermek için ⏹": "Recording — press ⏹ to send",
+    "Mikrofon izni verilmedi.": "Microphone permission denied.",
+    "Bu tarayıcı ses kaydı yapamıyor (HTTPS ya da localhost gerekir).":
+        "This browser cannot record audio (HTTPS or localhost required).",
+    "⏳ Yazıya dökülüyor…": "⏳ Transcribing…",
+    "📝 Yazıya dök": "📝 Transcribe",
+    "☀ Sabah özeti": "☀ Morning summary",
+    "📅 Görevler": "📅 Tasks",
+    "⏰ Hatırlat": "⏰ Remind",
+    "📅 Takvime aktar (.ics)": "📅 Export to calendar (.ics)",
+    "Görev ya da etkinlik bulunamadı.": "No tasks or events found.",
+    "Dosya gönderilemedi.": "Could not send file.",
+    "🔒 Dosya açılamadı.": "🔒 Could not open file.",
 }

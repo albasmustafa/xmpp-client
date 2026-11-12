@@ -110,6 +110,269 @@ function toastActions(text, actions) {
   $("toasts").appendChild(t);
 }
 
+/* Bildirim: Android'de sayfa içinden `new Notification` yasaktır; service
+ * worker kayıtlıysa onun showNotification'ı kullanılır. */
+function showNotification(title, body) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    const opts = {body: (body || "").slice(0, 120), icon: "/static/icon-192.png"};
+    if (navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.showNotification(title, opts)).catch(() => {});
+    } else {
+      try { new Notification(title, opts); } catch (_) { /* desteklenmiyor */ }
+    }
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission();
+  }
+}
+
+/* ── medya ────────────────────────────────────────────────────────────
+ * Şifreli dosya (aesgcm://, OMEMO) tarayıcıda çözülemez: /api/media sunucuda
+ * çözer, yanıt blob URL'si olarak gösterilir. aesgcm bağlantısı anahtarı
+ * taşıdığından metin olarak hiç gösterilmez. */
+const AESGCM_RE = /^aesgcm:\/\/\S+$/i;
+const IMG_RE = /\.(png|jpe?g|gif|webp|avif|bmp)$/i;
+const AUDIO_RE = /\.(wav|ogg|opus|mp3|m4a|flac|aac|webm)$/i;
+const VIDEO_RE = /\.(mp4|mov|mkv)$/i;
+
+function mediaOf(m) {
+  const body = (m.body || "").trim();
+  if (AESGCM_RE.test(m.oob || "")) return {url: m.oob, enc: true};
+  if (AESGCM_RE.test(body)) return {url: body, enc: true};
+  if (/^https?:\/\//i.test(m.oob || "")) return {url: m.oob, enc: false};
+  return null;
+}
+
+function urlPath(url) { return url.split("#")[0].split("?")[0]; }
+
+function mediaKind(url) {
+  const path = urlPath(url);
+  if (IMG_RE.test(path)) return "image";
+  if (AUDIO_RE.test(path)) return "audio";
+  if (VIDEO_RE.test(path)) return "video";
+  return "file";
+}
+
+function mediaName(url) {
+  try { return decodeURIComponent(urlPath(url).split("/").pop()) || "file"; }
+  catch (_) { return "file"; }
+}
+
+/* Satırın sunucudaki kimliği: canlı mesajda DB kimliği yoktur, mid vardır */
+function refAttrs(m) {
+  return (m.mid ? ` data-mid="${esc(m.mid)}"` : "") +
+         (m.id ? ` data-id="${esc(m.id)}"` : "");
+}
+
+function refQuery(el) {
+  const q = new URLSearchParams({jid: S.active || ""});
+  if (el.dataset.mid) q.set("mid", el.dataset.mid);
+  else if (el.dataset.id) q.set("id", el.dataset.id);
+  return q;
+}
+
+function refKey(el) {
+  return `${S.active}|${el.dataset.mid || ""}|${el.dataset.id || ""}`;
+}
+
+async function fetchMedia(el) {
+  const key = refKey(el);
+  if (S.blobs.has(key)) return S.blobs.get(key);
+  const res = await fetch(`/api/media?${refQuery(el)}`, {headers: {
+    "X-Requested-With": "xmpp-web", "X-Auth-Token": S.token || ""}});
+  if (!res.ok) throw new Error(String(res.status));
+  const url = URL.createObjectURL(await res.blob());
+  S.blobs.set(key, url);
+  return url;
+}
+
+function placeMedia(slot, url) {
+  const kind = slot.dataset.kind, name = slot.dataset.name || "";
+  if (kind === "image") {
+    slot.innerHTML = `<a href="${esc(url)}" target="_blank" rel="noopener">` +
+      `<img class="preview" src="${esc(url)}" alt="${esc(name)}"></a>`;
+  } else if (kind === "audio") {
+    slot.innerHTML = `<audio controls src="${esc(url)}"></audio>`;
+  } else if (kind === "video") {
+    slot.innerHTML = `<video class="preview" controls src="${esc(url)}"></video>`;
+  }
+}
+
+async function downloadMedia(btn) {
+  try {
+    const url = await fetchMedia(btn);
+    const a = document.createElement("a");
+    a.href = url; a.download = btn.dataset.name || "file";
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch (_) { toast(_t("🔒 Dosya açılamadı."), true); }
+}
+
+/* Görsel/ses/video hemen açılır; diğer dosyalar tıklanınca indirilir */
+function hydrateMedia(box) {
+  box.querySelectorAll(".media-slot:not([data-done])").forEach(async (slot) => {
+    slot.dataset.done = "1";
+    try { placeMedia(slot, await fetchMedia(slot)); }
+    catch (_) { slot.textContent = _t("🔒 Dosya açılamadı."); }
+  });
+  box.querySelectorAll("[data-download]").forEach((b) => {
+    b.onclick = () => downloadMedia(b);
+  });
+}
+
+/* ── ses → metin ──────────────────────────────────────────────────────── */
+async function transcribe(btn) {
+  const key = refKey(btn);
+  if (S.sttBusy.has(key)) return;
+  S.sttBusy.add(key);
+  btn.disabled = true;
+  btn.textContent = _t("⏳ Yazıya dökülüyor…");
+  const body = {jid: S.active};
+  if (btn.dataset.mid) body.mid = btn.dataset.mid; else body.id = btn.dataset.id;
+  try {
+    const {data} = await apiPost("/api/ai/transcribe", body);
+    if (typeof data.text === "string") {
+      S.stt.set(key, data.text);
+      const line = document.createElement("div");
+      line.className = "stt-line";
+      line.textContent = `📝 ${data.text}`;
+      btn.replaceWith(line);
+      return;
+    }
+    toast(data.error || _t("Yanıt alınamadı."), true);
+  } finally {
+    S.sttBusy.delete(key);
+  }
+  btn.disabled = false;
+  btn.textContent = _t("📝 Yazıya dök");
+}
+
+function sttHtml(m) {
+  const key = `${S.active}|${m.mid || ""}|${m.id || ""}`;
+  const done = S.stt.get(key);
+  if (done !== undefined) return `<div class="stt-line">📝 ${esc(done)}</div>`;
+  return `<button class="stt-btn" data-stt${refAttrs(m)}>` +
+    `${esc(_t("📝 Yazıya dök"))}</button>`;
+}
+
+/* ── otomatik çeviri satırı ───────────────────────────────────────────
+ * Dil algılama ve çeviri sunucudadır (yalnız yerel model, önbellek
+ * masaüstüyle ortak); burada tek tek, en yeniden başlayarak istenir. */
+function autoTranslateOn() {
+  const ai = S.settings?.ai || {};
+  return !!ai.auto_translate && ai.provider === "ollama";
+}
+
+function textKey(text) {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+function trHtml(m) {
+  const key = textKey(m.body || "");
+  const done = S.tr.get(key);
+  if (done === undefined) S.trWant.set(key, m.body);
+  return `<div class="tr-line${done ? "" : " hidden"}" data-trk="${key}">` +
+    `${done ? "🌐 " + esc(done) : ""}</div>`;
+}
+
+async function translateQueue() {
+  if (S.trRunning) return;
+  S.trRunning = true;
+  try {
+    while (S.trWant.size) {
+      const [key, text] = [...S.trWant.entries()].pop();   // en yeni önce
+      S.trWant.delete(key);
+      if (S.tr.has(key)) continue;
+      let out = "";
+      try {
+        const {data} = await apiPost("/api/ai/autotranslate", {text});
+        out = data.text || "";
+      } catch (_) { /* oturum düştü */ }
+      S.tr.set(key, out);
+      if (!out) continue;
+      document.querySelectorAll(`[data-trk="${key}"]`).forEach((el) => {
+        el.textContent = `🌐 ${out}`;
+        el.classList.remove("hidden");
+      });
+    }
+  } finally {
+    S.trRunning = false;
+  }
+}
+
+/* ── dosya ve sesli mesaj gönderimi ───────────────────────────────────── */
+const UPLOAD_MAX = 25 * 1024 * 1024;
+const REC = {rec: null, chunks: [], start: 0, timer: null, to: null, cancel: false};
+
+async function uploadBlob(to, blob, name) {
+  if (!to) return;
+  if (blob.size > UPLOAD_MAX) { toast(_t("Dosya çok büyük (en çok 25 MB)."), true); return; }
+  toast(fmt("📤 Gönderiliyor: {}", name));
+  const q = new URLSearchParams({to, name});
+  const res = await fetch(`/api/upload?${q}`, {method: "POST", body: blob, headers: {
+    "X-Requested-With": "xmpp-web", "X-Auth-Token": S.token || "",
+    "Content-Type": blob.type || "application/octet-stream"}});
+  let data = {};
+  try { data = await res.json(); } catch (_) { /* boş gövde */ }
+  if (res.status === 401) { showLogin(_t("Oturum sona erdi.")); return; }
+  if (!res.ok || !data.ok) toast(data.error || _t("Dosya gönderilemedi."), true);
+}
+
+function recMime() {
+  if (!window.MediaRecorder) return "";
+  return ["audio/ogg;codecs=opus", "audio/webm;codecs=opus", "audio/mp4"]
+    .find((t) => MediaRecorder.isTypeSupported(t)) || "";
+}
+
+function voiceName(type) {
+  const ext = type.includes("ogg") ? "ogg" : type.includes("mp4") ? "m4a" : "webm";
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  return `voice-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-` +
+    `${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.${ext}`;
+}
+
+async function recStart() {
+  if (!S.active || REC.rec) return;
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    toast(_t("Bu tarayıcı ses kaydı yapamıyor (HTTPS ya da localhost gerekir)."), true);
+    return;
+  }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({audio: true}); }
+  catch (_) { toast(_t("Mikrofon izni verilmedi."), true); return; }
+  const mime = recMime();
+  const rec = new MediaRecorder(stream, mime ? {mimeType: mime} : {});
+  Object.assign(REC, {rec, chunks: [], start: Date.now(), to: S.active, cancel: false});
+  rec.ondataavailable = (e) => { if (e.data.size) REC.chunks.push(e.data); };
+  rec.onstop = () => {
+    stream.getTracks().forEach((t) => t.stop());
+    clearInterval(REC.timer);
+    $("rec-bar").classList.add("hidden");
+    $("btn-mic").textContent = "🎤";
+    const type = rec.mimeType || mime || "audio/webm";
+    const blob = new Blob(REC.chunks, {type});
+    const long = Date.now() - REC.start >= 500;
+    REC.rec = null;
+    if (!REC.cancel && long && blob.size) uploadBlob(REC.to, blob, voiceName(type));
+  };
+  rec.start();
+  $("btn-mic").textContent = "⏹";
+  $("rec-bar").classList.remove("hidden");
+  $("rec-time").textContent = "0:00";
+  REC.timer = setInterval(() => {
+    const sec = Math.floor((Date.now() - REC.start) / 1000);
+    $("rec-time").textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  }, 500);
+}
+
+function recStop(cancel = false) {
+  if (!REC.rec) return;
+  REC.cancel = cancel;
+  REC.rec.stop();
+}
+
 /* ── durum ───────────────────────────────────────────────────────────── */
 const S = {
   token: sessionStorage.getItem("xmpp_web_token") || null,
@@ -123,6 +386,10 @@ const S = {
   typingTimer: null, composing: false,
   settings: null,
   aiMode: null,
+  blobs: new Map(),          // medya anahtarı → blob URL
+  stt: new Map(), sttBusy: new Set(),
+  tr: new Map(), trWant: new Map(), trRunning: false,
+  tasks: [],
 };
 const RETRACTED = "🚫 Bu mesaj silindi";
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
@@ -261,7 +528,7 @@ const EVENTS = {
   own_sent(data) {
     appendMessage(data.to, {
       sender: "Ben", body: data.body, is_me: true, ts: data.ts,
-      mid: data.mid, encrypted: data.enc !== "none",
+      mid: data.mid, encrypted: data.enc !== "none", oob: data.oob || "",
       reply: data.reply, reactions: {},
       stored_at: new Date().toISOString(),
     });
@@ -375,6 +642,17 @@ const EVENTS = {
     }
     renderContacts();
   },
+  reminder(data) {
+    const text = data.title + (data.location ? ` — ${data.location}` : "");
+    toast(`⏰ ${text}`);
+    showNotification(_t("⏰ Hatırlatıcı"), text);
+  },
+  morning_digest(data) {
+    $("ai-panel").classList.remove("hidden");
+    $("ai-provider").textContent = aiProviderLabel();
+    $("ai-output").innerHTML = `<b>${esc(_t("☀ Günaydın"))}</b>\n${esc(data.text || "")}`;
+    showNotification(_t("☀ Günaydın"), data.text || "");
+  },
   sys_msg(data) { toast(data); },
   error(data) { toast(data, true); },
   disconnected() { toast(_t("Bağlantı koptu — yeniden bağlanıyor…"), true);
@@ -403,11 +681,7 @@ function notify(title, body) {
   if (S.settings?.general?.sounds) beep();
   if (!S.settings?.general?.notifications) return;
   if (document.hasFocus()) return;
-  if (Notification.permission === "granted") {
-    new Notification(fmt("Mesaj — {}", title), {body: (body || "").slice(0, 100)});
-  } else if (Notification.permission !== "denied") {
-    Notification.requestPermission();
-  }
+  showNotification(fmt("Mesaj — {}", title), body);
 }
 
 /* ── kenar çubuğu ────────────────────────────────────────────────────── */
@@ -452,6 +726,7 @@ function renderContacts() {
 /* ── sohbet ──────────────────────────────────────────────────────────── */
 async function openChat(jid) {
   S.active = jid;
+  $("main-view").classList.add("chat-open");    // dar ekranda sohbete geç
   localStorage.setItem("xmpp_web_last_chat", jid);
   const c = S.contacts.get(jid) || mkUnknown(jid);
   S.contacts.set(jid, c);
@@ -503,21 +778,34 @@ function rowHtml(m, prev) {
     ? `<div class="reply-q">↩ <b>${esc(who(m.reply.sender || ""))}</b> ` +
       `${esc((m.reply.body || "").slice(0, 90))}</div>` : "";
   let bodyHtml;
+  const media = m.body === RETRACTED ? null : mediaOf(m);
   if (m.body === RETRACTED) {
     bodyHtml = `<span class="enc-chip">${esc(_t(RETRACTED))}</span>`;
-  } else if (m.oob && /^https?:\/\//.test(m.oob)) {
-    const isImg = /\.(png|jpe?g|gif|webp|avif)(\?|$)/i.test(m.oob) &&
-      S.settings?.general?.remote_previews !== false;
-    bodyHtml = linkify(m.body) +
-      `<a href="${esc(m.oob)}" target="_blank" rel="noopener noreferrer">` +
-      (isImg ? `<img class="preview" loading="lazy" src="${esc(m.oob)}">`
-             : `<div class="enc-chip">📎 ${esc(m.oob)}</div>`) +
-      `</a>`;
-  } else if (/^aesgcm:\/\//.test(m.oob || "")) {
-    bodyHtml = linkify(m.body) +
-      `<div class="enc-chip">${esc(_t("🔒 şifreli dosya (masaüstü istemcide açılır)"))}</div>`;
+  } else if (media) {
+    const kind = mediaKind(media.url), name = mediaName(media.url);
+    // Gövde yalnız bağlantıysa tekrar yazılmaz; aesgcm gövdesi anahtar taşır
+    const caption = media.enc || (m.body || "").trim() === media.url
+      ? "" : linkify(m.body);
+    if (media.enc && kind === "file") {
+      bodyHtml = caption + `<button class="enc-chip" data-download` +
+        `${refAttrs(m)} data-name="${esc(name)}">🔒 ${esc(name)} ⬇</button>`;
+    } else if (media.enc) {
+      bodyHtml = caption + `<div class="media-slot" data-kind="${kind}"` +
+        `${refAttrs(m)} data-name="${esc(name)}">` +
+        `${esc(fmt("🔒 {} açılıyor…", name))}</div>`;
+    } else {
+      const previews = S.settings?.general?.remote_previews !== false;
+      const href = `href="${esc(media.url)}" target="_blank" rel="noopener noreferrer"`;
+      bodyHtml = caption + (kind === "image" && previews
+        ? `<a ${href}><img class="preview" loading="lazy" src="${esc(media.url)}"></a>`
+        : kind === "audio" && previews
+          ? `<audio controls preload="none" src="${esc(media.url)}"></audio>`
+          : `<a ${href}><div class="enc-chip">📎 ${esc(name)}</div></a>`);
+    }
+    if (kind === "audio" && (m.mid || m.id)) bodyHtml += sttHtml(m);
   } else {
     bodyHtml = linkify(m.body);
+    if (!m.is_me && autoTranslateOn() && m.body) bodyHtml += trHtml(m);
   }
   const reacts = Object.entries(m.reactions || {})
     .filter(([, senders]) => senders.length)
@@ -576,6 +864,13 @@ function renderMessages() {
   box.querySelectorAll("[data-act]").forEach((b) => {
     b.onclick = () => rowAction(b.dataset.act, b.closest(".row"));
   });
+  hydrateMedia(box);
+  const autoStt = !!S.settings?.ai?.auto_transcribe;
+  box.querySelectorAll("[data-stt]").forEach((b) => {
+    b.onclick = () => transcribe(b);
+    if (autoStt && !b.closest(".row.me")) transcribe(b);
+  });
+  translateQueue();
   box.querySelectorAll("[data-react]").forEach((sp) => {
     sp.onclick = () => {
       const mid = sp.closest(".row").dataset.mid;
@@ -777,18 +1072,74 @@ function aiProviderLabel() {
   return _t("AI kapalı");
 }
 
+function aiPrivacyBlocked(out, status, data) {
+  if (status !== 403) return false;
+  $("ai-cloud-row").classList.remove("hidden");
+  out.innerHTML = `🛡 ${esc(data.error || _t("İzin gerekli."))}` +
+    `<div class="src">${esc(_t("Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur."))}</div>`;
+  return true;
+}
+
+async function aiTasks() {
+  const out = $("ai-output");
+  if (!S.active) { out.textContent = _t("Soldan bir sohbet seçin"); return; }
+  $("ai-provider").textContent = aiProviderLabel();
+  out.innerHTML = `<span class="ai-busy">${esc(_t("⏳ Çalışıyor…"))}</span>`;
+  const jid = S.active;
+  const {status, data} = await apiPost("/api/ai/tasks", {
+    jid, allow_cloud: $("ai-allow-cloud").checked});
+  if (aiPrivacyBlocked(out, status, data)) return;
+  if (!Array.isArray(data.items)) {
+    out.innerHTML = `✗ ${esc(data.error || _t("Yanıt alınamadı."))}`;
+    return;
+  }
+  if (!data.items.length) {
+    out.textContent = data.text || _t("Görev ya da etkinlik bulunamadı.");
+    return;
+  }
+  S.tasks = data.items;
+  out.innerHTML = data.items.map((it, i) =>
+    `<label class="chk task"><input type="checkbox" data-task="${i}" checked>` +
+    `<span><b>${it.kind === "event" ? "📅" : "✅"} ${esc(it.title)}</b><br>` +
+    `<span class="dim small">${esc([it.date, it.time, it.location]
+      .filter(Boolean).join(" · "))}</span></span></label>`).join("") +
+    `<div class="task-actions"><button id="task-ics">` +
+    `${esc(_t("📅 Takvime aktar (.ics)"))}</button><button id="task-remind">` +
+    `${esc(_t("⏰ Hatırlat"))}</button></div>`;
+  const picked = () => [...out.querySelectorAll("[data-task]:checked")]
+    .map((c) => S.tasks[Number(c.dataset.task)]);
+  $("task-ics").onclick = () => exportIcs(picked());
+  $("task-remind").onclick = async () => {
+    const {data: r} = await apiPost("/api/reminders", {items: picked(), jid});
+    toast(r.message || r.error || "", !r.ok);
+  };
+}
+
+async function exportIcs(items) {
+  const res = await fetch("/api/ics", {method: "POST",
+    headers: {"X-Requested-With": "xmpp-web", "X-Auth-Token": S.token || "",
+              "Content-Type": "application/json"},
+    body: JSON.stringify({items})});
+  if (!res.ok) {
+    let data = {};
+    try { data = await res.json(); } catch (_) { /* boş */ }
+    toast(data.error || _t("Yanıt alınamadı."), true);
+    return;
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url; a.download = "gorevler.ics";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 async function aiRun(mode, extra = {}) {
   const out = $("ai-output");
   const body = {allow_cloud: $("ai-allow-cloud").checked, ...extra};
   $("ai-provider").textContent = aiProviderLabel();
   out.innerHTML = `<span class="ai-busy">${esc(_t("⏳ Çalışıyor…"))}</span>`;
   const {status, data} = await apiPost(`/api/ai/${mode}`, body);
-  if (status === 403) {
-    $("ai-cloud-row").classList.remove("hidden");
-    out.innerHTML = `🛡 ${esc(data.error || _t("İzin gerekli."))}` +
-      `<div class="src">${esc(_t("Onay kutusunu işaretleyip yeniden dene — yalnız bu istek için geçerli olur."))}</div>`;
-    return;
-  }
+  if (aiPrivacyBlocked(out, status, data)) return;
   if (!data.text) {
     out.innerHTML = `✗ ${esc(data.error || _t("Yanıt alınamadı."))}`;
     return;
@@ -804,7 +1155,7 @@ function aiSelect(mode) {
   document.querySelectorAll("[data-ai]").forEach((b) =>
     b.classList.toggle("on", b.dataset.ai === mode));
   const needsInput = mode === "ask" || mode === "translate" ||
-    mode === "assistant";
+    mode === "assistant";   // özet, döküm ve görevler doğrudan çalışır
   $("ai-input-row").classList.toggle("hidden", !needsInput);
   $("ai-input").placeholder =
     mode === "ask" ? _t("Geçmişte ara…") :
@@ -868,6 +1219,9 @@ async function openSettings() {
   $("s-auto-stt").checked = !!ai.auto_transcribe;
   $("s-inline").checked = !!ai.inline_complete;
   $("s-away").checked = !!ai.away_drafts;
+  $("s-autotr").checked = !!ai.auto_translate;
+  $("s-morning").checked = !!ai.morning_digest;
+  $("s-morning-time").value = ai.morning_time || "08:30";
   $("dlg-settings").showModal();
   applyTheme((data.theme_colors || {})[g.theme]);
 }
@@ -886,6 +1240,9 @@ async function saveSettings() {
     auto_transcribe: $("s-auto-stt").checked,
     inline_complete: $("s-inline").checked,
     away_drafts: $("s-away").checked,
+    auto_translate: $("s-autotr").checked,
+    morning_digest: $("s-morning").checked,
+    morning_time: $("s-morning-time").value || "08:30",
   };
   const language = $("s-language").value;
   const body = {
@@ -951,7 +1308,9 @@ async function showMain() {
   S.settings = data;
   applyTheme((data.theme_colors || {})[data.general.theme]);
   $("ai-provider").textContent = aiProviderLabel();
-  if (Notification.permission === "default") Notification.requestPermission();
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
 }
 
 /* ── olay bağlama ────────────────────────────────────────────────────── */
@@ -1058,6 +1417,14 @@ function bind() {
   });
   composer.addEventListener("input", composerInput);
   $("btn-send").onclick = () => sendCurrent();
+  $("btn-attach").onclick = () => S.active && $("file-input").click();
+  $("file-input").onchange = () => {
+    for (const f of $("file-input").files) uploadBlob(S.active, f, f.name);
+    $("file-input").value = "";
+  };
+  $("btn-mic").onclick = () => (REC.rec ? recStop() : recStart());
+  $("rec-cancel").onclick = () => recStop(true);
+  $("btn-back").onclick = () => $("main-view").classList.remove("chat-open");
   $("reply-cancel").onclick = () => {
     S.reply = null;
     $("reply-bar").classList.add("hidden");
@@ -1076,6 +1443,8 @@ function bind() {
         aiRun("summary", {jid: S.active, unread: c?.unread || 0});
       } else if (b.dataset.ai === "digest") {
         aiRun("digest");
+      } else if (b.dataset.ai === "tasks") {
+        aiTasks();
       }
     };
   });
@@ -1092,6 +1461,10 @@ function bind() {
 
 /* ── açılış ──────────────────────────────────────────────────────────── */
 async function init() {
+  // PWA: kabuk önbelleği + Android bildirimleri (güvenli bağlam gerekir)
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
   await loadI18n();
   translateDom(document.body);
   bind();

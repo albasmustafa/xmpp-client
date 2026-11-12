@@ -2614,8 +2614,6 @@ CATALOG = {
         "인증 실패 — 비밀번호를 확인하세요.",
     "şifreli":
         "암호화됨",
-    "🔒 şifreli dosya (masaüstü istemcide açılır)":
-        "🔒 암호화된 파일 (데스크톱 클라이언트에서 열림)",
     "Tepki":
         "반응",
     "Geri çek":
@@ -2676,4 +2674,34 @@ CATALOG = {
         "🔓 암호화 꺼짐",
     "Çıkış yapıldı.":
         "로그아웃했습니다.",
+
+    "Alıcı yok.": "수신자가 없습니다.",
+    "Boş dosya.": "빈 파일.",
+    "Bu tarayıcı ses kaydı yapamıyor (HTTPS ya da localhost gerekir).": "이 브라우저는 오디오를 녹음할 수 없습니다(HTTPS 또는 localhost 필요).",
+    "Bu şifreleme modunda dosya web arayüzünden gönderilemez.": "이 암호화 모드에서는 웹 인터페이스에서 파일을 보낼 수 없습니다.",
+    "Dosya açılamadı.": "파일을 열 수 없습니다.",
+    "Dosya bulunamadı.": "파일을 찾을 수 없습니다.",
+    "Dosya gönder": "파일 보내기",
+    "Dosya gönderilemedi.": "파일을 보낼 수 없습니다.",
+    "Dosya çok büyük (en çok 25 MB).": "파일이 너무 큽니다 (최대 25 MB).",
+    "Görev ya da etkinlik bulunamadı.": "작업이나 이벤트를 찾을 수 없습니다.",
+    "Her sabah okunmamışların özetini aç (\"Neler kaçırdım?\")": "매일 아침 읽지 않은 요약 열기 (\"무엇을 놓쳤을까?\")",
+    "Kaydediliyor — göndermek için ⏹": "녹음 중 — ⏹를 눌러 전송",
+    "Mikrofon izni verilmedi.": "마이크 권한이 거부되었습니다.",
+    "SABAH ÖZETİ": "아침 요약",
+    "Saat (SS:DD)": "시간 (시:분)",
+    "Sabah özeti hazırlanıyor…": "아침 요약 준비 중…",
+    "Sesli mesaj": "음성 메시지",
+    "Sohbetler": "채팅",
+    "Yabancı dildeki gelen mesajların altına çeviri satırı ekle (yalnız yerel Ollama modeli)": "외국어 수신 메시지 아래에 번역 줄 추가 (로컬 Ollama 모델만)",
+    "⏰ Hatırlat": "⏰ 알림",
+    "⏳ Yazıya dökülüyor…": "⏳ 전사 중…",
+    "☀ Günaydın": "☀ 좋은 아침",
+    "☀ Sabah özeti": "☀ 아침 요약",
+    "📅 Görevler": "📅 작업",
+    "📅 Takvime aktar (.ics)": "📅 캘린더로 내보내기 (.ics)",
+    "📝 Yazıya dök": "📝 전사",
+    "📤 Gönderiliyor: {}": "📤 전송 중: {}",
+    "🔒 Dosya açılamadı.": "🔒 파일을 열 수 없습니다.",
+    "🔒 {} açılıyor…": "🔒 {} 열기 중…",
 }

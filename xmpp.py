@@ -2923,7 +2923,7 @@ class MainWindow:
         self._ping_loop_id = self._after(30000, self._ping_loop)
         # AI hatırlatıcıları (config'te kalıcı; zamanı geçenler hemen çalar)
         self._ai_arm_reminders()
-        self._ai_refresh_flags()
+        self._ai_refresh_flags()          # sabah özeti zincirini de kurar
         # Otomatik tema geçişi
         self._auto_theme_check()
         self._poll()
@@ -3515,6 +3515,7 @@ class MainWindow:
         row._encrypted = encrypted    # AI: bulut gizlilik kapısı
         row._meta_frame = meta_frame  # AI: ses dökümü bunun önüne girer
         self._ai_inline_transcript(row)
+        self._ai_inline_translation(row)
 
         # Sağ tık menüsü + çift tık ile yanıtla (tüm alt widget'lar)
         self._bind_message_menu(row)
@@ -5430,8 +5431,14 @@ class MainWindow:
                               and s["provider"] == _ai.PROVIDER_OLLAMA)
         self._ai_away_on = (s["away_drafts"]
                             and s["provider"] != _ai.PROVIDER_OFF)
+        # Otomatik çeviri her yabancı dildeki gelen mesajı modele verir:
+        # yalnız yerel (Ollama) sağlayıcıyla, buluta asla.
+        self._ai_auto_tr = (s["auto_translate"]
+                            and s["provider"] == _ai.PROVIDER_OLLAMA)
+        self._ai_tr_settings = s
         if not self._ai_inline_on:
             self._ai_complete_hide()
+        self._ai_arm_morning()
 
     def _ai_inline_transcript(self, row):
         """_append kancası: bilinen dökümü balona koy; otomatik modda gelen
@@ -5534,6 +5541,144 @@ class MainWindow:
                 _log.warning("Otomatik ses→metin başarısız", exc_info=True)
                 continue
             self._safe_after(0, self._ai_stt_done, src[1], text)
+
+    # — Otomatik çeviri: yabancı dildeki gelen mesajın altına çeviri satırı —
+    # Ses dökümüyle aynı düzen: dil modelsiz algılanır (ai.translation_target,
+    # emin değilse çeviri yok), tek worker en yeni önce çevirir, sonuç
+    # ai_cache'e ve belleğe yazılır, görünen balona "🌐 …" notu eklenir.
+    _AI_TR_QUEUE_CAP = 20
+    _AI_TR_MEMO_CAP = 500
+
+    def _ai_inline_translation(self, row):
+        """_append kancası (GUI thread): bilinen çeviriyi göster, yoksa kuyruğa."""
+        if not getattr(self, "_ai_auto_tr", False) or getattr(row, "_is_me", False):
+            return
+        if getattr(row, "_tag", "") == "sys":
+            return
+        text = _ai.message_text(getattr(row, "_body", "") or "")
+        settings = getattr(self, "_ai_tr_settings", None) or {}
+        if not text or not _ai.translation_target(settings, text):
+            return
+        ref = self._ai_cache_key(
+            "autotr", f"{settings.get('ollama_model')}:"
+                      f"{settings.get('target_language')}", text)
+        row._tr_ref = ref
+        done = (getattr(self, "_ai_tr_texts", None) or {}).get(ref)
+        if done:
+            self._ai_show_translation(row, done)
+            return
+        self._ai_tr_enqueue(ref, text, settings, self.active or "")
+
+    def _ai_show_translation(self, row, text):
+        try:
+            if not row.winfo_exists():
+                return
+        except Exception:
+            return
+        lbl = getattr(row, "_tr_label", None)
+        if lbl is not None:
+            _audio_ui.set_transcript(lbl, text, icon="🌐")
+            return
+        bubble = getattr(row, "_bubble", None)
+        if bubble is None:
+            return
+        lbl = _audio_ui.transcript_note(
+            bubble, _chat_theme(), bubble.cget("bg"), text, is_me=False,
+            text_factory=_selectable.selectable_text,
+            before=getattr(row, "_meta_frame", None), icon="🌐")
+        row._tr_label = lbl
+        self._bind_message_menu(lbl, row)
+        self._bind_scroll_widget(lbl)
+
+    def _ai_tr_enqueue(self, ref, text, settings, jid):
+        if getattr(self, "_closing", False):
+            return
+        st = getattr(self, "_ai_tr", None)
+        if st is None:
+            st = self._ai_tr = {"lock": threading.Lock(), "queue": deque(),
+                                "seen": set(), "running": False}
+        with st["lock"]:
+            if ref in st["seen"]:
+                return
+            st["seen"].add(ref)
+            st["queue"].append((ref, text, settings, jid))
+            while len(st["queue"]) > self._AI_TR_QUEUE_CAP:
+                st["seen"].discard(st["queue"].popleft()[0])
+            if st["running"]:
+                return
+            st["running"] = True
+        threading.Thread(target=self._ai_tr_worker, daemon=True,
+                         name="ai-autotr").start()
+
+    def _ai_tr_worker(self):
+        """Çeviri worker'ı: Tk'ya dokunmaz, sonuç _safe_after ile."""
+        st = self._ai_tr
+        while True:
+            with st["lock"]:
+                if not st["queue"] or getattr(self, "_closing", False):
+                    st["running"] = False
+                    return
+                ref, text, settings, jid = st["queue"].pop()   # en yeni önce
+            try:
+                out = _ai.auto_translate(
+                    settings, text, key=ref, jid=jid,
+                    cache_get=_db_ai_cache_get, cache_set=_db_ai_cache_set)
+            except Exception:
+                _log.warning("Otomatik çeviri başarısız", exc_info=True)
+                continue
+            if out:
+                self._safe_after(0, self._ai_tr_done, ref, out)
+
+    def _ai_tr_done(self, ref, text):
+        memo = getattr(self, "_ai_tr_texts", None)
+        if memo is None:
+            memo = self._ai_tr_texts = OrderedDict()
+        memo[ref] = text
+        memo.move_to_end(ref)
+        while len(memo) > self._AI_TR_MEMO_CAP:
+            memo.popitem(last=False)
+        for row in list(getattr(self, "_bubble_widgets", ())):
+            if getattr(row, "_tr_ref", None) == ref:
+                self._ai_show_translation(row, text)
+
+    # — Sabah özeti: ayarlanan saatten sonra günde bir kez "Neler kaçırdım?" —
+    _AI_MORNING_POLL_MS = 60000
+    _AI_MORNING_SETTLE_S = 45       # bağlandıktan sonra çevrimdışı mesajlar
+
+    def _ai_arm_morning(self):
+        """Sabah özeti açıksa denetim zincirini başlat (tekil)."""
+        if getattr(self, "_closing", False):
+            return
+        if getattr(self, "_ai_morning_after", None) is not None:
+            return
+        if not (getattr(self, "_ai_tr_settings", None) or {}).get("morning_digest"):
+            return
+        self._ai_morning_after = self._after(1000, self._ai_check_morning)
+
+    def _ai_check_morning(self):
+        self._ai_morning_after = None
+        if getattr(self, "_closing", False):
+            return
+        cfg = _load_config()
+        settings = _ai.load_settings(cfg)
+        if not settings["morning_digest"]:
+            return                         # kapatıldı: zincir biter
+        self._ai_morning_after = self._after(self._AI_MORNING_POLL_MS,
+                                             self._ai_check_morning)
+        connected = getattr(self, "_ai_connected_at", None)
+        if connected is None or (time.monotonic() - connected
+                                 < self._AI_MORNING_SETTLE_S):
+            return
+        now = datetime.now()
+        if not _ai.morning_due(settings, now, cfg.get(_ai.MORNING_KEY)):
+            return
+        _ai.claim_morning(cfg, now)        # web istemcisi bugün atlar
+        _save_config(cfg)
+        if not any(n > 0 for n in
+                   (getattr(self, "_unread_counts", None) or {}).values()):
+            return                         # okunmamış yok: sessizce geç
+        self._show_toast(_tr("☀ Günaydın"), _tr("Sabah özeti hazırlanıyor…"))
+        self._ai_digest()
 
     def _ai_stt_disable(self, message):
         """Yerel bileşen eksik: otomatik modu bu oturum için kapat."""
@@ -6600,26 +6745,12 @@ class MainWindow:
 
     def _ai_add_reminders(self, items, jid):
         """Tarih+saati ileride olan öğelere uygulama içi hatırlatıcı."""
-        valid, errors = _ai.validate_actions(items)
-        if errors:
-            return (False, f"⚠ {errors[0]}")
-        now = datetime.now()
-        new = [r for r in (_ai.reminder_from_action(i, jid, now)
-                           for i in valid) if r]
-        if not new:
-            return (False, _tr("Hatırlatıcı için seçili öğelerde ileri bir "
-                               "tarih ve saat olmalı."))
         cfg = _load_config()
-        stored = cfg.get(_ai.REMINDER_KEY)
-        cfg[_ai.REMINDER_KEY] = (stored if isinstance(stored, list)
-                                 else []) + new
-        _save_config(cfg)
-        self._ai_arm_reminders()
-        msg = _tr("⏰ {} hatırlatıcı kuruldu.").format(len(new))
-        skipped = len(valid) - len(new)
-        if skipped:
-            msg += (_tr(" {} öğede ileri tarih/saat olmadığı için kurulmadı.").format(skipped))
-        return (True, msg)
+        ok, msg = _ai.add_reminders(cfg, items, jid, datetime.now())
+        if ok:
+            _save_config(cfg)
+            self._ai_arm_reminders()
+        return (ok, msg)
 
     def _ai_arm_reminders(self):
         """Bekleyen hatırlatıcı varsa denetim zincirini başlat (tekil)."""
@@ -12092,6 +12223,7 @@ class MainWindow:
                 self.root.after_cancel(self._conn_timeout_id)
                 self._conn_timeout_id = None
             self._contacts = data
+            self._ai_connected_at = time.monotonic()    # sabah özeti bekler
             self._refresh_contacts()
             self._append(_tr("✓ Bağlandı"), "sys")
             if getattr(self, "_last_conn_error", ""):

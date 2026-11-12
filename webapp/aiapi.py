@@ -9,6 +9,8 @@ from datetime import datetime
 
 from xmppcore import storage as _storage
 from xmppcore.ai import (
+    ACTIONS_SCHEMA,
+    PROVIDER_OLLAMA,
     RAG_AFTER,
     RAG_BEFORE,
     RAG_MIN_SCORE,
@@ -16,6 +18,8 @@ from xmppcore.ai import (
     RETRACTED_BODY,
     VOICE_PLACEHOLDER,
     AIPrivacyError,
+    actions_request,
+    auto_translate,
     build_digest,
     build_rag_context,
     build_transcript,
@@ -28,6 +32,7 @@ from xmppcore.ai import (
     message_text,
     ollama_embed,
     pack_vec,
+    parse_actions,
     rag_query_text,
     rag_system,
     rag_user,
@@ -35,12 +40,14 @@ from xmppcore.ai import (
     top_k,
     transcript_budget,
     translate_request,
+    translation_target,
 )
 from xmppcore.config import _load_config
 from xmppcore.i18n import tr as _tr
 
 __all__ = ["AIPrivacyError", "settings", "summary", "translate", "digest",
-           "ask_history", "assistant", "index_pending"]
+           "ask_history", "assistant", "index_pending", "tasks",
+           "autotranslate"]
 
 
 def settings() -> dict:
@@ -85,6 +92,45 @@ def translate(text: str, allow_cloud: bool = False) -> dict:
     system, user = translate_request(text, s["target_language"])
     return {"text": chat(s, system, user, max_tokens=2000),
             "provider": provider}
+
+
+def tasks(jid: str, allow_cloud: bool = False,
+          contacts: dict | None = None) -> dict:
+    """📅 Görevler ve etkinlikler (MainWindow._ai_extract_actions karşılığı)."""
+    s = settings()
+    provider = _gate(s, sensitive=True, allow_cloud=allow_cloud)
+    transcript, count = build_transcript(
+        _entries(jid), max_chars=transcript_budget(s))
+    if not count:
+        return {"items": [], "text": _tr("Bu sohbette henüz mesaj yok."),
+                "provider": provider}
+    system, user = actions_request(transcript, datetime.now(),
+                                   s["target_language"])
+    items = parse_actions(chat(s, system, user, effort="medium",
+                               sensitive=True, allow_cloud=allow_cloud,
+                               schema=ACTIONS_SCHEMA))
+    return {"items": items, "provider": provider,
+            "label": _label(jid, contacts or {}), "messages": count}
+
+
+def autotranslate(text: str) -> dict:
+    """Gelen mesajın çeviri satırı; ayar kapalıysa, dil algılanamazsa ya da
+    hedef dildeyse boş metin. Yalnız yerel model; önbellek masaüstüyle ortak
+    (MainWindow._ai_inline_translation ile aynı anahtar)."""
+    import hashlib
+    s = settings()
+    text = message_text(text or "")
+    if not (s["auto_translate"] and s["provider"] == PROVIDER_OLLAMA and text):
+        return {"text": ""}
+    lang = translation_target(s, text)
+    if not lang:
+        return {"text": ""}
+    digest_ = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    key = f"autotr:{s['ollama_model']}:{s['target_language']}:{digest_}"
+    out = auto_translate(s, text, key=key,
+                         cache_get=_storage._db_ai_cache_get,
+                         cache_set=_storage._db_ai_cache_set)
+    return {"text": out, "lang": lang}
 
 
 def digest(unread_map: dict, allow_cloud: bool = False,

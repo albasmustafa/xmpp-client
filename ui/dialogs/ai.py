@@ -1953,6 +1953,14 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
     _row(page, _tr("Çeviri/yanıt dili"), v_lang)
     v_guard = _check(page, _tr("Şifresiz gönderimde parola/IBAN/kart gibi hassas "
                                "bilgi uyarısı (yerel)"), "leak_guard")
+    v_autotr = _check(page, _tr("Yabancı dildeki gelen mesajların altına çeviri "
+                                "satırı ekle (yalnız yerel Ollama modeli)"),
+                      "auto_translate")
+    _section(page, _tr("SABAH ÖZETİ"))
+    v_morning = _check(page, _tr("Her sabah okunmamışların özetini aç "
+                                 "(\"Neler kaçırdım?\")"), "morning_digest")
+    v_mtime = tk.StringVar(value=settings["morning_time"])
+    _row(page, _tr("Saat (SS:DD)"), v_mtime)
     _section(page, _tr("ASİSTAN"))
     v_inline = _check(page, _tr("Yazarken satır içi öneri — Tab ile kabul et "
                                 "(yalnız yerel Ollama modeliyle çalışır)"),
@@ -2018,6 +2026,9 @@ def show_settings(parent, settings, has_key, whisper_models, on_save,
             "leak_guard": bool(v_guard.get()),
             "inline_complete": bool(v_inline.get()),
             "away_drafts": bool(v_away.get()),
+            "auto_translate": bool(v_autotr.get()),
+            "morning_digest": bool(v_morning.get()),
+            "morning_time": v_mtime.get().strip(),
             "tts_engine": v_tts.get().strip(),
             "tts_voice": v_voice.get().strip(),
             "tts_lang": v_tts_lang.get().strip(),
