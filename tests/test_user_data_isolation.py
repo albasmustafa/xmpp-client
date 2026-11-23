@@ -134,3 +134,13 @@ def test_speech_model_cache_moves_with_profile(tmp_path):
         data / ".cache" / "huggingface")
     env = dict(_without_data_env(home), HF_HOME=str(tmp_path / "hf"))
     assert _hf_home(env) == str(tmp_path / "hf")
+
+
+def test_log_file_is_private():
+    """Log JID/oda adları taşır; 0644 açılıyordu (döndürülen dosyalar da)."""
+    import stat
+    constants._log.info("izin denetimi")
+    assert stat.S_IMODE(os.stat(constants._LOG_PATH).st_mode) == 0o600
+    os.chmod(constants._LOG_PATH, 0o644)
+    constants._log_fh.doRollover()
+    assert stat.S_IMODE(os.stat(constants._LOG_PATH).st_mode) == 0o600

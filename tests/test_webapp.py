@@ -54,6 +54,8 @@ CFG: dict = {}
 @pytest.fixture()
 def session(monkeypatch, tmp_path):
     monkeypatch.setattr(xmpp, "_DB_PATH", str(tmp_path / "web.db"))
+    if xmpp._db_conn is not None:  # önceki testin bağlantısı sızmasın
+        xmpp._db_conn.close()
     xmpp._db_conn = None
     CFG.clear()
     monkeypatch.setattr(wb, "_load_config", lambda: CFG)

@@ -22,7 +22,7 @@ denetimi, kullanıcıyla birlikte) · `docs/` (tasarım belgeleri) · `xmpp-clie
 ```bash
 ./xmpp-client.sh                                   # uygulama (.venv-xmpp içindeki Python)
 cd /run/media/albas/albas/xmpp-istemcisi && \
-  .venv-xmpp/bin/python -m pytest tests/ -q        # ~2220 test, ~60 sn, ağ kullanmaz
+  .venv-xmpp/bin/python -m pytest tests/ -q        # ~2290 test, ~100 sn, ağ kullanmaz
 ```
 Paket kurulumu: `.venv-xmpp/bin/python -m pip install <paket>`. "Test geçti" demek için testi
 gerçekten çalıştır.

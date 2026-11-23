@@ -193,6 +193,7 @@ def transcribe(jid: str, row_id=None, mid: str = "") -> dict:
         tmp.close()
         text = _ai.transcribe_file(tmp.name, model)
     finally:
+        tmp.close()
         try:
             os.unlink(tmp.name)
         except OSError:

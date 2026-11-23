@@ -127,6 +127,8 @@ def test_reminder_item_goes_through_existing_reminder_path():
 @pytest.fixture()
 def db(tmp_path, monkeypatch):
     monkeypatch.setattr(xmpp, "_DB_PATH", str(tmp_path / "m.db"))
+    if xmpp._db_conn is not None:  # önceki testin bağlantısı sızmasın
+        xmpp._db_conn.close()
     xmpp._db_conn = None
     yield
     if xmpp._db_conn is not None:
@@ -180,6 +182,8 @@ def test_legacy_schema_gets_column_and_old_rows_have_no_date(tmp_path,
     conn.commit()
     conn.close()
     monkeypatch.setattr(xmpp, "_DB_PATH", path)
+    if xmpp._db_conn is not None:  # önceki testin bağlantısı sızmasın
+        xmpp._db_conn.close()
     xmpp._db_conn = None
     try:
         rows = xmpp._db_unanswered()

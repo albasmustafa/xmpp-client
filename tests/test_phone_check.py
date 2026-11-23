@@ -23,6 +23,8 @@ _SPEC.loader.exec_module(pc)
 def db(monkeypatch, tmp_path):
     path = str(tmp_path / "msgs.db")
     monkeypatch.setattr(xmpp, "_DB_PATH", path)
+    if xmpp._db_conn is not None:  # önceki testin bağlantısı sızmasın
+        xmpp._db_conn.close()
     xmpp._db_conn = None
     st._db_store_msg("ali@x.im", "ali", "eski", False, "10:00", "them")
     yield path

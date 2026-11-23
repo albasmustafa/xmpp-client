@@ -270,9 +270,11 @@ def test_draft_reply_validation_and_missing_token(env):
     assert _call(env, "draft_reply", jid="ali", text="t")[0] is True
     assert _call(env, "draft_reply", jid="ali@x", text="  ")[0] is True
     env.write_cfg()
-    cfg = json.loads(open(env.config_path, encoding="utf-8").read())
+    with open(env.config_path, encoding="utf-8") as f:
+        cfg = json.load(f)
     del cfg["api_token"]
-    open(env.config_path, "w", encoding="utf-8").write(json.dumps(cfg))
+    with open(env.config_path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f)
     err, text = _call(env, "draft_reply", jid="ali@x", text="t")
     assert err and "REST API" in text and env.posts == []
 

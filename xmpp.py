@@ -1264,29 +1264,79 @@ try:
     # Diğer kullanıcı dosyaları gibi veri kökünde (taşınmış profil, testler);
     # ev dizinine sabit olunca profil taşınınca yeni OMEMO kimliği doğardı
     _OMEMO_DIR = pathlib.Path(_user_home()) / ".xmpp_omemo"
-    _OMEMO_DIR.mkdir(parents=True, exist_ok=True)
+
+    def _omemo_private_dir(path: pathlib.Path) -> None:
+        """Anahtar klasörünü yalnız sahibine açık (0700) oluştur/daralt."""
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            path.chmod(0o700)
+        except OSError:
+            _log.warning("OMEMO klasör izni daraltılamadı: %s", path,
+                         exc_info=True)
+
+    _omemo_private_dir(_OMEMO_DIR)
 
     class _OmemoStorageImpl(_OmemoStorage):
-        """JSON dosya tabanlı OMEMO anahtar deposu."""
+        """JSON dosya tabanlı OMEMO anahtar deposu.
+
+        Dosya özel anahtarları ve ratchet durumunu taşır: yazma atomiktir
+        (geçici dosya + fsync + os.replace, 0600) ki yarıda kesilen bir yazma
+        kimliği bozmasın. Okunamayan mevcut dosya sessizce yok sayılmaz —
+        üzerine yeni kimlik yazılmadan önce yanına yedeklenir.
+        """
         def __init__(self, path: pathlib.Path) -> None:
             super().__init__()
             self._path = path
             self._data: dict[str, _JSONType] = {}
+            if not path.exists():
+                return
             try:
-                self._data = json.loads(path.read_text("utf-8"))
-            except Exception:
+                data = json.loads(path.read_text("utf-8"))
+                if not isinstance(data, dict):
+                    raise ValueError("JSON nesnesi değil")
+                self._data = data
+            except (OSError, ValueError):
+                backup = path.with_name(
+                    f"{path.name}.bozuk-{time.strftime('%Y%m%d-%H%M%S')}")
+                try:
+                    os.replace(path, backup)
+                except OSError:
+                    backup = None
+                _log.error("OMEMO deposu okunamadı: %s (yedek: %s) — yeni "
+                           "kimlik oluşturulacak", path, backup, exc_info=True)
+                return
+            try:
+                if path.stat().st_mode & 0o077:
+                    path.chmod(0o600)
+            except OSError:
                 pass
+
+        def _write(self) -> None:
+            fd, tmp = tempfile.mkstemp(dir=self._path.parent,
+                                       prefix=f".{self._path.name}.")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self._data, f)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp, self._path)
+            except BaseException:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
 
         async def _load(self, key: str) -> Maybe[_JSONType]:
             return Just(self._data[key]) if key in self._data else Nothing()
 
         async def _store(self, key: str, value: _JSONType) -> None:
             self._data[key] = value
-            self._path.write_text(json.dumps(self._data), "utf-8")
+            self._write()
 
         async def _delete(self, key: str) -> None:
             self._data.pop(key, None)
-            self._path.write_text(json.dumps(self._data), "utf-8")
+            self._write()
 
     class XEP_0384Impl(_XEP_0384_Base):
         """Somut OMEMO plugin uygulaması — BTBV (Blind Trust) açık."""
@@ -1298,7 +1348,7 @@ try:
         def plugin_init(self) -> None:
             self._data_dir = pathlib.Path(
                 self.config.get("data_dir", str(_OMEMO_DIR)))
-            self._data_dir.mkdir(parents=True, exist_ok=True)
+            _omemo_private_dir(self._data_dir)
             self._storage: _OmemoStorage | None = None
             self._storage_jid: str | None = None
             super().plugin_init()
@@ -3876,9 +3926,12 @@ class MainWindow:
                     suffix = ext
                     break
             tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-            tmp.write(raw)
-            tmp.close()
-            tmp_path = wav_path = tmp.name
+            tmp_path = tmp.name  # yazma başarısızsa except dalı siler
+            try:
+                tmp.write(raw)
+            finally:
+                tmp.close()
+            wav_path = tmp_path
             if not self._remember_temp(wav_path):
                 # sahiplik reddi: kapanış temizliği zaten geçti — yeni
                 # artefaktı kendin sil, ffmpeg'e/UI'a hiç gitme
@@ -7349,7 +7402,12 @@ class MainWindow:
                 return "break"  # resim gönderilmedi; metin de yapıştırılmaz
             # Geçici dosyaya kaydet ve gönder
             tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-            img.save(tmp, format="PNG")
+            try:
+                img.save(tmp, format="PNG")
+            except Exception:
+                tmp.close()
+                os.unlink(tmp.name)
+                raise
             tmp.close()
             self._remember_temp(tmp.name)
             self.bot.send_file(self.active, tmp.name,

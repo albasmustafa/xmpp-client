@@ -41,7 +41,19 @@ _LOG_PATH = os.path.join(_user_home(), ".xmpp_client.log")
 _log = logging.getLogger("xmpp_client")
 _log.setLevel(logging.DEBUG)
 
-_log_fh = logging.handlers.RotatingFileHandler(
+class _PrivateRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """Log JID, oda ve dosya adları taşır: her açılış/döndürmede 0600."""
+
+    def _open(self):
+        stream = super()._open()
+        try:
+            os.chmod(self.baseFilename, 0o600)
+        except OSError:
+            pass
+        return stream
+
+
+_log_fh = _PrivateRotatingFileHandler(
     _LOG_PATH, maxBytes=2 * 1024 * 1024, backupCount=3, encoding="utf-8")
 _log_fh.setLevel(logging.DEBUG)
 _log_fh.setFormatter(logging.Formatter(

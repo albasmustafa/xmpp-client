@@ -130,11 +130,14 @@ class MCPServer:
             raise ToolError("Mesaj veritabanı bulunamadı (istemci hiç "
                             "çalıştırılmamış olabilir).")
         uri = "file:" + urllib.request.pathname2url(self.db_path) + "?mode=ro"
+        conn = None
         try:
             conn = sqlite3.connect(uri, uri=True, timeout=5)
             conn.execute("SELECT 1 FROM messages LIMIT 1")
             return conn
         except sqlite3.Error as e:
+            if conn is not None:
+                conn.close()  # yoklama başarısız: bağlantı sızmasın
             raise ToolError(f"Veritabanı okunamadı: {e}") from e
 
     @staticmethod
