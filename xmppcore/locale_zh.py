@@ -2454,6 +2454,8 @@ CATALOG = {
         "会话无效。",
     "jid zorunlu.":
         "必须提供 jid。",
+    "İstek gövdesi çok büyük.":
+        "请求正文过大。",
     "Geçersiz JSON gövde.":
         "JSON 正文无效。",
     "Geçersiz Host.":

@@ -699,3 +699,189 @@ def test_app_js_has_no_unwrapped_turkish_text():
                           r'`(?:[^`\\]|\\.)*`', js)
     bad = [s for s in literals if turkish.search(s)]
     assert not bad, bad
+
+
+# ── 2026-11-23 cila: web hataları ───────────────────────────────────────────
+def test_send_file_rejects_arbitrary_local_path(session, tmp_path):
+    """WS `send_file` keyfi yerel yolu (ör. ~/.ssh/id_rsa) yüklüyordu."""
+    from webapp import media
+    secret = tmp_path / "id_rsa"
+    secret.write_text("gizli")
+    res = session.command("send_file", {"to": "ali@x.im", "path": str(secret)})
+    assert res["ok"] is False
+    assert all(name != "upload_file" for name, _a, _k in session.bot.calls)
+    assert secret.exists()          # başkasının dosyası silinmez
+
+    uploads = []
+    session.bot.upload_file = lambda *a, **k: uploads.append(a)
+    session._uploads = set()
+    own = media.write_temp(b"veri", "foto.png")
+    try:
+        assert media.is_own_temp(own)
+        res = session.command("send_file", {"to": "ali@x.im", "path": own})
+        assert res["ok"] is True and uploads == [(own, "ali@x.im")]
+    finally:
+        session._uploads.clear()
+        media.discard_temp(own)
+    assert not os.path.exists(os.path.dirname(own))
+
+
+def test_write_temp_failure_leaves_nothing(monkeypatch, tmp_path):
+    import builtins
+    import tempfile
+
+    from webapp import media
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    real_open = builtins.open
+
+    def failing_open(path, mode="r", *a, **k):
+        if "w" in mode and "xmpp-web-up-" in str(path):
+            raise OSError("disk dolu")
+        return real_open(path, mode, *a, **k)
+    monkeypatch.setattr(builtins, "open", failing_open)
+    with pytest.raises(OSError):
+        media.write_temp(b"x", "a.bin")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_closed_browser_is_not_an_open_chat(session):
+    """Son sekme kapanınca açık sohbet düşer: mesaj okundu bildirilmez."""
+    session.command("open_chat", {"jid": "ali@x.im"})
+    session.remove_sink(session.sink)
+    session._apply("msg", {"from": "ali@x.im", "nick": "ali", "body": "selam",
+                           "type": "chat", "oob": "", "encrypted": False,
+                           "mid": "m9", "reply": None})
+    assert all(name != "send_marker" for name, _a, _k in session.bot.calls)
+    assert session.unread["ali@x.im"] == 1
+
+
+def test_hidden_tab_clears_active_chat(session):
+    session.command("open_chat", {"jid": "ali@x.im"})
+    session.command("open_chat", {"jid": ""})       # visibilitychange: gizli
+    assert session.active == ""
+    assert all(name != "fetch_mam" for name, _a, _k in session.bot.calls
+               if _a and _a[0] == "")
+
+
+def test_snapshot_includes_joined_rooms(session):
+    """Odalar roster'da yok: sayfa yenilenince listeden kayboluyorlardı."""
+    session.contacts = {"ali@x.im": "Ali"}
+    session.rooms = {"oda@chat.x"}
+    by_jid = {c["jid"]: c for c in session.snapshot()["contacts"]}
+    assert by_jid["oda@chat.x"]["room"] is True
+    assert by_jid["oda@chat.x"]["name"] == "oda"
+    assert by_jid["ali@x.im"]["room"] is False
+
+
+class _ChunkedReader:
+    def __init__(self, data, size):
+        self._parts = [data[i:i + size] for i in range(0, len(data), size)]
+
+    async def read(self, n=-1):
+        return self._parts.pop(0) if self._parts else b""
+
+
+class _Req:
+    def __init__(self, data, size=1000):
+        self.content = _ChunkedReader(data, size)
+
+
+def test_body_reads_all_chunks_and_limits_size():
+    """content.read(n) yalnız tampondakini döndürür: büyük gövde yarım
+    okunup 'Geçersiz JSON' oluyordu."""
+    import json as _json
+
+    from aiohttp import web
+    payload = {"history": [{"role": "user", "text": "x" * 500}] * 200}
+    raw = _json.dumps(payload).encode()
+    assert len(raw) > 64 * 1024
+    assert asyncio.run(srv._body(_Req(raw))) == payload
+    with pytest.raises(web.HTTPRequestEntityTooLarge):
+        asyncio.run(srv._body(_Req(b"[" + b"1," * (srv._MAX_BODY // 2) + b"1]",
+                                   size=64 * 1024)))
+    with pytest.raises(web.HTTPBadRequest):
+        asyncio.run(srv._body(_Req(b"[1, 2]")))
+
+
+def test_settings_post_validates_types_and_theme(monkeypatch):
+    """Config masaüstüyle ortak: bozuk tür ve bilinmeyen tema yazılmamalı."""
+    saved = {}
+    monkeypatch.setattr(srv, "_TOKENS", {"tok": object.__new__(wb.WebSession)})
+    monkeypatch.setattr(srv, "_load_cfg", lambda: {"theme": "koyu",
+                                                   "sounds": True})
+    monkeypatch.setattr(srv, "_save_cfg", lambda c: saved.update(c))
+
+    async def go():
+        client = await _client(monkeypatch)
+        try:
+            resp = await client.post(
+                "/api/settings", headers={"X-Auth-Token": "tok"},
+                json={"general": {"theme": "<script>", "sounds": "hayır",
+                                  "notifications": False}})
+            assert resp.status == 200
+        finally:
+            await client.close()
+
+    asyncio.run(go())
+    assert saved["theme"] == "koyu"
+    assert saved["sounds"] is True
+    assert saved["notifications"] is False
+
+
+def test_media_filename_header_keeps_unicode(monkeypatch, session):
+    from webapp import media
+    monkeypatch.setattr(media, "find", lambda *a: ("", "/x/Gülşen ğ.png"))
+    monkeypatch.setattr(media, "load", lambda *a: b"PNG")
+
+    async def go():
+        client = await _client(monkeypatch, session)
+        try:
+            resp = await client.get("/api/media?jid=a@b&id=1",
+                                    headers={"X-Auth-Token": "tok"})
+            assert resp.status == 200
+            return resp.headers["Content-Disposition"]
+        finally:
+            await client.close()
+
+    disp = asyncio.run(go())
+    assert disp.startswith("inline; ")
+    assert 'filename="G_l_en_.png"' in disp
+    assert "filename*=UTF-8''G%C3%BCl%C5%9Fen%20%C4%9F.png" in disp
+
+
+def test_pwa_files_exist_and_are_served(monkeypatch):
+    """index.html/app.js/sunucu PWA dosyalarına bağlıydı ama dosyalar hiç
+    yoktu: manifest/sw.js 404 → kurulum ve Android bildirimi çalışmıyordu."""
+    import json as _json
+    html = (srv.STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    for ref in ("/manifest.webmanifest", "/static/icon-192.png"):
+        assert ref in html
+    manifest = _json.loads((srv.STATIC_DIR / "manifest.webmanifest")
+                           .read_text(encoding="utf-8"))
+    for icon in manifest["icons"]:
+        assert (srv.STATIC_DIR / icon["src"].removeprefix("/static/")).is_file()
+    sw = (srv.STATIC_DIR / "sw.js").read_text(encoding="utf-8")
+    assert "notificationclick" in sw and '"/api' not in sw.split("SHELL")[1][:200]
+
+    async def go():
+        client = await _client(monkeypatch)
+        try:
+            out = {}
+            for path in ("/sw.js", "/manifest.webmanifest",
+                         "/static/icon-192.png"):
+                resp = await client.get(path)
+                out[path] = (resp.status, resp.headers.get("Content-Type", ""))
+            return out
+        finally:
+            await client.close()
+
+    out = asyncio.run(go())
+    assert out["/sw.js"][0] == 200 and "javascript" in out["/sw.js"][1]
+    assert out["/manifest.webmanifest"] == (200, "application/manifest+json")
+    assert out["/static/icon-192.png"][0] == 200
+
+
+def test_api_key_field_is_not_autofilled_with_login_password():
+    html = (srv.STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    line = next(ln for ln in html.splitlines() if 'id="s-api-key"' in ln)
+    assert 'autocomplete="new-password"' in line

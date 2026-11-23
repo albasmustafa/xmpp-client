@@ -2454,6 +2454,8 @@ CATALOG = {
         "Session invalide.",
     "jid zorunlu.":
         "jid requis.",
+    "İstek gövdesi çok büyük.":
+        "Le corps de la requête est trop volumineux.",
     "Geçersiz JSON gövde.":
         "Corps JSON invalide.",
     "Geçersiz Host.":

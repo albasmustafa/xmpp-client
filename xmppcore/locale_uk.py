@@ -2454,6 +2454,8 @@ CATALOG = {
         "Недійсний сеанс.",
     "jid zorunlu.":
         "Потрібен jid.",
+    "İstek gövdesi çok büyük.":
+        "Тіло запиту завелике.",
     "Geçersiz JSON gövde.":
         "Неправильне тіло JSON.",
     "Geçersiz Host.":

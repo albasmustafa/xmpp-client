@@ -2608,6 +2608,8 @@ EN = {
         "Invalid session.",
     "jid zorunlu.":
         "jid is required.",
+    "İstek gövdesi çok büyük.":
+        "Request body is too large.",
     "Geçersiz JSON gövde.":
         "Invalid JSON body.",
     "Geçersiz Host.":

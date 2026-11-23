@@ -2454,6 +2454,8 @@ CATALOG = {
         "Sessione non valida.",
     "jid zorunlu.":
         "jid obbligatorio.",
+    "İstek gövdesi çok büyük.":
+        "Il corpo della richiesta è troppo grande.",
     "Geçersiz JSON gövde.":
         "Corpo JSON non valido.",
     "Geçersiz Host.":

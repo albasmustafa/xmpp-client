@@ -142,19 +142,38 @@ def remux_to_ogg(path: str) -> str:
     return out_path
 
 
+_TEMP_PREFIX = "xmpp-web-up-"
+
+
 def write_temp(data: bytes, name: str) -> str:
     """Yüklemeyi kendi geçici klasörüne yaz (ad sunucuya gider: güvenli ad)."""
-    folder = tempfile.mkdtemp(prefix="xmpp-web-up-")
+    folder = tempfile.mkdtemp(prefix=_TEMP_PREFIX)
     path = os.path.join(folder, name)
-    with open(path, "wb") as f:
-        f.write(data)
+    try:
+        with open(path, "wb") as f:
+            f.write(data)
+    except BaseException:
+        discard_temp(path)              # disk dolu: yarım dosya/klasör kalmasın
+        raise
     return path
+
+
+def is_own_temp(path: str) -> bool:
+    """Yol write_temp'in ürettiği bir dosya mı? (gönderilecek dosya yalnız
+    tarayıcının yüklediği olabilir — istemci keyfi yerel yol veremez)."""
+    if not path or not os.path.isfile(path):
+        return False
+    real = os.path.realpath(path)
+    folder = os.path.dirname(real)
+    return (os.path.basename(folder).startswith(_TEMP_PREFIX)
+            and os.path.dirname(folder)
+            == os.path.realpath(tempfile.gettempdir()))
 
 
 def discard_temp(path: str) -> None:
     """write_temp dosyasını ve klasörünü sil (yalnız kendi önekimizdekiler)."""
     folder = os.path.dirname(path or "")
-    if not os.path.basename(folder).startswith("xmpp-web-up-"):
+    if not os.path.basename(folder).startswith(_TEMP_PREFIX):
         return
     for name in os.listdir(folder) if os.path.isdir(folder) else ():
         try:

@@ -8,7 +8,6 @@ yalnız sunucu tarafı davranışlar (okundu bildirimi, otomatik oda katılımı
 kayıt, OMEMO mod takibi) yaşar.
 """
 import asyncio
-import os
 import queue
 import threading
 import time
@@ -150,6 +149,11 @@ class WebSession:
         with self._sinks_lock:
             self.sinks[:] = [(loop, sink)
                              for loop, sink in self.sinks if sink is not q]
+            if not self.sinks:
+                # Tarayıcı kapandı: "açık sohbet" yok — gelen mesajlar okundu
+                # bildirilmesin, okunmamış sayılsın (sekme yeniden bağlanınca
+                # open_chat ile geri gelir).
+                self.active = ""
 
     def _broadcast(self, ev: dict):
         with self._sinks_lock:
@@ -657,7 +661,9 @@ class WebSession:
         """
         to = (args.get("to") or "").strip()
         path = args.get("path") or ""
-        if not to or not path or not os.path.isfile(path):
+        if not to or not _media.is_own_temp(path):
+            # Yalnız /api/upload'un yazdığı geçici dosya: WS komutu keyfi
+            # yerel yol (ör. ~/.ssh/…) gönderemez.
             return {"ok": False, "error": _tr("Dosya bulunamadı.")}
         if self.bot is None:
             _media.discard_temp(path)
@@ -731,7 +737,11 @@ class WebSession:
     # ── Anlık görüntü (WS hello) ve geçmiş ───────────────────────────────────
     def snapshot(self) -> dict:
         contacts = []
-        for jid, name in self.contacts.items():
+        # Odalar roster'da değildir: sayfa yenilenince listeden kaybolmasınlar
+        names = dict(self.contacts)
+        for room in sorted(self.rooms):
+            names.setdefault(room, room.split("@")[0])
+        for jid, name in names.items():
             contacts.append({
                 "jid": jid, "name": name,
                 "presence": self.presence.get(jid, {}),

@@ -390,6 +390,7 @@ const S = {
   stt: new Map(), sttBusy: new Set(),
   tr: new Map(), trWant: new Map(), trRunning: false,
   tasks: [],
+  joining: new Set(),        // kullanıcının istediği oda katılımları (küçük harf)
 };
 const RETRACTED = "🚫 Bu mesaj silindi";
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
@@ -509,8 +510,10 @@ const EVENTS = {
       S.contacts.set(jid, c);
       if (jid !== S.active) {
         c.unread = (c.unread || 0) + 1;
-        notify(data.nick || jid, data.body);
       }
+      // Sekme arka plandaysa açık sohbetin mesajı da bildirilir; okundu
+      // bildirimi sekme görünür olunca gider (visibilitychange).
+      notify(data.nick || jid, data.body);
       renderContacts();
     } else {
       wsSend("mark_displayed", {to: jid, mid: data.mid});
@@ -581,8 +584,12 @@ const EVENTS = {
     c.room = true;
     S.contacts.set(room, c);
     renderContacts();
-    openChat(room);
-    toast(fmt("✓ {} odasına katıldın", room));
+    // Bağlanışta kayıtlı odalara otomatik katılım da bu olayı üretir: açık
+    // sohbeti yalnız kullanıcının istediği katılımda o odaya çevir.
+    if (S.joining.delete(room.toLowerCase())) {
+      openChat(room);
+      toast(fmt("✓ {} odasına katıldın", room));
+    }
   },
   room_left(data) {
     S.contacts.delete(data.room);
@@ -737,7 +744,8 @@ async function openChat(jid) {
   if (!S.history.has(jid)) S.history.set(jid, {msgs: [], has_more: true});
   await loadHistory(jid);
   renderMessages();
-  wsSend("open_chat", {jid});   // sunucu okunmamışı düşürür + boşsa MAM
+  // sunucu okunmamışı düşürür + boşsa MAM (gizli sekme açık sohbet sayılmaz)
+  wsSend("open_chat", {jid: document.hidden ? "" : jid});
   $("composer").focus();
 }
 
@@ -1358,6 +1366,17 @@ function bind() {
   };
 
   $("filter").oninput = renderContacts;
+  // Gizli sekme "açık sohbet" sayılmaz: sunucu okundu bildirmesin, okunmamış
+  // saysın; geri gelince sohbet yeniden açık ve son gelen mesaj okundu.
+  document.addEventListener("visibilitychange", () => {
+    if (!S.token) return;
+    if (document.hidden) { wsSend("open_chat", {jid: ""}); return; }
+    if (!S.active) return;
+    wsSend("open_chat", {jid: S.active});
+    const h = S.history.get(S.active);
+    const last = h && [...h.msgs].reverse().find((m) => !m.is_me && m.mid);
+    if (last) wsSend("mark_displayed", {to: S.active, mid: last.mid});
+  });
   $("btn-join-room").onclick = () => {
     $("j-nick").value = S.jid.split("@")[0] || "";
     $("dlg-join").showModal();
@@ -1365,7 +1384,10 @@ function bind() {
   $("j-go").onclick = (e) => {
     e.preventDefault();
     const room = $("j-room").value.trim();
-    if (room) wsSend("join_room", {room, nick: $("j-nick").value.trim()});
+    if (room) {
+      S.joining.add(room.toLowerCase());
+      wsSend("join_room", {room, nick: $("j-nick").value.trim()});
+    }
     $("dlg-join").close();
   };
   $("rooms-close").onclick = () => $("dlg-rooms").close();

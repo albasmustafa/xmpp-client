@@ -2454,6 +2454,8 @@ CATALOG = {
         "Ongeldige sessie.",
     "jid zorunlu.":
         "jid is verplicht.",
+    "İstek gövdesi çok büyük.":
+        "De aanvraagbody is te groot.",
     "Geçersiz JSON gövde.":
         "Ongeldige JSON-body.",
     "Geçersiz Host.":

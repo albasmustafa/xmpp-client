@@ -28,7 +28,7 @@ import time
 from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from aiohttp import WSMsgType, web
 
@@ -42,7 +42,7 @@ from xmppcore.i18n import tr as _tr
 
 STATIC_DIR = Path(__file__).parent / "static"
 _TOKENS: dict[str, WebSession] = {}
-_WS_TICKETS: dict[str, float] = {}          # bilet → son kullanma (monotonic)
+_WS_TICKETS: dict[str, tuple[str, float]] = {}  # bilet → (token, son kullanma)
 _TICKET_TTL = 30.0
 
 _MAX_BODY = 1 * 1024 * 1024
@@ -55,8 +55,8 @@ APP_HOSTS = web.AppKey("hosts", frozenset)          # izinli Host/Origin adları
 APP_TICKER = web.AppKey("ticker", object)           # asyncio.Task
 _TICK_S = 30.0                  # hatırlatıcı + sabah özeti denetimi
 _MORNING_SETTLE_S = 45.0        # bağlandıktan sonra çevrimdışı mesajlar
-_SETTINGS_GENERAL = ("notifications", "sounds", "send_read_receipts",
-                     "send_typing", "auto_rejoin", "theme", "remote_previews")
+_SETTINGS_BOOL = ("notifications", "sounds", "send_read_receipts",
+                  "send_typing", "auto_rejoin", "remote_previews")
 
 
 def _json(data, status: int = 200) -> web.Response:
@@ -76,11 +76,23 @@ def _session(request) -> WebSession:
 
 
 async def _body(request) -> dict:
+    # content.read(n) yalnız o an tampondakini döndürür: birden çok TCP
+    # parçasıyla gelen gövde (uzun asistan geçmişi) yarım okunup "geçersiz
+    # JSON" sayılıyordu. EOF'a kadar oku, sınırı aşanı 413 ile reddet.
+    data = bytearray()
+    while True:
+        chunk = await request.content.read(64 * 1024)
+        if not chunk:
+            break
+        data += chunk
+        if len(data) > _MAX_BODY:
+            raise web.HTTPRequestEntityTooLarge(
+                max_size=_MAX_BODY, actual_size=len(data),
+                text=_tr("İstek gövdesi çok büyük."))
     try:
-        data = await request.content.read(_MAX_BODY + 1)
-        obj = json.loads(data or b"{}")
-    except Exception:
-        raise web.HTTPBadRequest(text=_tr("Geçersiz JSON gövde."))
+        obj = json.loads(bytes(data) or b"{}")
+    except ValueError:
+        raise web.HTTPBadRequest(text=_tr("Geçersiz JSON gövde.")) from None
     if not isinstance(obj, dict):
         raise web.HTTPBadRequest(text=_tr("Geçersiz JSON gövde."))
     return obj
@@ -277,9 +289,13 @@ async def handle_settings_post(request) -> web.Response:
         _i18n.set_language(cfg["language"])
     general = body.get("general")
     if isinstance(general, dict):
-        for key in _SETTINGS_GENERAL:
-            if key in general:
+        # Config masaüstüyle ortak: türü bozuk değer oraya sızmasın
+        for key in _SETTINGS_BOOL:
+            if isinstance(general.get(key), bool):
                 cfg[key] = general[key]
+        from xmppcore.theme import _THEMES
+        if general.get("theme") in _THEMES:
+            cfg["theme"] = general["theme"]
     ai_new = body.get("ai")
     if isinstance(ai_new, dict):
         merge_settings(cfg, ai_new, body.get("api_key"))
@@ -380,10 +396,13 @@ async def handle_media(request) -> web.Response:
         return _err(_tr("Dosya açılamadı."), 502)
     name = _media.file_name(url, local_path)
     ctype, inline = _media.content_type(name)
-    safe = re.sub(r'[^\w.-]+', "_", name) or "dosya"
+    # Başlık latin-1'dir: ASCII yedek ad + RFC 5987 UTF-8 adı (Türkçe adlar)
+    ascii_name = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_") or "dosya"
+    disposition = (f'{"inline" if inline else "attachment"}; '
+                   f'filename="{ascii_name}"; '
+                   f"filename*=UTF-8''{quote(name, safe='')}")
     return web.Response(body=data, content_type=ctype, headers={
-        "Content-Disposition":
-            f'{"inline" if inline else "attachment"}; filename="{safe}"',
+        "Content-Disposition": disposition,
         "X-Content-Type-Options": "nosniff",
         "Cache-Control": "private, max-age=3600"})
 
@@ -412,6 +431,8 @@ async def handle_upload(request) -> web.Response:
     if _media.is_audio(name):
         path = await asyncio.to_thread(_media.remux_to_ogg, path)
     result = session.command("send_file", {"to": to, "path": path})
+    if not result.get("ok"):
+        _media.discard_temp(path)       # oturum kapanıyorsa /tmp'de kalmasın
     return _json(result, 200 if result.get("ok") else 400)
 
 

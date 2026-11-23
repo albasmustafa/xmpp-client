@@ -2454,6 +2454,8 @@ CATALOG = {
         "잘못된 세션입니다.",
     "jid zorunlu.":
         "jid가 필요합니다.",
+    "İstek gövdesi çok büyük.":
+        "요청 본문이 너무 큽니다.",
     "Geçersiz JSON gövde.":
         "잘못된 JSON 본문입니다.",
     "Geçersiz Host.":

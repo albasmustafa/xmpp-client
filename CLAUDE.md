@@ -22,7 +22,7 @@ denetimi, kullanıcıyla birlikte) · `docs/` (tasarım belgeleri) · `xmpp-clie
 ```bash
 ./xmpp-client.sh                                   # uygulama (.venv-xmpp içindeki Python)
 cd /run/media/albas/albas/xmpp-istemcisi && \
-  .venv-xmpp/bin/python -m pytest tests/ -q        # ~2290 test, ~100 sn, ağ kullanmaz
+  .venv-xmpp/bin/python -m pytest tests/ -q        # ~2300 test, ~70 sn, ağ kullanmaz
 ```
 Paket kurulumu: `.venv-xmpp/bin/python -m pip install <paket>`. "Test geçti" demek için testi
 gerçekten çalıştır.
@@ -344,7 +344,9 @@ gerçekten çalıştır.
   önizlemeleri `remote_previews` ayarıyla kapatılabilir. Bilinen kalıntı riskler
   (kabul edilmiş): Fernet anahtarı şifreli parolanın yanındadır (ev LUKS altında),
   oturum token'larının ömrü sınırsızdır (yerel yüzey).
-- **Frontend:** `webapp/static/` (vanilla JS, derlemesiz). Tema renkleri `xmppcore/theme`
+- **Frontend:** `webapp/static/` (vanilla JS, derlemesiz). PWA: `sw.js` (bildirim tıklaması +
+  yalnız statik kabuk önbelleği; `/api`/`/ws` asla önbelleğe girmez), `manifest.webmanifest`,
+  `icon-*.png`. Tema renkleri `xmppcore/theme`
   paletinden CSS değişkeni olarak gelir (`/api/settings` → `theme_colors`).
 - **Ölçek:** web köprüsü aynı `~/.xmpp_client.json` ve mesaj DB'sini paylaşır; masaüstüyle
   aynı anda çalışabilir (çoklu cihaz yolu: carbons + aynı OMEMO deposu). `storage.py`'ye

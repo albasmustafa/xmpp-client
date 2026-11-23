@@ -2454,6 +2454,8 @@ CATALOG = {
         "無効なセッションです。",
     "jid zorunlu.":
         "jid が必要です。",
+    "İstek gövdesi çok büyük.":
+        "リクエスト本文が大きすぎます。",
     "Geçersiz JSON gövde.":
         "無効な JSON 本文です。",
     "Geçersiz Host.":
