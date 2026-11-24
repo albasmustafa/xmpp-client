@@ -2706,4 +2706,35 @@ CATALOG = {
     "📤 Gönderiliyor: {}": "📤 Verzenden: {}",
     "🔒 Dosya açılamadı.": "🔒 Kan bestand niet openen.",
     "🔒 {} açılıyor…": "🔒 {} wordt geopend…",
+    # Bildirim kontrolü (notify_policy)
+    "🔔 Bildirimler":
+        "🔔 Meldingen",
+    "🔕 1 Saat Sessize Al":
+        "🔕 1 uur dempen",
+    "🔕 8 Saat Sessize Al":
+        "🔕 8 uur dempen",
+    "🔕 1 Gün Sessize Al":
+        "🔕 1 dag dempen",
+    "🔕 Süresiz Sessize Al":
+        "🔕 Onbeperkt dempen",
+    "🔔 Sesi Aç (bitiş {})":
+        "🔔 Dempen opheffen (gedempt tot {})",
+    "🔔 Sesi Aç (süresiz)":
+        "🔔 Dempen opheffen (onbeperkt gedempt)",
+    "🔔 Her Mesajda Bildir":
+        "🔔 Melden bij elk bericht",
+    "@ Yalnız Adım Geçince Bildir":
+        "@ Alleen melden bij vermelding",
+    "🔕 Sessize alındı":
+        "🔕 Gedempt",
+    "🔔 Bildirimler açıldı":
+        "🔔 Meldingen aan",
+    "bitiş {}":
+        "tot {}",
+    "süresiz":
+        "onbeperkt",
+    "Her mesajda bildirilecek":
+        "Je krijgt een melding bij elk bericht",
+    "Yalnız adınız geçince bildirilecek":
+        "Je krijgt alleen een melding bij vermelding",
 }

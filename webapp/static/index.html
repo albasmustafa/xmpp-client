@@ -82,10 +82,13 @@
           </div>
         </div>
         <div class="chat-actions">
+          <button id="btn-notify" class="hidden" title="🔔 Bildirimler"
+                  aria-haspopup="menu" aria-expanded="false">🔔</button>
           <button id="btn-enc" class="hidden" title="Şifreleme modu">🔓 Düz</button>
           <button id="btn-members" class="hidden" title="Oda üyeleri">👥</button>
           <button id="btn-leave-room" class="hidden" title="Odadan ayrıl">🚪</button>
         </div>
+        <div id="notify-menu" class="pop-menu hidden" role="menu"></div>
       </div>
 
       <div id="messages" class="messages">

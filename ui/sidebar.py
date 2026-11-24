@@ -67,8 +67,9 @@ def ordered_contact_jids(contacts, presence, pinned, query="", *, unread_counts=
 
 
 def render_contacts(contact_list, contacts, presence, pinned, unread_counts,
-                    jids):
-    """Kişi listesini çiz (satır metni + renk + unread rozeti)."""
+                    jids, *, muted=()):
+    """Kişi listesini çiz (satır metni + renk + unread rozeti; sessize
+    alınmış sohbette 🔕)."""
     colors = _app().PRESENCE_COLOR
     contact_list.delete(0, "end")
     for jid in jids:
@@ -76,9 +77,10 @@ def render_contacts(contact_list, contacts, presence, pinned, unread_counts,
         pshow = presence.get(jid, "unavailable")
         color = colors.get(pshow, "#72767d")
         pin_icon = "📌 " if jid in pinned else ""
+        mute_icon = " 🔕" if jid in muted else ""
         unread = unread_counts.get(jid, 0)
         badge = f" ({unread})" if unread > 0 else ""
-        contact_list.insert("end", f"  ● {pin_icon}{name}{badge}")
+        contact_list.insert("end", f"  ● {pin_icon}{name}{mute_icon}{badge}")
         contact_list.itemconfig("end", fg=color)
 
 
@@ -91,16 +93,20 @@ def filtered_rooms(rooms, query="", *, pinned=(), unread_counts=None, view="all"
             if _visible(room, view, pinned_set, unread_counts) and _matches(tokens, room)]
 
 
-def render_rooms(room_list, room_jids, *, pinned=(), unread_counts=None):
-    """Oda listesini sabitleme ve okunmamış mesaj rozetleriyle çiz."""
+def render_rooms(room_list, room_jids, *, pinned=(), unread_counts=None,
+                 muted=()):
+    """Oda listesini sabitleme, okunmamış mesaj rozetleri ve 🔕 (sessize
+    alınmış) işaretiyle çiz."""
     pinned_set = set(pinned)
     unread_counts = unread_counts or {}
     room_list.delete(0, "end")
     for room in room_jids:
         pin_icon = "📌 " if room in pinned_set else ""
+        mute_icon = " 🔕" if room in muted else ""
         unread = unread_counts.get(room, 0)
         badge = f" ({unread})" if unread > 0 else ""
-        room_list.insert("end", f"  💬  {pin_icon}{room.split('@')[0]}{badge}")
+        room_list.insert(
+            "end", f"  💬  {pin_icon}{room.split('@')[0]}{mute_icon}{badge}")
 
 
 def quick_switch_targets(contacts, rooms, pinned=(), unread_counts=None, query=""):

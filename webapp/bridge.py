@@ -14,10 +14,11 @@ import time
 from datetime import datetime
 
 from webapp import media as _media
+from xmppcore import notify_policy as _notify
 from xmppcore import sensitive as _sensitive
 from xmppcore import storage as _storage
 from xmppcore.ai import RETRACTED_BODY
-from xmppcore.config import _load_config, _save_config
+from xmppcore.config import _load_config, _load_config_cached, _save_config
 from xmppcore.constants import _log
 from xmppcore.helpers import _new_msg_id
 from xmppcore.i18n import tr as _tr
@@ -75,6 +76,7 @@ class WebSession:
         self.active = ""                          # tarayıcıdaki açık sohbet
         self._uploads: set[str] = set()           # gönderilmeyi bekleyen geçici dosyalar
         self.connected_at: float | None = None    # ilk "connected" anı
+        self.my_show = "online"                   # bildirim kararı (dnd susar)
         # ── MAM (XEP-0313) sayfalama durumu (MainWindow karşılıkları) ──
         self._mam_gen: dict[str, int] = {}        # jid → son token
         self._mam_intent: dict[str, dict] = {}    # jid → {"token", "intent"}
@@ -209,7 +211,9 @@ class WebSession:
                                                    "is_unread":
                                                        self.active != frm,
                                                    "unread_total":
-                                                       unread_total}})
+                                                       unread_total,
+                                                   "notify": self._should_notify(
+                                                       frm, body, reply)}})
 
         elif kind == "own_msg":
             to, body = data["to"], data["body"]
@@ -595,10 +599,12 @@ class WebSession:
         if cmd == "discover_rooms":
             return {"ok": self.discover_rooms()}
         if cmd == "set_presence":
+            self.my_show = args.get("show", "online")
             if bot:
-                bot.set_presence(args.get("show", "online"),
-                                 args.get("status", ""))
+                bot.set_presence(self.my_show, args.get("status", ""))
             return {"ok": True}
+        if cmd == "set_notify":
+            return self._cmd_set_notify(args)
         if cmd == "approve_subscribe":
             if bot:
                 bot.approve_subscribe(args.get("jid", ""),
@@ -617,6 +623,39 @@ class WebSession:
                                                               True))
             return {"ok": True}
         return {"ok": False, "error": _tr("Bilinmeyen komut: {}").format(cmd)}
+
+    # ── Bildirim kontrolü (masaüstüyle aynı kurallar: notify_policy) ────────
+    def _should_notify(self, frm, body, reply=None) -> bool:
+        """Tarayıcı bu mesaj için bildirim/ses çıkarsın mı? Masaüstündeki
+        `MainWindow._should_notify` karşılığı; ayarlar ortak config'tedir."""
+        is_room = frm in self.rooms
+        nick = ((self.bot.my_nicks.get(frm) if self.bot else "")
+                or self.nick_default()) if is_room else ""
+        return _notify.should_notify(
+            _load_config_cached(), frm, body, is_room=is_room, my_nick=nick,
+            my_show=self.my_show,
+            reply_sender=(reply or {}).get("sender", ""))
+
+    def _cmd_set_notify(self, args) -> dict:
+        """choice: MUTE_CHOICES anahtarı (sessize al), "unmute", "room_all"
+        ya da "room_mention". Bütün sekmelere `notify_prefs` yayınlanır."""
+        jid = (args.get("jid") or "").strip()
+        choice = args.get("choice") or ""
+        if "@" not in jid:
+            return {"ok": False, "error": _tr("Geçersiz JID")}
+        if not (choice in _notify.MUTE_CHOICES
+                or choice in ("unmute", "room_all", "room_mention")):
+            return {"ok": False,
+                    "error": _tr("Geçersiz parametre: {}").format("choice")}
+        cfg = _load_config()
+        if choice in ("room_all", "room_mention"):
+            _notify.set_room_all(cfg, jid, choice == "room_all")
+        else:
+            _notify.set_mute(cfg, jid, None if choice == "unmute" else choice)
+        _save_config(cfg)
+        prefs = _notify.snapshot(cfg)
+        self._broadcast({"ev": "notify_prefs", "data": prefs})
+        return {"ok": True, "prefs": prefs}
 
     def _cmd_send(self, args) -> dict:
         to = (args.get("to") or "").strip()
@@ -753,7 +792,8 @@ class WebSession:
                 "typing": self.typing.get(jid, False),
             })
         return {"jid": self.jid, "contacts": contacts,
-                "unread_total": sum(self.unread.values())}
+                "unread_total": sum(self.unread.values()),
+                "notify_prefs": _notify.snapshot(_load_config_cached())}
 
     def history(self, jid: str, before: tuple | None = None,
                 limit: int = 60) -> dict:

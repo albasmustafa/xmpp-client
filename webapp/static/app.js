@@ -391,6 +391,7 @@ const S = {
   tr: new Map(), trWant: new Map(), trRunning: false,
   tasks: [],
   joining: new Set(),        // kullanıcının istediği oda katılımları (küçük harf)
+  notifyPrefs: {muted: {}, room_all: []},   // sunucudan (notify_policy.snapshot)
 };
 const RETRACTED = "🚫 Bu mesaj silindi";
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
@@ -469,6 +470,7 @@ const EVENTS = {
     $("me-jid").textContent = data.jid;
     S.contacts.clear();
     for (const c of data.contacts) S.contacts.set(c.jid, c);
+    S.notifyPrefs = data.notify_prefs || {muted: {}, room_all: []};
     renderContacts();
     const last = localStorage.getItem("xmpp_web_last_chat");
     if (last && S.contacts.has(last)) openChat(last);
@@ -512,8 +514,10 @@ const EVENTS = {
         c.unread = (c.unread || 0) + 1;
       }
       // Sekme arka plandaysa açık sohbetin mesajı da bildirilir; okundu
-      // bildirimi sekme görünür olunca gider (visibilitychange).
-      notify(data.nick || jid, data.body);
+      // bildirimi sekme görünür olunca gider (visibilitychange). Sessize
+      // alınmış sohbet, adın geçmediği oda mesajı ve Meşgul durumu susar
+      // (karar sunucuda: notify_policy).
+      if (data.notify !== false) notify(data.nick || jid, data.body);
       renderContacts();
     } else {
       wsSend("mark_displayed", {to: jid, mid: data.mid});
@@ -660,6 +664,11 @@ const EVENTS = {
     $("ai-output").innerHTML = `<b>${esc(_t("☀ Günaydın"))}</b>\n${esc(data.text || "")}`;
     showNotification(_t("☀ Günaydın"), data.text || "");
   },
+  notify_prefs(data) {
+    S.notifyPrefs = data || {muted: {}, room_all: []};
+    renderContacts();
+    renderChatHeader();
+  },
   sys_msg(data) { toast(data); },
   error(data) { toast(data, true); },
   disconnected() { toast(_t("Bağlantı koptu — yeniden bağlanıyor…"), true);
@@ -715,7 +724,8 @@ function renderContacts() {
     const li = document.createElement("li");
     li.className = "contact" + (c.jid === S.active ? " active" : "");
     const cls = presenceClass(c);
-    const label = c.room ? `# ${c.name}` : c.name;
+    const label = (c.room ? `# ${c.name}` : c.name) +
+      (muteUntil(c.jid) !== null ? " 🔕" : "");
     li.innerHTML =
       `<span class="dot ${esc(cls)}"></span>` +
       `<div class="name"><b>${esc(label)}</b>` +
@@ -732,6 +742,7 @@ function renderContacts() {
 
 /* ── sohbet ──────────────────────────────────────────────────────────── */
 async function openChat(jid) {
+  if (S.active !== jid) closeNotifyMenu();
   S.active = jid;
   $("main-view").classList.add("chat-open");    // dar ekranda sohbete geç
   localStorage.setItem("xmpp_web_last_chat", jid);
@@ -923,14 +934,96 @@ function applyMutation(jid, mid, body) {
   if (jid === S.active) renderMessages();
 }
 
+/* ── bildirim kontrolü (kurallar sunucuda: xmppcore/notify_policy) ───── */
+function muteUntil(jid) {
+  // null: sessiz değil · 0: süresiz · sayı: bitiş (epoch sn)
+  const u = (S.notifyPrefs.muted || {})[jid];
+  if (typeof u !== "number") return null;
+  if (u === 0) return 0;
+  return u * 1000 > Date.now() ? u : null;
+}
+
+function muteEndText(u) {
+  const d = new Date(u * 1000), p = (n) => String(n).padStart(2, "0");
+  const hm = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  return d.toDateString() === new Date().toDateString()
+    ? hm : `${p(d.getDate())}.${p(d.getMonth() + 1)} ${hm}`;
+}
+
+function notifyMenuItems(c) {
+  const items = [];
+  const u = muteUntil(c.jid);
+  if (u !== null) {
+    items.push(["unmute", u === 0 ? _t("🔔 Sesi Aç (süresiz)")
+                                   : fmt("🔔 Sesi Aç (bitiş {})", muteEndText(u))]);
+    items.push(null);
+  }
+  items.push(["1h", _t("🔕 1 Saat Sessize Al")], ["8h", _t("🔕 8 Saat Sessize Al")],
+             ["1d", _t("🔕 1 Gün Sessize Al")], ["forever", _t("🔕 Süresiz Sessize Al")]);
+  if (c.room) {
+    items.push(null);
+    items.push((S.notifyPrefs.room_all || []).includes(c.jid)
+      ? ["room_mention", _t("@ Yalnız Adım Geçince Bildir")]
+      : ["room_all", _t("🔔 Her Mesajda Bildir")]);
+  }
+  return items;
+}
+
+function closeNotifyMenu() {
+  $("notify-menu").classList.add("hidden");
+  $("btn-notify").setAttribute("aria-expanded", "false");
+}
+
+function openNotifyMenu() {
+  const c = S.active ? S.contacts.get(S.active) : null;
+  if (!c) return;
+  const menu = $("notify-menu");
+  menu.innerHTML = "";
+  for (const item of notifyMenuItems(c)) {
+    if (!item) { menu.appendChild(document.createElement("hr")); continue; }
+    const [choice, label] = item;
+    const b = document.createElement("button");
+    b.setAttribute("role", "menuitem");
+    b.textContent = label;
+    b.onclick = () => setNotify(c, choice);
+    menu.appendChild(b);
+  }
+  menu.classList.remove("hidden");
+  $("btn-notify").setAttribute("aria-expanded", "true");
+  menu.querySelector("button")?.focus();
+}
+
+async function setNotify(c, choice) {
+  closeNotifyMenu();
+  const r = await wsSend("set_notify", {jid: c.jid, choice});
+  if (!r.ok) {
+    toast(r.error || _t("Bağlantı koptu — yeniden bağlanıyor…"), true);
+    return;
+  }
+  S.notifyPrefs = r.prefs;
+  renderContacts();
+  renderChatHeader();
+  if (choice === "room_all") toast(_t("Her mesajda bildirilecek"));
+  else if (choice === "room_mention") toast(_t("Yalnız adınız geçince bildirilecek"));
+  else if (choice === "unmute") toast(`${_t("🔔 Bildirimler açıldı")} — ${c.name}`);
+  else {
+    const u = muteUntil(c.jid);
+    toast(`${_t("🔕 Sessize alındı")} — ${c.name} · ` +
+          (u ? fmt("bitiş {}", muteEndText(u)) : _t("süresiz")));
+  }
+}
+
 function renderChatHeader() {
   const c = S.active ? S.contacts.get(S.active) : null;
   const encBtn = $("btn-enc"), memBtn = $("btn-members"),
-        leaveBtn = $("btn-leave-room"), dot = $("chat-dot");
+        leaveBtn = $("btn-leave-room"), dot = $("chat-dot"),
+        notifyBtn = $("btn-notify");
   if (!c) {
+    closeNotifyMenu();
     $("chat-name").textContent = _t("Bir sohbet seçin");
     $("chat-sub").textContent = "";
     dot.classList.add("hidden");
+    notifyBtn.classList.add("hidden");
     encBtn.classList.add("hidden");
     memBtn.classList.add("hidden");
     leaveBtn.classList.add("hidden");
@@ -952,6 +1045,8 @@ function renderChatHeader() {
   } else {
     dot.classList.add("hidden");
   }
+  notifyBtn.classList.remove("hidden");
+  notifyBtn.textContent = muteUntil(c.jid) !== null ? "🔕" : "🔔";
   encBtn.classList.remove("hidden");
   memBtn.classList.toggle("hidden", !c.room);
   leaveBtn.classList.toggle("hidden", !c.room);
@@ -1399,6 +1494,21 @@ function bind() {
     if (S.active && confirm(fmt("{} odasından ayrıl?", S.active)))
       wsSend("leave_room", {room: S.active});
   };
+  $("btn-notify").onclick = (e) => {
+    e.stopPropagation();
+    if ($("notify-menu").classList.contains("hidden")) openNotifyMenu();
+    else closeNotifyMenu();
+  };
+  // Dışarı tıklama ya da Esc menüyü kapatır (masaüstü açılır kartları gibi)
+  document.addEventListener("click", (e) => {
+    if (!$("notify-menu").contains(e.target)) closeNotifyMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("notify-menu").classList.contains("hidden")) {
+      closeNotifyMenu();
+      $("btn-notify").focus();
+    }
+  });
   $("btn-enc").onclick = () => {
     const c = S.contacts.get(S.active);
     if (!c) return;

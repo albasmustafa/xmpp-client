@@ -2706,4 +2706,35 @@ CATALOG = {
     "📤 Gönderiliyor: {}": "📤 送信中: {}",
     "🔒 Dosya açılamadı.": "🔒 ファイルを開けませんでした。",
     "🔒 {} açılıyor…": "🔒 {}を開いています…",
+    # Bildirim kontrolü (notify_policy)
+    "🔔 Bildirimler":
+        "🔔 通知",
+    "🔕 1 Saat Sessize Al":
+        "🔕 1時間ミュート",
+    "🔕 8 Saat Sessize Al":
+        "🔕 8時間ミュート",
+    "🔕 1 Gün Sessize Al":
+        "🔕 1日ミュート",
+    "🔕 Süresiz Sessize Al":
+        "🔕 無期限にミュート",
+    "🔔 Sesi Aç (bitiş {})":
+        "🔔 ミュート解除（{} までミュート中）",
+    "🔔 Sesi Aç (süresiz)":
+        "🔔 ミュート解除（無期限ミュート中）",
+    "🔔 Her Mesajda Bildir":
+        "🔔 すべてのメッセージを通知",
+    "@ Yalnız Adım Geçince Bildir":
+        "@ メンション時のみ通知",
+    "🔕 Sessize alındı":
+        "🔕 ミュートしました",
+    "🔔 Bildirimler açıldı":
+        "🔔 通知をオンにしました",
+    "bitiş {}":
+        "{} まで",
+    "süresiz":
+        "無期限",
+    "Her mesajda bildirilecek":
+        "すべてのメッセージを通知します",
+    "Yalnız adınız geçince bildirilecek":
+        "メンションされたときのみ通知します",
 }

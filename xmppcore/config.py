@@ -29,6 +29,27 @@ def _load_config() -> dict:
         return {}
 
 
+_CACHE: dict = {"key": None, "cfg": {}}
+
+
+def _load_config_cached() -> dict:
+    """Sık okuyan yerler için (ör. her gelen mesajda bildirim kararı): dosya
+    değişmediyse son okunanı döndürür. Masaüstü ve web aynı dosyayı yazdığı
+    için anahtar yol + mtime + boyuttur. Dönen sözlük paylaşılır, DEĞİŞTİRME:
+    yazmak için `_load_config` → `_save_config`."""
+    import xmpp as _app
+    path = _app._CONFIG_PATH
+    try:
+        st = os.stat(path)
+        key = (path, st.st_mtime_ns, st.st_size)
+    except OSError:
+        key = (path, None, None)
+    if _CACHE["key"] != key:
+        _CACHE["cfg"] = _load_config()
+        _CACHE["key"] = key
+    return _CACHE["cfg"]
+
+
 def _save_config(cfg: dict):
     tmp_path = None
     try:

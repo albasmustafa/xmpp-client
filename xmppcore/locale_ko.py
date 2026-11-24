@@ -2706,4 +2706,35 @@ CATALOG = {
     "📤 Gönderiliyor: {}": "📤 전송 중: {}",
     "🔒 Dosya açılamadı.": "🔒 파일을 열 수 없습니다.",
     "🔒 {} açılıyor…": "🔒 {} 열기 중…",
+    # Bildirim kontrolü (notify_policy)
+    "🔔 Bildirimler":
+        "🔔 알림",
+    "🔕 1 Saat Sessize Al":
+        "🔕 1시간 동안 알림 끄기",
+    "🔕 8 Saat Sessize Al":
+        "🔕 8시간 동안 알림 끄기",
+    "🔕 1 Gün Sessize Al":
+        "🔕 1일 동안 알림 끄기",
+    "🔕 Süresiz Sessize Al":
+        "🔕 계속 알림 끄기",
+    "🔔 Sesi Aç (bitiş {})":
+        "🔔 알림 켜기 ({}까지 꺼짐)",
+    "🔔 Sesi Aç (süresiz)":
+        "🔔 알림 켜기 (계속 꺼짐)",
+    "🔔 Her Mesajda Bildir":
+        "🔔 모든 메시지 알림",
+    "@ Yalnız Adım Geçince Bildir":
+        "@ 언급될 때만 알림",
+    "🔕 Sessize alındı":
+        "🔕 알림 꺼짐",
+    "🔔 Bildirimler açıldı":
+        "🔔 알림 켜짐",
+    "bitiş {}":
+        "{}까지",
+    "süresiz":
+        "무기한",
+    "Her mesajda bildirilecek":
+        "모든 메시지를 알립니다",
+    "Yalnız adınız geçince bildirilecek":
+        "언급될 때만 알립니다",
 }

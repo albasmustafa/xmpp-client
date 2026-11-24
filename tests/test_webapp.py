@@ -59,6 +59,7 @@ def session(monkeypatch, tmp_path):
     xmpp._db_conn = None
     CFG.clear()
     monkeypatch.setattr(wb, "_load_config", lambda: CFG)
+    monkeypatch.setattr(wb, "_load_config_cached", lambda: CFG)
     monkeypatch.setattr(wb, "_save_config", lambda c: None)
 
     s = object.__new__(wb.WebSession)
@@ -90,6 +91,7 @@ def session(monkeypatch, tmp_path):
     s._send_read_receipts = True
     s._send_typing = True
     s._leak_guard = True
+    s.my_show = "online"
     s._reactions_cache = {}
     s.sink = queue.Queue()
     s.add_sink(FakeLoop(), s.sink)

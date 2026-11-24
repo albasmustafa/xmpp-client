@@ -93,6 +93,7 @@ from xmppcore import aesgcm as _aesgcm
 from xmppcore import agent as _agent
 from xmppcore import ai as _ai
 from xmppcore import i18n as _i18n
+from xmppcore import notify_policy as _notify
 from xmppcore import questions as _questions
 from xmppcore import sensitive as _sensitive
 from xmppcore import tts as _tts
@@ -102,6 +103,7 @@ from xmppcore.config import (
     _auto_login_enabled,
     _encode_pw,
     _load_config,
+    _load_config_cached,
     _save_config,
     _saved_login,
     _store_login,
@@ -734,7 +736,32 @@ def _sidebar_menu_spec(has_active_chat: bool) -> list[tuple]:
     return spec
 
 
-def _chat_header_menu_spec(*, is_room: bool, compact: bool) -> list[tuple]:
+def _notify_menu_spec(*, is_room: bool, muted_until=None,
+                      room_all: bool = False) -> list[tuple]:
+    """🔔 Bildirimler alt menüsü (xmppcore/notify_policy). `muted_until`:
+    None = sessiz değil, 0 = süresiz, >0 = bitiş anı."""
+    items = []
+    if muted_until is not None:
+        label = (_tr("🔔 Sesi Aç (süresiz)")
+                 if muted_until == _notify.MUTE_FOREVER else
+                 _tr("🔔 Sesi Aç (bitiş {})").format(_notify.end_text(muted_until)))
+        items += [("item", label, "unmute"), ("sep",)]
+    items += [
+        ("item", _tr("🔕 1 Saat Sessize Al"), "mute_1h"),
+        ("item", _tr("🔕 8 Saat Sessize Al"), "mute_8h"),
+        ("item", _tr("🔕 1 Gün Sessize Al"), "mute_1d"),
+        ("item", _tr("🔕 Süresiz Sessize Al"), "mute_forever"),
+    ]
+    if is_room:
+        items.append(("sep",))
+        items.append(("item", _tr("@ Yalnız Adım Geçince Bildir"), "room_mention")
+                     if room_all else
+                     ("item", _tr("🔔 Her Mesajda Bildir"), "room_all"))
+    return items
+
+
+def _chat_header_menu_spec(*, is_room: bool, compact: bool,
+                           notify: dict | None = None) -> list[tuple]:
     """Sohbet başlığı ⋮ menüsünün yapısı (saf veri; Tk gerektirmez).
 
     Öğe türleri:
@@ -743,8 +770,12 @@ def _chat_header_menu_spec(*, is_room: bool, compact: bool) -> list[tuple]:
       ("ai",)                         → ✨ AI alt menüsü (dinamik)
       ("sep",)                        → ayırıcı
     Sık kullanılanlar üst düzeyde; gerisi konu başlıklı alt menülerde.
+    `notify`: {"muted_until", "room_all"} → 🔔 Bildirimler alt menüsü.
     """
     chat = [
+        ("menu", _tr("🔔 Bildirimler"),
+         _notify_menu_spec(is_room=is_room, **(notify or {}))),
+        ("sep",),
         ("item", _tr("⏱ Kaybolan Mesajlar"), "disappearing"),
         ("item", _tr("📜 Daha Eski Mesajları Yükle (MAM)"), "load_older"),
         ("item", _tr("⏰ Mesaj Zamanla"), "schedule"),
@@ -4974,7 +5005,13 @@ class MainWindow:
         yalnız anahtarlar komutlara eşlenir."""
         if not self.active:
             return
+        jid = self.active
         actions = {
+            "unmute": lambda: self._set_chat_mute(jid, None),
+            **{f"mute_{c}": (lambda c=c: self._set_chat_mute(jid, c))
+               for c in _notify.MUTE_CHOICES},
+            "room_all": lambda: self._set_room_notify_all(jid, True),
+            "room_mention": lambda: self._set_room_notify_all(jid, False),
             "profile": lambda: self._profile_card(self.active),
             "search": self._search_messages_dialog,
             "pinned": self._show_pinned,
@@ -5019,11 +5056,64 @@ class MainWindow:
                 else:
                     menu.add_command(label=item[1], command=actions[item[2]])
 
+        cfg = _load_config_cached()
         menu = new_menu(self.root)
         fill(menu, _chat_header_menu_spec(
-            is_room=self.active in self.rooms, compact=self._compact_mode))
+            is_room=jid in self.rooms, compact=self._compact_mode,
+            notify={"muted_until": _notify.muted_until(cfg, jid),
+                    "room_all": _notify.room_notifies_all(cfg, jid)}))
         if event:
             menu.tk_popup(event.x_root, event.y_root)
+
+    # ── Bildirim kontrolü (kurallar xmppcore/notify_policy) ──────────────────
+    def _should_notify(self, frm, body, reply=None) -> bool:
+        """Gelen mesaj bildirim, ses ve toast çıkarsın mı? Sessize alınmış
+        sohbet, adımızın geçmediği oda mesajı ve Meşgul durumu susar."""
+        is_room = frm in getattr(self, "rooms", ())
+        nick = (self.my_nick.get(frm, self.jid.split("@")[0])
+                if is_room else "")
+        return _notify.should_notify(
+            _load_config_cached(), frm, body, is_room=is_room, my_nick=nick,
+            my_show=getattr(self, "_my_show", "online"),
+            reply_sender=(reply or {}).get("sender", ""))
+
+    def _muted_chats(self) -> set:
+        """Kenar çubuğunda 🔕 gösterilecek (şu an sessiz) sohbetler."""
+        return set(_notify.snapshot(_load_config_cached())["muted"])
+
+    def _chat_label(self, jid) -> str:
+        if jid in self.rooms:
+            return jid.split("@")[0]
+        return getattr(self, "_contacts", {}).get(jid) or jid
+
+    def _set_chat_mute(self, jid, choice):
+        """Sohbeti sessize al (`choice` ∈ MUTE_CHOICES) ya da sesi aç (None)."""
+        cfg = _load_config()
+        _notify.set_mute(cfg, jid, choice)
+        _save_config(cfg)
+        until = _notify.muted_until(cfg, jid)
+        name = self._chat_label(jid)
+        if until is None:
+            self._show_toast(_tr("🔔 Bildirimler açıldı"), name)
+        else:
+            end = (_tr("bitiş {}").format(_notify.end_text(until)) if until
+                   else _tr("süresiz"))
+            self._show_toast(_tr("🔕 Sessize alındı"), f"{name} · {end}")
+            root = getattr(self, "root", None)
+            if until and root is not None:
+                # Süre dolunca kenar çubuğundaki 🔕 kalksın
+                ms = max(0, int((until - time.time()) * 1000)) + 1000
+                root.after(ms, self._refresh_contacts)
+        self._refresh_contacts()
+
+    def _set_room_notify_all(self, room, on: bool):
+        """Odada her mesajda (on) ya da yalnız adım geçince bildir."""
+        cfg = _load_config()
+        _notify.set_room_all(cfg, room, on)
+        _save_config(cfg)
+        self._show_toast(_tr("🔔 Bildirimler"),
+                         _tr("Her mesajda bildirilecek") if on
+                         else _tr("Yalnız adınız geçince bildirilecek"))
 
     # ── AI asistanı (çekirdek xmppcore/ai, pencereler ui/dialogs/ai) ─────────
     # Model/ağ çağrıları daemon worker thread'lerinde koşar; sonuç ve hatalar
@@ -8791,9 +8881,10 @@ class MainWindow:
         self._contact_jids = _ui_sidebar.ordered_contact_jids(
             self._contacts, self.presence, self._pinned_chats, query,
             unread_counts=counts, view=view)
+        muted = self._muted_chats()
         _ui_sidebar.render_contacts(
             self.contact_list, self._contacts, self.presence,
-            self._pinned_chats, counts, self._contact_jids)
+            self._pinned_chats, counts, self._contact_jids, muted=muted)
         self._restore_sidebar_selection(self.contact_list, self._contact_jids, selected)
         if getattr(self, "room_list", None) is not None:
             self._refresh_rooms()
@@ -8806,7 +8897,8 @@ class MainWindow:
         self._room_jids = _ui_sidebar.filtered_rooms(
             self.rooms, query, pinned=self._pinned_chats, unread_counts=counts, view=view)
         _ui_sidebar.render_rooms(self.room_list, self._room_jids,
-                                 pinned=self._pinned_chats, unread_counts=counts)
+                                 pinned=self._pinned_chats, unread_counts=counts,
+                                 muted=self._muted_chats())
         self._restore_sidebar_selection(self.room_list, self._room_jids, selected)
 
     def _filter_sidebar(self):
@@ -12396,17 +12488,22 @@ class MainWindow:
                 # bildirim geçmişine düşmesin, yer tutucu gösterilir
                 notify_body = (_ai.strip_media_urls(body)
                                if "aesgcm://" in (body or "").lower() else body)
-                # Masaüstü bildirimi
-                if self._notify_enabled:
-                    _desktop_notify(_tr("Mesaj — {}").format(nick or frm),
-                                    notify_body[:100] if notify_body else _tr("Yeni mesaj"))
-                # Bildirim sesi
-                if self._sound_enabled:
-                    threading.Thread(target=self._play_notification_sound,
-                                     daemon=True).start()
-                # Toast bildirim balonu
-                self._show_toast(f"💬 {nick or frm}",
-                                 notify_body[:80] if notify_body else _tr("Yeni mesaj"))
+                # Sessize alınmış sohbet / adım geçmeyen oda mesajı / Meşgul:
+                # okunmamış sayılır ama dikkat çekmez (notify_policy)
+                if self._should_notify(frm, body, reply):
+                    # Masaüstü bildirimi
+                    if self._notify_enabled:
+                        _desktop_notify(_tr("Mesaj — {}").format(nick or frm),
+                                        notify_body[:100] if notify_body
+                                        else _tr("Yeni mesaj"))
+                    # Bildirim sesi
+                    if self._sound_enabled:
+                        threading.Thread(target=self._play_notification_sound,
+                                         daemon=True).start()
+                    # Toast bildirim balonu
+                    self._show_toast(f"💬 {nick or frm}",
+                                     notify_body[:80] if notify_body
+                                     else _tr("Yeni mesaj"))
 
         elif kind == "own_msg":
             # Aynı hesabın başka cihazından (ör. telefondaki Monocles)

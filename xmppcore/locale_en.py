@@ -2878,4 +2878,35 @@ EN = {
     "Görev ya da etkinlik bulunamadı.": "No tasks or events found.",
     "Dosya gönderilemedi.": "Could not send file.",
     "🔒 Dosya açılamadı.": "🔒 Could not open file.",
+    # Bildirim kontrolü (notify_policy)
+    "🔔 Bildirimler":
+        "🔔 Notifications",
+    "🔕 1 Saat Sessize Al":
+        "🔕 Mute for 1 Hour",
+    "🔕 8 Saat Sessize Al":
+        "🔕 Mute for 8 Hours",
+    "🔕 1 Gün Sessize Al":
+        "🔕 Mute for 1 Day",
+    "🔕 Süresiz Sessize Al":
+        "🔕 Mute Indefinitely",
+    "🔔 Sesi Aç (bitiş {})":
+        "🔔 Unmute (muted until {})",
+    "🔔 Sesi Aç (süresiz)":
+        "🔔 Unmute (muted indefinitely)",
+    "🔔 Her Mesajda Bildir":
+        "🔔 Notify for Every Message",
+    "@ Yalnız Adım Geçince Bildir":
+        "@ Notify Only When Mentioned",
+    "🔕 Sessize alındı":
+        "🔕 Muted",
+    "🔔 Bildirimler açıldı":
+        "🔔 Notifications on",
+    "bitiş {}":
+        "until {}",
+    "süresiz":
+        "indefinitely",
+    "Her mesajda bildirilecek":
+        "You will be notified for every message",
+    "Yalnız adınız geçince bildirilecek":
+        "You will be notified only when mentioned",
 }

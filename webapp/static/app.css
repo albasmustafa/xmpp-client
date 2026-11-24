@@ -95,8 +95,22 @@ label.chk input { width: auto; }
 .chat-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px 14px; border-bottom: 1px solid var(--BORDER);
-  background: var(--BG_PANEL); gap: 8px;
+  background: var(--BG_PANEL); gap: 8px; position: relative;
 }
+/* 🔔 Bildirimler menüsü (başlığın sağ altına açılır) */
+.pop-menu {
+  position: absolute; top: calc(100% - 4px); right: 14px; z-index: 20;
+  display: flex; flex-direction: column; min-width: 230px;
+  max-width: calc(100vw - 32px); padding: 6px;
+  background: var(--BG_PANEL); border: 1px solid var(--BORDER);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+.pop-menu button {
+  text-align: left; border: 0; background: transparent;
+  padding: 7px 10px; border-radius: 6px;
+}
+.pop-menu button:hover, .pop-menu button:focus-visible { background: var(--BG_HOVER); }
+.pop-menu hr { border: 0; border-top: 1px solid var(--BORDER); margin: 4px 2px; }
 .chat-title { display: flex; gap: 10px; align-items: center; min-width: 0; }
 .chat-title > div { min-width: 0; }
 #chat-name { font-weight: 600; }

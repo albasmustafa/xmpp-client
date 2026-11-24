@@ -2706,4 +2706,35 @@ CATALOG = {
     "📤 Gönderiliyor: {}": "📤 发送中：{}",
     "🔒 Dosya açılamadı.": "🔒 无法打开文件。",
     "🔒 {} açılıyor…": "🔒 正在打开{}…",
+    # Bildirim kontrolü (notify_policy)
+    "🔔 Bildirimler":
+        "🔔 通知",
+    "🔕 1 Saat Sessize Al":
+        "🔕 静音 1 小时",
+    "🔕 8 Saat Sessize Al":
+        "🔕 静音 8 小时",
+    "🔕 1 Gün Sessize Al":
+        "🔕 静音 1 天",
+    "🔕 Süresiz Sessize Al":
+        "🔕 永久静音",
+    "🔔 Sesi Aç (bitiş {})":
+        "🔔 取消静音（静音至 {}）",
+    "🔔 Sesi Aç (süresiz)":
+        "🔔 取消静音（永久静音中）",
+    "🔔 Her Mesajda Bildir":
+        "🔔 每条消息都通知",
+    "@ Yalnız Adım Geçince Bildir":
+        "@ 仅在被提及时通知",
+    "🔕 Sessize alındı":
+        "🔕 已静音",
+    "🔔 Bildirimler açıldı":
+        "🔔 通知已开启",
+    "bitiş {}":
+        "至 {}",
+    "süresiz":
+        "永久",
+    "Her mesajda bildirilecek":
+        "每条消息都会通知",
+    "Yalnız adınız geçince bildirilecek":
+        "仅在被提及时通知",
 }

@@ -2706,4 +2706,35 @@ CATALOG = {
     "📤 Gönderiliyor: {}": "📤 Надсилання: {}",
     "🔒 Dosya açılamadı.": "🔒 Не вдалося відкрити файл.",
     "🔒 {} açılıyor…": "🔒 Відкриття {}…",
+    # Bildirim kontrolü (notify_policy)
+    "🔔 Bildirimler":
+        "🔔 Сповіщення",
+    "🔕 1 Saat Sessize Al":
+        "🔕 Вимкнути звук на 1 годину",
+    "🔕 8 Saat Sessize Al":
+        "🔕 Вимкнути звук на 8 годин",
+    "🔕 1 Gün Sessize Al":
+        "🔕 Вимкнути звук на 1 день",
+    "🔕 Süresiz Sessize Al":
+        "🔕 Вимкнути звук безстроково",
+    "🔔 Sesi Aç (bitiş {})":
+        "🔔 Увімкнути звук (без звуку до {})",
+    "🔔 Sesi Aç (süresiz)":
+        "🔔 Увімкнути звук (без звуку безстроково)",
+    "🔔 Her Mesajda Bildir":
+        "🔔 Сповіщати про кожне повідомлення",
+    "@ Yalnız Adım Geçince Bildir":
+        "@ Сповіщати лише при згадці",
+    "🔕 Sessize alındı":
+        "🔕 Звук вимкнено",
+    "🔔 Bildirimler açıldı":
+        "🔔 Сповіщення увімкнено",
+    "bitiş {}":
+        "до {}",
+    "süresiz":
+        "безстроково",
+    "Her mesajda bildirilecek":
+        "Сповіщення про кожне повідомлення",
+    "Yalnız adınız geçince bildirilecek":
+        "Сповіщення лише при згадці",
 }

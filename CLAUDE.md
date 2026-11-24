@@ -85,6 +85,17 @@ gerçekten çalıştır.
   kelime içi > açıklama); açıklaması anahtar kelime yığını olan (`_is_stuffed`: URL'ler hariç
   ≥40 kısa liste öğesi) odanın yalnız oradaki eşleşmesi en sona düşer, atılmaz
   (`test_room_join_search.py` B5).
+- **Bildirim kontrolü** (`xmppcore/notify_policy.py`; masaüstü `_should_notify`, web
+  `WebSession._should_notify`): 1:1 ve oda mesajı aynı `"msg"` olayıdır; bildirim, ses ve
+  toast yalnız politika izin verirse çıkar, okunmamış sayacı her durumda artar. Sessize
+  alma config `"muted_chats"` {jid: bitiş epoch, 0 = süresiz}: ⋮ → 💬 Sohbet → 🔔
+  Bildirimler (1 sa / 8 sa / 1 gün / süresiz), kenar çubuğunda 🔕; web'de başlıktaki 🔔
+  düğmesi, WS `set_notify` → tüm sekmelere `notify_prefs` olayı, `msg` olayında
+  `notify` bayrağı. Odada varsayılan: takma ad tam sözcük olarak geçince ya da
+  mesajımıza yanıt gelince (`mentions`; İ/I/ı/i eş sayılır); `"room_notify_all"`
+  listesindeki odada her mesaj. Meşgul (dnd) hepsini susturur. Karar her mesajda
+  `_load_config_cached` (yol + mtime + boyut) ile okunur: web ve masaüstü aynı dosyayı
+  yazar, yeniden başlatmadan eşitlenir (`test_notify_policy.py`).
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.

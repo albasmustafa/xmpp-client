@@ -2706,4 +2706,35 @@ CATALOG = {
     "📤 Gönderiliyor: {}": "📤 Wird gesendet: {}",
     "🔒 Dosya açılamadı.": "🔒 Datei konnte nicht geöffnet werden.",
     "🔒 {} açılıyor…": "🔒 {} wird geöffnet…",
+    # Bildirim kontrolü (notify_policy)
+    "🔔 Bildirimler":
+        "🔔 Benachrichtigungen",
+    "🔕 1 Saat Sessize Al":
+        "🔕 1 Stunde stummschalten",
+    "🔕 8 Saat Sessize Al":
+        "🔕 8 Stunden stummschalten",
+    "🔕 1 Gün Sessize Al":
+        "🔕 1 Tag stummschalten",
+    "🔕 Süresiz Sessize Al":
+        "🔕 Dauerhaft stummschalten",
+    "🔔 Sesi Aç (bitiş {})":
+        "🔔 Stummschaltung aufheben (stumm bis {})",
+    "🔔 Sesi Aç (süresiz)":
+        "🔔 Stummschaltung aufheben (dauerhaft stumm)",
+    "🔔 Her Mesajda Bildir":
+        "🔔 Bei jeder Nachricht benachrichtigen",
+    "@ Yalnız Adım Geçince Bildir":
+        "@ Nur bei Erwähnung benachrichtigen",
+    "🔕 Sessize alındı":
+        "🔕 Stummgeschaltet",
+    "🔔 Bildirimler açıldı":
+        "🔔 Benachrichtigungen an",
+    "bitiş {}":
+        "bis {}",
+    "süresiz":
+        "dauerhaft",
+    "Her mesajda bildirilecek":
+        "Benachrichtigung bei jeder Nachricht",
+    "Yalnız adınız geçince bildirilecek":
+        "Benachrichtigung nur bei Erwähnung",
 }
