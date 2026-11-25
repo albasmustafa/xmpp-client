@@ -5250,6 +5250,16 @@ class MainWindow:
             return "break"
         target.bind("<Button-1>", _reveal, add="+")
 
+    def _cover_tab_spoiler(self, label, body, hint, fg):
+        """Ayrı sohbet sekmesinde 🙈 örtü (düz tk.Label): tıklayınca gövde görünür."""
+        label.configure(text=_spoiler.cover(hint), fg=FG_DIM,
+                        font=(FONT, 9, "italic"), cursor="hand2")
+
+        def _reveal(_e=None):
+            label.configure(text=body, fg=fg, font=(FONT, 9), cursor="")
+            label.unbind("<Button-1>")
+        label.bind("<Button-1>", _reveal)
+
     def _send_spoiler_dialog(self):
         """✨ → 🙈 Gizli içerik olarak gönder…: giriş kutusundaki metni isteğe
         bağlı uyarıyla gönderir (yalnız şifresiz sohbette)."""
@@ -12463,8 +12473,13 @@ class MainWindow:
             if not is_me and sender:
                 tk.Label(bubble, text=sender, fg=ACCENT, bg=bubble_bg,
                          font=(FONT, 7, "bold")).pack(anchor="w")
-            tk.Label(bubble, text=body, fg=bubble_fg, bg=bubble_bg,
-                     font=(FONT, 9), wraplength=350, justify="left").pack(anchor="w")
+            body_lbl = tk.Label(bubble, text=body, fg=bubble_fg, bg=bubble_bg,
+                                font=(FONT, 9), wraplength=350, justify="left")
+            body_lbl.pack(anchor="w")
+            mid = entry[7] if len(entry) > 7 else ""
+            hint = self._spoiler_map().get((target, mid)) if mid else None
+            if hint is not None and body != _ai.RETRACTED_BODY:
+                self._cover_tab_spoiler(body_lbl, body, hint, bubble_fg)
             tk.Label(bubble, text=ts, fg=FG_DIM, bg=bubble_bg,
                      font=(FONT, 6)).pack(anchor="e")
             rows.append(row)
@@ -12855,6 +12870,7 @@ class MainWindow:
                                   self._iso_to_hm(m.get("ts", "")), tag,
                                   "", False, logical_mid, "",
                                   self._next_msg_uid()))
+                    self._note_spoiler(jid_val, logical_mid, m.get("spoiler"))
                     # [2O] Ters-korelasyon kaydı: yalnız KABUL edilen
                     # (canonical satırı materialize edilen) mesaj için;
                     # raw_id ≠ logical_mid ise R → S alias'ı yazılır.

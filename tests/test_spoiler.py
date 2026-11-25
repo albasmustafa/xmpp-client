@@ -323,3 +323,116 @@ def test_web_spoiler_ui_wiring():
     assert "bindLongPress($(\"btn-send\")" in js
     notify = js.split("  msg(data) {", 1)[1].split("\n  },", 1)[0]
     assert "spoilerLabel(data.spoiler)" in notify      # bildirim de örtülü
+
+
+# ── Sunucu arşivi (MAM) geçmişi ve ayrı sohbet sekmesi ──────────────────────
+def test_mam_archive_item_carries_spoiler(monkeypatch):
+    """Arşivden gelen spoiler'lı mesaj da örtülü gelsin: öğe "spoiler" taşır;
+    spoiler'sız öğenin yükü eskisi gibi kalır (exact-payload uyumu)."""
+    from test_mam_rooms import _J, _bot_stub, _FakeMam, _Fwd, _Stanza
+
+    from xmppcore import archive as arch
+
+    class _XStanza(_Stanza):
+        xml = None
+
+    def _res(body, hint, mid):
+        m = _XStanza({"from": _J("ali@x.im"), "body": body, "id": mid})
+        m.xml = _xml(hint)
+        return {"mam_result": {"forwarded": _Fwd(m, "2026-11-25T10:00:00Z"),
+                               "id": "A-" + mid}}
+
+    fake = _FakeMam([_res("katil uşak", "film", "m1"),
+                     _res("sır", "", "m2"), _res("düz", None, "m3")])
+    monkeypatch.setattr(arch, "_get_xep", lambda bot, name: fake)
+    bot = _bot_stub(room=False)
+    asyncio.run(arch.ArchiveMixin._fetch_mam(bot, "ali@x.im", 50))
+    _kind, data = bot.gui_q.get_nowait()
+    first, second, third = data["messages"]
+    assert first["spoiler"] == "film"
+    assert second["spoiler"] == ""                 # uyarısız spoiler
+    assert "spoiler" not in third
+
+
+def test_mam_encrypted_item_ignores_spoiler_mark(monkeypatch):
+    """Canlı yolla aynı: şifreli mesajdaki spoiler işareti yok sayılır (kural 1)."""
+    from test_mam_rooms import _J, _bot_stub, _FakeMam, _Fwd, _Stanza
+
+    from xmppcore import archive as arch
+
+    class _XStanza(_Stanza):
+        xml = None
+
+    m = _XStanza({"from": _J("ali@x.im"), "body": "", "id": "e1"})
+    m.xml = _xml("film")
+    ET.SubElement(m.xml, "{eu.siacs.conversations.axolotl}encrypted")
+    fake = _FakeMam([{"mam_result": {"forwarded": _Fwd(m, "2026-11-25T10:00:00Z"),
+                                     "id": "A-e1"}}])
+    monkeypatch.setattr(arch, "_get_xep", lambda bot, name: fake)
+    bot = _bot_stub(room=False)
+    asyncio.run(arch.ArchiveMixin._fetch_mam(bot, "ali@x.im", 50))
+    _kind, data = bot.gui_q.get_nowait()
+    item, = data["messages"]
+    assert item["body"].startswith("🔒") and "spoiler" not in item
+
+
+def test_desktop_mam_results_note_spoiler(db):
+    from test_history_window_bounds import _win
+
+    w = _win([], jid="ali@x.im")
+    xmpp.MainWindow._handle(w, "mam_results", {
+        "jid": "ali@x.im", "token": 0, "messages": [
+            {"from": "ali@x.im", "body": "katil uşak", "ts": "",
+             "is_me": False, "mid": "M1", "spoiler": "film"},
+            {"from": "ali@x.im", "body": "düz", "ts": "", "is_me": False,
+             "mid": "M2"},
+        ]})
+    assert [e[1] for e in w.chats["ali@x.im"]] == ["katil uşak", "düz"]
+    assert w._spoilers == {("ali@x.im", "M1"): "film"}
+
+
+def test_web_mam_results_store_spoiler(session):  # noqa: F811
+    session._apply("mam_results", {"jid": "ali@x", "messages": [
+        {"from": "ali@x", "body": "katil uşak", "ts": "2026-11-25T10:00:00Z",
+         "is_me": False, "mid": "M1", "spoiler": "film"},
+        {"from": "ali@x", "body": "düz", "ts": "2026-11-25T10:01:00Z",
+         "is_me": False, "mid": "M2"},
+    ]})
+    assert st._db_load_spoilers("ali@x") == {"M1": "film"}
+    rows = {r["mid"]: r for r in session.history("ali@x")["messages"]}
+    assert rows["M1"]["spoiler"] == "film" and "spoiler" not in rows["M2"]
+
+
+class _Label:
+    """Sohbet sekmesindeki gövde etiketi (tk.Label yüzeyi)."""
+
+    def __init__(self):
+        self.opts = {}
+        self.binds = {}
+
+    def configure(self, **kw):
+        self.opts.update(kw)
+
+    def bind(self, seq, fn):
+        self.binds[seq] = fn
+
+    def unbind(self, seq):
+        self.binds.pop(seq, None)
+
+
+def test_chat_tab_spoiler_cover_reveals_on_click():
+    w = object.__new__(xmpp.MainWindow)
+    lbl = _Label()
+    xmpp.MainWindow._cover_tab_spoiler(w, lbl, "katil uşak", "film", "#eee")
+    assert lbl.opts["text"] == sp.cover("film")      # gövde görünmez
+    assert "katil uşak" not in lbl.opts["text"]
+    lbl.binds["<Button-1>"](None)
+    assert lbl.opts["text"] == "katil uşak" and lbl.opts["fg"] == "#eee"
+    assert "<Button-1>" not in lbl.binds             # ikinci tık bir şey yapmaz
+
+
+def test_chat_tab_add_uses_spoiler_cover():
+    """`_open_chat_tab._add` gövdeyi düz etiketle çiziyordu; örtü uygulanmalı."""
+    import inspect
+    src = inspect.getsource(xmpp.MainWindow._open_chat_tab)
+    assert "_cover_tab_spoiler(" in src and "_spoiler_map()" in src

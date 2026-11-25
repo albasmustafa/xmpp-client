@@ -5,6 +5,7 @@ birebir aynıdır.
 """
 import asyncio
 
+from xmppcore import spoiler as _spoiler
 from xmppcore.helpers import _get_xep, _stanza_is_encrypted, _stanza_msg_id
 from xmppcore.i18n import tr as _tr
 
@@ -106,6 +107,11 @@ class ArchiveMixin:
                     item["raw_id"] = raw_id
                 if archive_id:
                     item["archive_id"] = archive_id
+                # XEP-0382: arşivdeki spoiler da örtülü gelsin (anahtar yalnız
+                # varsa); canlı yolla aynı, şifreli mesajdaki işaret yok sayılır
+                xml = getattr(m, "xml", None)
+                if not _stanza_is_encrypted(xml):
+                    _spoiler.mark(item, xml)
                 messages.append(item)
             self.gui_q.put(("mam_results", {"jid": jid, "messages": messages,
                                             "token": token}))

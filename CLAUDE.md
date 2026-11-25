@@ -125,9 +125,10 @@ gerçekten çalıştır.
   tıklama almaz), açınca özgün renk/yazı tipi geri gelir; bildirim/toast da örtülü.
   Harita `_spoilers` bellektedir (masaüstü geçmişi bellekten çizilir; DB işareti web
   içindir). Web: ➤ düğmesinde sağ tık / uzun basma → gönder menüsü (`#send-menu`),
-  satırda `data-reveal`, geçmiş satırında `spoiler` alanı (`test_spoiler.py`). Bilinen
-  sınırlar: ayrı sohbet sekmesi, MAM'den gelen geçmiş ve masaüstündeki medya önizlemesi
-  örtülmez.
+  satırda `data-reveal`, geçmiş satırında `spoiler` alanı (`test_spoiler.py`). MAM
+  arşivi öğesi de `spoiler` taşır (`archive.py`; masaüstü haritaya, web DB'ye işler);
+  ayrı sohbet sekmesi düz etiketi `_cover_tab_spoiler` ile örter. Bilinen sınır:
+  masaüstündeki medya önizlemesi örtülmez.
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.

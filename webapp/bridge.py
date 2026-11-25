@@ -425,6 +425,7 @@ class WebSession:
             _storage._db_store_msg(jid, sender, body, direction, hm,
                                    "me" if direction else "them",
                                    "", False, mid, stored_at=stored_at)
+            self._note_spoiler(jid, mid, m.get("spoiler"))
             fresh_entries.append((sender, body, direction, hm,
                                   "me" if direction else "them", "", False,
                                   mid))
