@@ -123,6 +123,7 @@ from xmppcore.format import (
     _bookmark_add,
     _fill_search_form,
     _forward_body,
+    _mam_times,
     _parse_geometry,
     _parse_room_search,
     _parse_tenor_results,
@@ -175,6 +176,7 @@ from xmppcore.storage import (
     _db_save_reaction,
     _db_set_spoiler,
     _db_set_starred,
+    _db_store_archived,
     _db_store_msg,
     _db_unanswered,
     _db_update_msg_body,
@@ -5262,6 +5264,22 @@ class MainWindow:
             self._unread_counts.pop(jid, None)
         self._refresh_contacts()
         self._ai_assistant_refresh()
+
+    def _persist_mam_page(self, jid, msgs, fresh):
+        """Belleğe kabul edilen arşiv mesajlarını DB'ye de yaz (tek commit):
+        yıldız, arama ve AI DB'den okur. DB'de zaten olan (canlı gelmiş)
+        satır atlanır; kimliksiz satır yazılmaz (her açılışta yinelenirdi)."""
+        by_mid = {m.get("mid", ""): m for m in msgs}
+        rows = []
+        for e in fresh:
+            m = by_mid.get(e[7])
+            if not e[7] or m is None:
+                continue
+            hm, stored_at = _mam_times(m.get("ts", ""))
+            rows.append((e[0], e[1], bool(e[2]), hm, e[7], stored_at,
+                         _spoiler.clean_hint(m.get("spoiler"))))
+        if rows:
+            _db_store_archived(jid, rows, skip_without_mid=True)
 
     def _mark_chat_read(self, jid):
         """Okunmamışları olan sohbet açıldı: diğer cihazlarımıza (XEP-0490) ve,
@@ -13025,6 +13043,7 @@ class MainWindow:
                         seen.add((a, body, direction))
                 if fresh:
                     self.chats[jid_val] = fresh + hist
+                    self._persist_mam_page(jid_val, msgs, fresh)
                 # [2N] İmleç taşıma üstverisidir: archive_id varsa imleç O'dur;
                 # logical_mid fallback yalnız eski/test uyumluluğu içindir.
                 first_cursor = (msgs[0].get("archive_id")

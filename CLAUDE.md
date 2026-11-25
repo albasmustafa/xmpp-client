@@ -126,8 +126,8 @@ girmezse CI kırılır; yeni sistem paketi gerekirse workflow'daki apt satırın
   `_db_is_starred` / `_db_load_starred`): yıldız (jid, mid) kapsamlıdır ve satırın
   kendisindedir — düzeltme gövdeyle gelir, geçmiş silinince yıldız da gider, geri
   çekilmiş mesaj listelenmez. Masaüstü: mesaj sağ tık → ⭐ Yıldızla / ☆ Yıldızı Kaldır
-  (`caps["star"]`, 📌'dan sonra; yalnız DB'deki mesaj yıldızlanır — MAM'den belleğe
-  yüklenen geçmiş yıldızlanamaz), ⋮ → 💬 Sohbet → ⭐ Yıldızlı Mesajlar
+  (`caps["star"]`, 📌'dan sonra; yalnız DB'deki mesaj yıldızlanır — MAM sayfaları da
+  DB'ye yazıldığı için arşiv geçmişi de yıldızlanır), ⋮ → 💬 Sohbet → ⭐ Yıldızlı Mesajlar
   (`ui/dialogs/starred.py`; tüm sohbetler, Aç → sohbet + mesaja kaydırma). Web: satır
   araçlarında ☆/⭐, üst çubukta ⭐ (WS `star` → bütün sekmelere `star` olayı;
   `starred` listesi; hello'da `starred` anahtarları) (`test_starred_messages.py`).
@@ -387,8 +387,12 @@ girmezse CI kırılır; yeni sistem paketi gerekirse workflow'daki apt satırın
   (resource) belirler, `nick` alanı resource'tan gelir). "Daha eski" `_load_older_mam`
   archive_id imleciyle sayfalar. Köprü: `open_chat`'ta DB boşsa `initial`, "daha eski
   MAM" `load_older_mam` komutu; `mam_results` tek-kuşak token + niyet ([2F-Blocker]
-  aynen) ile tüketilir, **DB'ye yazılır** (masaüstü bellek-only'dir — bilinçli fark:
-  web geçmişi DB'den okur; `stored_at` gerçek MAM zamanıdır). `/api/history`
+  aynen) ile tüketilir, **DB'ye yazılır**: iki istemci de sayfayı TEK commit'le yazar
+  (`storage._db_store_archived`; satır başına commit bu makinenin HDD'sinde ~120 ms,
+  50'lik sayfa ~6 sn sürüyordu). DB'de aynı mid varsa (canlı gelmiş) atlanır; masaüstü
+  kimliksiz satırı yazmaz (her açılışta yeniden yüklenir). Masaüstü geçmişi yine
+  BELLEKTEN çizer; DB yıldız, arama ve AI içindir (`_persist_mam_page`); web geçmişi
+  DB'den okur; `stored_at` gerçek MAM zamanıdır (`format._mam_times`). `/api/history`
   stored_at+id sıralı ve (stored_at, id) imleçli sayfalanır.
 - **Sunucu:** `server.py` (aiohttp; yeni bağımlılık YOK — aiohttp zaten requirements'ta).
   Tek hesaplı, varsayılan 127.0.0.1:8420. REST: `/api/login|logout|prefill|history|settings`,

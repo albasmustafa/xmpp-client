@@ -108,6 +108,44 @@ def _db_store_msg(jid, sender, body, is_me, timestamp, tag, oob="", encrypted=Fa
         _log.error("Mesaj DB'ye yazılamadı (jid=%s)", jid, exc_info=True)
 
 
+def _db_store_archived(jid, rows, *, skip_without_mid=False) -> list:
+    """Arşivden (MAM) gelen mesajları TEK işlemde (tek commit) yaz.
+
+    `rows`: (sender, body, is_me, timestamp, mid, stored_at, spoiler)
+    demetleri. Aynı sohbette aynı mid'li satır varsa (canlı gelmiş ya da aynı
+    sayfada yinelenmiş) yazılmaz; `skip_without_mid` ise kimliksiz satır da
+    yazılmaz (masaüstü her açılışta yeniden yükler, yinelenirdi). Döner: her
+    satır için yazıldı mı. Satır başına commit dönen diskte (HDD) ~120 ms
+    sürüyor, 50 mesajlık sayfa saniyelerce bekletiyordu.
+    """
+    flags = []
+    try:
+        db = _get_db()
+        with _db_lock:
+            for sender, body, is_me, timestamp, mid, stored_at, spoiler in rows:
+                if not mid:
+                    if skip_without_mid:
+                        flags.append(False)
+                        continue
+                elif db.execute("SELECT 1 FROM messages WHERE jid=? AND mid=? "
+                                "LIMIT 1", (jid, mid)).fetchone():
+                    flags.append(False)
+                    continue
+                db.execute(
+                    "INSERT INTO messages (jid, sender, body, is_me, timestamp, "
+                    "tag, oob, encrypted, mid, stored_at, spoiler) "
+                    "VALUES (?, ?, ?, ?, ?, ?, '', 0, ?, ?, ?)",
+                    (jid, sender, body, int(is_me), timestamp,
+                     "me" if is_me else "them", mid,
+                     stored_at or datetime.now().strftime(STORED_AT_FMT), spoiler))
+                flags.append(True)
+            db.commit()
+    except Exception:
+        _log.error("Arşiv geçmişi DB'ye yazılamadı (jid=%s)", jid, exc_info=True)
+        return [False] * len(rows)
+    return flags
+
+
 def _db_mid_exists(jid, mid) -> bool:
     """Bu sohbette bu mid ile kayıtlı satır var mı? (MAM dedupe'si)"""
     if not (jid and mid):

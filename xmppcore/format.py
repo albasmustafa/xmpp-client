@@ -1,8 +1,21 @@
 """Saf biçimleme/parse yardımcıları (Faz 1 yaprak modülü)."""
 import re
 import unicodedata
+from datetime import datetime
 
 from xmppcore.i18n import tr as _tr
+
+
+def _mam_times(ts: str) -> tuple[str, str | None]:
+    """MAM damgasını (yerel "SS:DD", stored_at) ikilisine çevir; damga yoksa
+    (şimdi, None). Masaüstü ve web köprüsü arşivi aynı biçimde yazar."""
+    if not ts:
+        return datetime.now().strftime("%H:%M"), None
+    try:
+        local = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone()
+        return local.strftime("%H:%M"), local.strftime("%Y-%m-%dT%H:%M:%S")
+    except Exception:
+        return (ts[-8:-3] if len(ts) > 8 else ""), None
 
 
 def _fill_search_form(fields: dict, query: str) -> str | None:

@@ -15,6 +15,7 @@ from datetime import datetime
 
 from webapp import media as _media
 from xmppcore import canned as _canned
+from xmppcore import format as _format
 from xmppcore import mds as _mds
 from xmppcore import notify_policy as _notify
 from xmppcore import sensitive as _sensitive
@@ -359,16 +360,8 @@ class WebSession:
     # ── MAM (XEP-0313): oda/1:1 arşiv geçmişi ────────────────────────────────
     @staticmethod
     def _mam_times(ts: str) -> tuple[str, str | None]:
-        """MAM damgasını (HH:MM, stored_at) ikilisine çevir."""
-        if not ts:
-            return datetime.now().strftime("%H:%M"), None
-        try:
-            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            local = dt.astimezone()
-            return (local.strftime("%H:%M"),
-                    local.strftime("%Y-%m-%dT%H:%M:%S"))
-        except Exception:
-            return (ts[-8:-3] if len(ts) > 8 else ""), None
+        """MAM damgasını (HH:MM, stored_at) ikilisine çevir (masaüstüyle ortak)."""
+        return _format._mam_times(ts)
 
     def _mam_fetch(self, jid: str, intent: str, before: str | None = None):
         """Arşiv sayfası iste (MainWindow _load_mam_history/_load_older_mam
@@ -418,7 +411,7 @@ class WebSession:
         self._mam_has_more[jid] = len(msgs) >= 50 and bool(first_cursor)
         seen = {(e[7], e[1], bool(e[2]))
                 for e in self.chats.get(jid, []) if e[7]}
-        fresh_entries = []
+        rows = []
         for m in msgs:
             mid = m.get("mid", "")
             raw_id = m.get("raw_id", "")
@@ -427,22 +420,19 @@ class WebSession:
             aliases = {a for a in (mid, raw_id) if a}
             if aliases and any((a, body, direction) in seen for a in aliases):
                 continue
-            if mid and _storage._db_mid_exists(jid, mid):
-                for a in aliases:
-                    seen.add((a, body, direction))
-                continue
             hm, stored_at = self._mam_times(m.get("ts", ""))
             sender = ("Ben" if direction
                       else (m.get("nick") or m.get("from", jid).split("@")[0]))
-            _storage._db_store_msg(jid, sender, body, direction, hm,
-                                   "me" if direction else "them",
-                                   "", False, mid, stored_at=stored_at)
-            self._note_spoiler(jid, mid, m.get("spoiler"))
-            fresh_entries.append((sender, body, direction, hm,
-                                  "me" if direction else "them", "", False,
-                                  mid))
+            rows.append((sender, body, direction, hm, mid, stored_at,
+                         _spoiler.clean_hint(m.get("spoiler"))))
             for a in aliases:
                 seen.add((a, body, direction))
+        # Sayfa tek commit'le yazılır; DB'de zaten olan (canlı gelmiş) atlanır
+        fresh_entries = [
+            (sender, body, direction, hm, "me" if direction else "them", "",
+             False, mid)
+            for (sender, body, direction, hm, mid, _sa, _sp), stored
+            in zip(rows, _storage._db_store_archived(jid, rows)) if stored]
         if fresh_entries:
             self.chats[jid] = fresh_entries + self.chats.get(jid, [])
         self._broadcast({"ev": "mam_results", "data": {
