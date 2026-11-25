@@ -645,6 +645,10 @@ const EVENTS = {
                                {jid: data, approve: false})]]);
   },
   bookmarks_update(data) { toast(fmt("🔖 Yer imi güncellendi: {}", data.kind || "")); },
+  logged_out() {
+    // ⚙ → Tüm oturumları kapat ya da süre doldu: sunucu oturumu kapattı
+    showLogin(_t("Oturum sona erdi."));
+  },
   read_elsewhere(data) {
     const c = S.contacts.get(data.jid);
     if (c) { c.unread = 0; renderContacts(); }
@@ -1837,6 +1841,12 @@ function bind() {
   $("btn-settings").onclick = openSettings;
   $("s-save").onclick = saveSettings;
   $("s-cancel").onclick = () => $("dlg-settings").close();
+  $("s-logout-all").onclick = async () => {
+    if (!confirm(_t("Tüm oturumlar kapatılsın mı? Bu sunucudaki her tarayıcıda yeniden giriş gerekir."))) return;
+    $("dlg-settings").close();
+    await apiPost("/api/logout-all", {});
+    showLogin(_t("Çıkış yapıldı."));
+  };
   $("btn-logout").onclick = async () => {
     await apiPost("/api/logout", {});
     showLogin(_t("Çıkış yapıldı."));

@@ -2771,4 +2771,12 @@ CATALOG = {
         "Avertissement (facultatif) :",
     "Şifreli sohbette gizli içerik gönderilemez":
         "Impossible d'envoyer un divulgâcheur dans une discussion chiffrée",
+    "Oturum":
+        "Session",
+    "Kullanılmayan oturum 7 gün sonra, her oturum en geç 30 gün sonra kapanır.":
+        "Une session inutilisée se ferme après 7 jours ; toute session se ferme au plus tard après 30 jours.",
+    "Tüm oturumları kapat":
+        "Fermer toutes les sessions",
+    "Tüm oturumlar kapatılsın mı? Bu sunucudaki her tarayıcıda yeniden giriş gerekir.":
+        "Fermer toutes les sessions ? Chaque navigateur connecté à ce serveur devra se reconnecter.",
 }

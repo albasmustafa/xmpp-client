@@ -44,6 +44,12 @@ STATIC_DIR = Path(__file__).parent / "static"
 _TOKENS: dict[str, WebSession] = {}
 _WS_TICKETS: dict[str, tuple[str, float]] = {}  # bilet → (token, son kullanma)
 _TICKET_TTL = 30.0
+# Oturum süresi: kullanılmayan oturum _IDLE_TTL'de, her oturum en geç _MAX_TTL'de
+# kapanır (açık WebSocket kullanım sayılır). Önceden token sunucu çalıştıkça
+# sonsuza dek geçerliydi. index.html'deki açıklama bu sayıları yazar.
+_IDLE_TTL = 7 * 24 * 3600
+_MAX_TTL = 30 * 24 * 3600
+_TOKEN_TIMES: dict[str, list[float]] = {}   # token → [giriş, son kullanım] (time.time)
 
 _MAX_BODY = 1 * 1024 * 1024
 _LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
@@ -67,11 +73,56 @@ def _err(message: str, status: int) -> web.Response:
     return _json({"error": message}, status=status)
 
 
+def _touch(token: str, now: float | None = None) -> None:
+    """Token kullanıldı (süre bilgisi yoksa şimdi başlar)."""
+    now = time.time() if now is None else now
+    _TOKEN_TIMES.setdefault(token, [now, now])[1] = now
+
+
+def _expired(token: str, session=None, now: float | None = None) -> bool:
+    """Süresi doldu mu: en uzun ömür her durumda; boşta kalma yalnız oturuma
+    bağlı açık WebSocket yokken."""
+    times = _TOKEN_TIMES.get(token)
+    if times is None:
+        return False
+    now = time.time() if now is None else now
+    if now - times[0] > _MAX_TTL:
+        return True
+    in_use = bool(getattr(session, "sinks", None))
+    return not in_use and now - times[1] > _IDLE_TTL
+
+
+def _revoke(token: str) -> None:
+    """Token'ı ve biletlerini düşür; oturumu başka token tutmuyorsa açık
+    sekmelere "logged_out" yollayıp kapat."""
+    session = _TOKENS.pop(token, None)
+    _TOKEN_TIMES.pop(token, None)
+    for ticket in [t for t, (tok, _exp) in _WS_TICKETS.items() if tok == token]:
+        _WS_TICKETS.pop(ticket, None)
+    if session is None or any(s is session for s in _TOKENS.values()):
+        return
+    try:
+        session._broadcast({"ev": "logged_out", "data": {}})
+    except Exception:
+        pass
+    session.stop()
+
+
+def _sweep_tokens(now: float | None = None) -> None:
+    for token, session in list(_TOKENS.items()):
+        if _expired(token, session, now):
+            _revoke(token)
+
+
 def _session(request) -> WebSession:
     token = request.headers.get("X-Auth-Token") or ""
     session = _TOKENS.get(token)
+    if session is not None and _expired(token, session):
+        _revoke(token)
+        session = None
     if session is None:
         raise web.HTTPUnauthorized(text=_tr("Geçersiz oturum."))
+    _touch(token)
     return session
 
 
@@ -189,10 +240,12 @@ async def handle_login(request) -> web.Response:
     for token, old in alive:
         old.stop()
         _TOKENS.pop(token, None)
+        _TOKEN_TIMES.pop(token, None)
     session = WebSession(jid, password, server, port)
     session.start()
     token = secrets.token_urlsafe(24)
     _TOKENS[token] = session
+    _touch(token)
     _store_login(_load_cfg(), bool(body.get("remember")), jid, password,
                  port, server)
     return _json({"token": token, "jid": jid})
@@ -200,10 +253,18 @@ async def handle_login(request) -> web.Response:
 
 async def handle_logout(request) -> web.Response:
     await _body(request)
-    token = request.headers.get("X-Auth-Token") or ""
-    session = _TOKENS.pop(token, None)
-    if session is not None:
-        session.stop()
+    _revoke(request.headers.get("X-Auth-Token") or "")
+    return _json({"ok": True})
+
+
+async def handle_logout_all(request) -> web.Response:
+    """⚙ → Tüm oturumları kapat: her token ve bilet düşer, açık sekmeler
+    giriş ekranına döner (token sızdıysa ya da başka bir tarayıcıda açık
+    kaldıysa)."""
+    _session(request)                   # yalnız geçerli bir oturum kapatabilir
+    await _body(request)
+    for token in list(_TOKENS):
+        _revoke(token)
     return _json({"ok": True})
 
 
@@ -526,6 +587,7 @@ async def _ticker():
     while True:
         await asyncio.sleep(_TICK_S)
         try:
+            _sweep_tokens()             # süresi dolan oturumlar kapanır
             await tick()
         except Exception:
             _log.warning("Web zamanlayıcı turu başarısız", exc_info=True)
@@ -560,8 +622,12 @@ async def handle_ws(request) -> web.WebSocketResponse:
         raise web.HTTPUnauthorized(text=_tr("Geçersiz WS bileti."))
     token, _exp = entry
     session = _TOKENS.get(token)
+    if session is not None and _expired(token, session):
+        _revoke(token)
+        session = None
     if session is None:
         raise web.HTTPUnauthorized(text=_tr("Geçersiz oturum."))
+    _touch(token)
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
     sink: asyncio.Queue = asyncio.Queue(maxsize=1000)
@@ -579,6 +645,7 @@ async def handle_ws(request) -> web.WebSocketResponse:
                     msg = recv_task.result()
                     if msg.type != WSMsgType.TEXT:
                         break
+                    _touch(token)
                     await ws.send_json(_ws_command(session, msg.data))
                     recv_task = asyncio.create_task(ws.receive())
                 if pump_task.done():
@@ -586,12 +653,17 @@ async def handle_ws(request) -> web.WebSocketResponse:
                     if ws.closed:
                         break
                     await ws.send_json(ev)
+                    if ev.get("ev") == "logged_out":
+                        await ws.close()        # oturum kapandı: sekme girişe döner
+                        break
                     pump_task = asyncio.create_task(sink.get())
         finally:
             recv_task.cancel()
             pump_task.cancel()
     finally:
         session.remove_sink(sink)
+        if token in _TOKENS:
+            _touch(token)                       # boşta kalma sekme kapanınca başlar
     return ws
 
 
@@ -688,6 +760,7 @@ def make_app(insecure: bool = False, public_hosts=()) -> web.Application:
     app.router.add_get("/ws", handle_ws)
     app.router.add_post("/api/login", handle_login)
     app.router.add_post("/api/logout", handle_logout)
+    app.router.add_post("/api/logout-all", handle_logout_all)
     app.router.add_post("/api/ws-ticket", handle_ws_ticket)
     app.router.add_get("/api/prefill", handle_prefill)
     app.router.add_get("/api/i18n", handle_i18n)

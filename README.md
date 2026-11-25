@@ -54,7 +54,8 @@ istemcisi. Aynı çekirdeği kullanan bir **tarayıcı arayüzü** ve isteğe ba
   anda çalışabilir. Tarayıcıdan uygulama olarak kurulabilir (PWA).
 - Varsayılan olarak yalnız bu bilgisayardan erişilir. Oturum anahtarı yalnız istek
   başlığında taşınır, WebSocket tek kullanımlık biletle açılır; yabancı Origin ve DNS
-  rebinding istekleri reddedilir.
+  rebinding istekleri reddedilir. Kullanılmayan oturum 7 gün sonra, her oturum en geç
+  30 gün sonra kapanır; ⚙ Ayarlar'dan tüm oturumlar tek tıkla kapatılabilir.
 
 ## Kurulum (Linux)
 

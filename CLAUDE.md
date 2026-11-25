@@ -409,7 +409,14 @@ girmezse CI kırılır; yeni sistem paketi gerekirse workflow'daki apt satırın
   `--insecure` ile açılır (denetimler atlanır, düz metin HTTP). Uzak görsel
   önizlemeleri `remote_previews` ayarıyla kapatılabilir. Bilinen kalıntı riskler
   (kabul edilmiş): Fernet anahtarı şifreli parolanın yanındadır (ev LUKS altında),
-  oturum token'larının ömrü sınırsızdır (yerel yüzey).
+  (oturum süresi artık sınırlı: aşağıda).
+- **Oturum süresi:** token 7 gün kullanılmazsa, her durumda 30 günde düşer
+  (`server._IDLE_TTL/_MAX_TTL`, `_TOKEN_TIMES`); oturuma bağlı açık WebSocket kullanım
+  sayılır. REST/WS her kullanımda tazeler (`_touch`), zamanlayıcı 30 sn'de bir süpürür
+  (`_sweep_tokens`). `_revoke` biletleri de düşürür ve açık sekmelere `logged_out`
+  yollar (WS kapanır, sekme giriş ekranına döner). ⚙ → Tüm oturumları kapat:
+  `/api/logout-all` (`test_web_sessions.py`). Ayar penceresindeki açıklama 7/30 sayılarını
+  yazar; test sabitlerle eşleştirir.
 - **Frontend:** `webapp/static/` (vanilla JS, derlemesiz). PWA: `sw.js` (bildirim tıklaması +
   yalnız statik kabuk önbelleği; `/api`/`/ws` asla önbelleğe girmez), `manifest.webmanifest`,
   `icon-*.png`. Tema renkleri `xmppcore/theme`

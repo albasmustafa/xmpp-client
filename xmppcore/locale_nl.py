@@ -2771,4 +2771,12 @@ CATALOG = {
         "Waarschuwing (optioneel):",
     "Şifreli sohbette gizli içerik gönderilemez":
         "In versleutelde chats kunnen geen spoilers worden verzonden",
+    "Oturum":
+        "Sessie",
+    "Kullanılmayan oturum 7 gün sonra, her oturum en geç 30 gün sonra kapanır.":
+        "Een ongebruikte sessie eindigt na 7 dagen; elke sessie eindigt uiterlijk na 30 dagen.",
+    "Tüm oturumları kapat":
+        "Alle sessies afmelden",
+    "Tüm oturumlar kapatılsın mı? Bu sunucudaki her tarayıcıda yeniden giriş gerekir.":
+        "Alle sessies afmelden? Elke browser die deze server gebruikt moet opnieuw inloggen.",
 }

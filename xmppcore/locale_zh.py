@@ -2771,4 +2771,12 @@ CATALOG = {
         "提示（可选）：",
     "Şifreli sohbette gizli içerik gönderilemez":
         "加密聊天中无法发送剧透",
+    "Oturum":
+        "会话",
+    "Kullanılmayan oturum 7 gün sonra, her oturum en geç 30 gün sonra kapanır.":
+        "未使用的会话在 7 天后结束；任何会话最迟在 30 天后结束。",
+    "Tüm oturumları kapat":
+        "退出所有会话",
+    "Tüm oturumlar kapatılsın mı? Bu sunucudaki her tarayıcıda yeniden giriş gerekir.":
+        "要退出所有会话吗？使用此服务器的每个浏览器都需要重新登录。",
 }

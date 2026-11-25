@@ -2771,4 +2771,12 @@ CATALOG = {
         "注意書き（任意）：",
     "Şifreli sohbette gizli içerik gönderilemez":
         "暗号化されたチャットではネタバレを送信できません",
+    "Oturum":
+        "セッション",
+    "Kullanılmayan oturum 7 gün sonra, her oturum en geç 30 gün sonra kapanır.":
+        "使われていないセッションは 7 日後に、どのセッションも遅くとも 30 日後に終了します。",
+    "Tüm oturumları kapat":
+        "すべてのセッションからログアウト",
+    "Tüm oturumlar kapatılsın mı? Bu sunucudaki her tarayıcıda yeniden giriş gerekir.":
+        "すべてのセッションからログアウトしますか？このサーバーを使うすべてのブラウザで再ログインが必要になります。",
 }

@@ -2943,4 +2943,12 @@ EN = {
         "Hint (optional):",
     "Şifreli sohbette gizli içerik gönderilemez":
         "Spoilers can't be sent in encrypted chats",
+    "Oturum":
+        "Session",
+    "Kullanılmayan oturum 7 gün sonra, her oturum en geç 30 gün sonra kapanır.":
+        "An unused session ends after 7 days; every session ends after 30 days at the latest.",
+    "Tüm oturumları kapat":
+        "Log out all sessions",
+    "Tüm oturumlar kapatılsın mı? Bu sunucudaki her tarayıcıda yeniden giriş gerekir.":
+        "Log out all sessions? Every browser using this server will have to log in again.",
 }

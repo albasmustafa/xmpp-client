@@ -2771,4 +2771,12 @@ CATALOG = {
         "Avviso (facoltativo):",
     "Şifreli sohbette gizli içerik gönderilemez":
         "Non si possono inviare spoiler nelle chat cifrate",
+    "Oturum":
+        "Sessione",
+    "Kullanılmayan oturum 7 gün sonra, her oturum en geç 30 gün sonra kapanır.":
+        "Una sessione inutilizzata si chiude dopo 7 giorni; ogni sessione si chiude al massimo dopo 30 giorni.",
+    "Tüm oturumları kapat":
+        "Chiudi tutte le sessioni",
+    "Tüm oturumlar kapatılsın mı? Bu sunucudaki her tarayıcıda yeniden giriş gerekir.":
+        "Chiudere tutte le sessioni? Ogni browser che usa questo server dovrà accedere di nuovo.",
 }

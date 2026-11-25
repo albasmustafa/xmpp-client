@@ -2771,4 +2771,12 @@ CATALOG = {
         "Предупреждение (необязательно):",
     "Şifreli sohbette gizli içerik gönderilemez":
         "В зашифрованных чатах нельзя отправлять скрытый текст",
+    "Oturum":
+        "Сеанс",
+    "Kullanılmayan oturum 7 gün sonra, her oturum en geç 30 gün sonra kapanır.":
+        "Неиспользуемый сеанс завершается через 7 дней, любой сеанс — не позже чем через 30 дней.",
+    "Tüm oturumları kapat":
+        "Завершить все сеансы",
+    "Tüm oturumlar kapatılsın mı? Bu sunucudaki her tarayıcıda yeniden giriş gerekir.":
+        "Завершить все сеансы? Во всех браузерах, подключённых к этому серверу, придётся войти заново.",
 }

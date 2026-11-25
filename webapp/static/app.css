@@ -239,6 +239,8 @@ dialog::backdrop { background: rgba(0,0,0,.55); }
 .settings-body { max-height: 78vh; overflow-y: auto; min-width: 460px; }
 .settings-body section { border-top: 1px solid var(--BORDER); padding-top: 8px; margin-top: 8px; }
 .settings-body h4 { color: var(--FG_DIM); font-size: 11px; text-transform: uppercase; margin-bottom: 4px; }
+.settings-note { color: var(--FG_DIM); font-size: 12px; margin: 2px 0 6px; }
+button.danger { color: var(--RED); border-color: var(--RED); }
 .rooms-list { list-style: none; max-height: 320px; overflow-y: auto; }
 .rooms-list li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 4px; align-items: center; }
 #toasts { position: fixed; right: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
