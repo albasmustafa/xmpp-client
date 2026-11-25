@@ -1,5 +1,7 @@
 # XMPP İstemcisi
 
+[![CI](https://github.com/albasmustafa/xmpp-client/actions/workflows/ci.yml/badge.svg)](https://github.com/albasmustafa/xmpp-client/actions/workflows/ci.yml)
+
 Tkinter + [slixmpp](https://codeberg.org/poezio/slixmpp) ile yazılmış masaüstü XMPP (Jabber)
 istemcisi. Aynı çekirdeği kullanan bir **tarayıcı arayüzü** ve isteğe bağlı, **yerelde
 çalışan bir AI asistanı** da içerir. Arayüz Türkçe yazıldı; 14 dilde kullanılabilir.
@@ -104,6 +106,8 @@ Mesaj geçmişi yerel veritabanında şifrelenmeden durur; disk şifrelemesi (LU
 .venv-xmpp/bin/python -m pytest tests/ -q     # ~2400 test; ağ kullanmaz
 .venv-xmpp/bin/ruff check .
 ```
+
+GitHub'da her push ve pull request'te aynı denetimler çalışır (`.github/workflows/ci.yml`; Tk testleri sanal ekranda).
 
 Mimari ve geliştirme kuralları [CLAUDE.md](CLAUDE.md) dosyasındadır. Kısaca:
 

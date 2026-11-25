@@ -27,7 +27,9 @@ cd /run/media/albas/albas/xmpp-istemcisi && \
   .venv-xmpp/bin/python -m pytest tests/ -q        # ~2430 test, ~70 sn, ağ kullanmaz
 ```
 Paket kurulumu: `.venv-xmpp/bin/python -m pip install <paket>`. "Test geçti" demek için testi
-gerçekten çalıştır.
+gerçekten çalıştır. CI: `.github/workflows/ci.yml` (GitHub, her push/PR: ruff + pytest,
+Python 3.14, `xvfb-run`, `TZ=Europe/Istanbul`). Yeni bağımlılık `requirements*.txt`'e
+girmezse CI kırılır; yeni sistem paketi gerekirse workflow'daki apt satırına eklenir.
 
 ### Mimari
 - **Thread modeli:** Tk ana thread'i tüm widget işlerini yapar. XMPP ayrı asyncio döngüsünde
