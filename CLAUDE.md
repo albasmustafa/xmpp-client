@@ -66,6 +66,18 @@ girmezse CI kırılır; yeni sistem paketi gerekirse workflow'daki apt satırın
   `Message` olarak verilir: `encrypted_message` iç stanza için tetiklenmez ve iç stanza'nın
   stream'i olmadığından `msg["encrypted"]` çözemez.
   Testler: `test_multi_device.py`, `test_mobile_edits.py`.
+  **Okundu eşitleme (XEP-0490 MDS; `xmppcore/mds.py`):** bir cihaz sohbeti okuyunca kendi
+  PEP'ine son gördüğü mesajın SUNUCU stanza-id'sini yazar (1:1'de `by`=kendi JID'imiz,
+  odada oda). `MDSMixin._mds_observe` stanza-id'yi ayrı bir handler'la okur (şifreleme
+  yollarına dokunmaz; işleyiciden ÖNCE kayıtlı, `test_contract_events_dispatch` sırayı
+  sınar) → `msg_ids`; PEP bildirimi → `mds_displayed`. `ReadSync` (masaüstü + köprü
+  ortak, bellekte): eşleşen mesajdan sonrakiler okunmamış kalır, bilinen eski mesaj
+  sayacı değiştirmez, bilinmeyen sid = diğer cihaz en yeniyi gördü → hepsi okundu.
+  Yayın: açık sohbete canlı gelen mesajda ve okunmamışı olan sohbet açılınca
+  (`_mark_chat_read`; açılışta son sohbetin geri yüklenmesi yayımlamaz). Okundu bilgisi
+  kapalıyken de gider (özel); 1:1'de açılışta XEP-0333 işareti de gider (açıksa).
+  Girişte toplu eşitleme (catch_up) yok: oda geçmişi istenmiyor (`maxchars=9`),
+  okunmamış yalnız canlı mesajdan doğar (`test_mds.py`).
 - **Şifreli medya** `aesgcm://` (XEP-0454, mobil istemciler OMEMO'da kullanır):
   `xmppcore/aesgcm.py` + `_fetch_url_bytes`; çözme anahtarı AI metnine, sesli okumaya ve
   bildirimlere girmez (`test_aesgcm.py`). **Gönderim:** sohbet OMEMO'daysa

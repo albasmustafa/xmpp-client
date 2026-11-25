@@ -35,6 +35,9 @@ istemcisi. Aynı çekirdeği kullanan bir **tarayıcı arayüzü** ve isteğe ba
 **Çoklu cihaz**
 - Aynı hesap telefonda da açıksa (Conversations, Monocles, Monal…) giden mesajlar, düzeltmeler,
   geri çekmeler ve tepkiler iki tarafta da görünür (Message Carbons).
+- Okundu bilgisi eşitleme (XEP-0490): telefonda okuduğunuz sohbet (odalar dahil, okundu
+  bilgisi kapalı olsa da) bilgisayarda okunmamış görünmez; bilgisayarda okuduğunuz da
+  telefonda okunmuş sayılır.
 - Sunucu arşivinden (MAM) geçmiş: birebir sohbetlerde ve odalarda.
 
 **AI asistanı (isteğe bağlı)**
@@ -131,7 +134,7 @@ dosyalarındadır. Masaüstünde dil değişikliği yeniden başlatınca geçerl
 |---|---|
 | Şifreleme | OMEMO (0384), OpenPGP (0027), şifreli medya `aesgcm://` (0454), açık şifreleme işareti (0380) |
 | Mesaj | Düzeltme (0308), geri çekme (0424), tepkiler (0444), yanıtlar (0461), spoiler (0382), okundu (0333), teslim bildirimi (0184), yazıyor (0085) |
-| Çoklu cihaz ve geçmiş | Message Carbons (0280), MAM (0313), Stream Management (0198), Client State Indication (0352) |
+| Çoklu cihaz ve geçmiş | Message Carbons (0280), okundu eşitleme (0490), MAM (0313), Stream Management (0198), Client State Indication (0352) |
 | Odalar | MUC (0045), yer imleri (0048, 0402), doğrudan davet (0249), MUC self-ping (0410) |
 | Dosya | HTTP File Upload (0363), Jingle File Transfer (0234), IBB (0047), SOCKS5 (0065), OOB (0066) |
 | Kişiler | Engelleme (0191), avatar (0084, 0153), vCard (0054, 0292), takma ad (0172) |

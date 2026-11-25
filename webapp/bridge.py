@@ -15,6 +15,7 @@ from datetime import datetime
 
 from webapp import media as _media
 from xmppcore import canned as _canned
+from xmppcore import mds as _mds
 from xmppcore import notify_policy as _notify
 from xmppcore import sensitive as _sensitive
 from xmppcore import spoiler as _spoiler
@@ -204,9 +205,11 @@ class WebSession:
                         oob=oob, encrypted=bool(enc), mid=mid, reply_to=reply)
             self._note_spoiler(frm, mid, data.get("spoiler"))
             unread_total = 0
+            self._readsync().note_incoming(frm, mid, unread=self.active != frm)
             if self.active == frm:
                 if mid and self.bot and self._send_read_receipts:
                     self.bot.send_marker(frm, mid, "displayed")
+                self._mds_publish(frm, mid)          # diğer cihazlarımız (XEP-0490)
             else:
                 self.unread[frm] = self.unread.get(frm, 0) + 1
                 unread_total = sum(self.unread.values())
@@ -240,7 +243,16 @@ class WebSession:
 
         elif kind == "read_elsewhere":
             self.unread.pop(data, None)     # veri düz jid
+            self._readsync().clear(data)
             self._broadcast({"ev": "read_elsewhere", "data": {"jid": data}})
+
+        elif kind == "msg_ids":
+            # XEP-0490: gelen mesajın sunucu stanza-id'si (okundu eşitleme)
+            if self._readsync().note_ids(data["jid"], data["mid"], data["sid"]):
+                self._mds_publish(data["jid"], data["mid"])
+
+        elif kind == "mds_displayed":
+            self._mds_apply(data["jid"], data["sid"])
 
         elif kind == "marker_displayed":
             self._broadcast({"ev": "marker_displayed", "data": data})
@@ -547,6 +559,7 @@ class WebSession:
         if cmd == "open_chat":
             self.active = args.get("jid", "")
             self.unread.pop(self.active, None)
+            self._readsync().clear(self.active)
             self._broadcast({"ev": "unread_update",
                              "data": self.unread_snapshot()})
             self._maybe_initial_mam(self.active)
@@ -559,6 +572,8 @@ class WebSession:
                                  self._mam_oldest.get(jid) or None)
             return {"ok": ok}
         if cmd == "mark_displayed":
+            if args.get("to") and args.get("mid"):
+                self._mds_publish(args["to"], args["mid"])
             if bot and self._send_read_receipts and args.get("mid"):
                 mtype = "groupchat" if args.get("to") in self.rooms \
                     else "chat"
@@ -699,6 +714,33 @@ class WebSession:
         self._broadcast({"ev": "star", "data": {"jid": jid, "mid": mid,
                                                 "on": on}})
         return {"ok": True, "on": on}
+
+    # ── Okundu eşitleme (XEP-0490 MDS; kurallar xmppcore/mds) ────────────────
+    def _readsync(self):
+        return self.__dict__.setdefault("_rs", _mds.ReadSync())
+
+    def _mds_publish(self, jid, mid):
+        """Sohbeti `mid`'e kadar okuduk: aynı hesabın diğer cihazlarına bildir
+        (özel PEP; karşı tarafa gitmez)."""
+        sid = self._readsync().publish_sid(jid, mid)
+        bot = self.bot
+        if sid and bot is not None and hasattr(bot, "mds_flag"):
+            bot.mds_flag(jid, sid, room=jid in self.rooms)
+
+    def _mds_apply(self, jid, sid):
+        """Başka cihaz sohbeti `sid`'e kadar okudu: sayacı düzelt, tarayıcıya
+        bildir (0 → read_elsewhere; kalan varsa unread_update)."""
+        count = self._readsync().apply(jid, sid, self.unread.get(jid, 0))
+        if count is None:
+            return
+        if count:
+            self.unread[jid] = count
+            self._broadcast({"ev": "unread_update",
+                             "data": {"counts": {jid: count},
+                                      "total": sum(self.unread.values())}})
+        else:
+            self.unread.pop(jid, None)
+            self._broadcast({"ev": "read_elsewhere", "data": {"jid": jid}})
 
     def _note_spoiler(self, jid, mid, hint):
         """XEP-0382: spoiler'ı DB'ye işle (satır `_store` ile az önce yazıldı)."""

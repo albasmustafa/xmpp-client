@@ -95,6 +95,7 @@ from xmppcore import agent as _agent
 from xmppcore import ai as _ai
 from xmppcore import canned as _canned
 from xmppcore import i18n as _i18n
+from xmppcore import mds as _mds
 from xmppcore import notify_policy as _notify
 from xmppcore import questions as _questions
 from xmppcore import sensitive as _sensitive
@@ -148,6 +149,7 @@ from xmppcore.helpers import _stanza_is_encrypted as _stanza_is_encrypted
 from xmppcore.i18n import N_
 from xmppcore.i18n import t as _t
 from xmppcore.i18n import tr as _tr
+from xmppcore.mds import MDSMixin
 from xmppcore.messages import MessagesMixin
 from xmppcore.muc import MucMixin
 from xmppcore.muc import _room_kind_ok as _muc_room_kind_ok
@@ -1437,7 +1439,7 @@ except ImportError:
 # ══════════════════════════════════════════════════════════════════════════════
 
 class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
-              TransferMixin, ClientXMPP):
+              TransferMixin, MDSMixin, ClientXMPP):
     # [2P-BUG B] Transiyan (geçici) OMEMO hata belirteçleri: oturum/bundle
     # hazır-değil sınıfı hatalar SINIRLI retry edilir; kriptografik/trust
     # kalıcı hatalar (ör. "Device is not trusted") retry edilmez, explicit
@@ -1546,6 +1548,7 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
             "xep_0424",  # Message Retraction
             "xep_0444",  # Message Reactions
             "xep_0461",  # Message Replies
+            "xep_0490",  # Message Displayed Synchronization (okundu eşitleme)
 
             # ── Mesaj Arşivi ───────────────────────────────────────────────
             "xep_0059",  # Result Set Management
@@ -1614,6 +1617,8 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
     # ── Event handler kayıt ───────────────────────────────────────────────────
     def _register_handlers(self):
         self.add_event_handler("session_start",         self._on_start)
+        # XEP-0490: stanza-id gözlemcisi işleyiciden ÖNCE kaydedilir
+        self.add_event_handler("message",               self._mds_observe)
         self.add_event_handler("message",               self._on_message)
         self.add_event_handler("groupchat_message",     self._on_gc_message)
         self.add_event_handler("changed_status",        self._on_presence)
@@ -1642,7 +1647,11 @@ class XMPPBot(PresenceMixin, MessagesMixin, MucMixin, ArchiveMixin,
         self.add_event_handler("reactions", self._on_reactions)
         # XEP-0280: aynı hesabın diğer cihazlarının (telefon) kopyaları
         self.add_event_handler("carbon_sent", self._on_carbon_sent)
+        self.add_event_handler("carbon_received", self._mds_observe_carbon)
         self.add_event_handler("carbon_received", self._on_carbon_received)
+        # XEP-0490: aynı hesabın başka cihazı bir sohbeti okudu
+        self.add_event_handler("message_displayed_synchronization_publish",
+                               self._on_mds_publish)
 
     # ── Session ───────────────────────────────────────────────────────────────
     async def _on_start(self, _):
@@ -5223,6 +5232,52 @@ class MainWindow:
     # ── XEP-0382 spoiler (kurallar xmppcore/spoiler) ─────────────────────────
     # Masaüstü geçmişi bellekten çizilir: (jid, mid) → uyarı haritası olay
     # işleyicilerinde dolar, çizimde DB'ye gidilmez. DB işareti web içindir.
+    # ── Okundu eşitleme (XEP-0490 MDS; kurallar xmppcore/mds) ────────────────
+    def _readsync(self):
+        return self.__dict__.setdefault("_rs", _mds.ReadSync())
+
+    def _last_incoming_mid(self, jid) -> str:
+        """Sohbetteki son gelen (bizim olmayan) mesajın kimliği."""
+        for e in reversed(self.chats.get(jid) or []):
+            if len(e) > 7 and not e[2] and e[7]:
+                return e[7]
+        return ""
+
+    def _mds_publish(self, jid, mid):
+        """Sohbeti `mid`'e kadar okuduk: aynı hesabın diğer cihazlarına bildir.
+        Özel PEP'tir; karşı tarafa gitmez, okundu bilgisi kapalıyken de gider."""
+        sid = self._readsync().publish_sid(jid, mid)
+        bot = getattr(self, "bot", None)
+        if sid and bot is not None and hasattr(bot, "mds_flag"):
+            bot.mds_flag(jid, sid, room=jid in (getattr(self, "rooms", None) or ()))
+
+    def _mds_apply(self, jid, sid):
+        """Aynı hesabın başka cihazı sohbeti `sid`'e kadar okudu: sayacı düzelt."""
+        count = self._readsync().apply(jid, sid, self._unread_counts.get(jid, 0))
+        if count is None:
+            return
+        if count:
+            self._unread_counts[jid] = count
+        else:
+            self._unread_counts.pop(jid, None)
+        self._refresh_contacts()
+        self._ai_assistant_refresh()
+
+    def _mark_chat_read(self, jid):
+        """Okunmamışları olan sohbet açıldı: diğer cihazlarımıza (XEP-0490) ve,
+        okundu bilgisi açıksa, 1:1'de karşı tarafa (XEP-0333) son gelen mesaj
+        bildirilir. Önceden yalnız açık sohbete CANLI gelen mesaj bildiriliyordu;
+        açılınca okunanlar telefonda okunmamış kalıyordu."""
+        self._readsync().clear(jid)
+        last = self._last_incoming_mid(jid)
+        if not last:
+            return
+        self._mds_publish(jid, last)
+        bot = getattr(self, "bot", None)
+        if (bot is not None and getattr(self, "_send_read_receipts", False)
+                and jid not in (getattr(self, "rooms", None) or ())):
+            bot.send_marker(jid, last, "displayed")
+
     def _spoiler_map(self) -> dict:
         return self.__dict__.setdefault("_spoilers", {})
 
@@ -8743,6 +8798,7 @@ class MainWindow:
         # Okunmamış sayacı sıfırla
         if self._unread_counts.get(target, 0) > 0:
             self._unread_counts[target] = 0
+            self._mark_chat_read(target)
             self._refresh_contacts()
             total = sum(self._unread_counts.values())
             badge = f" [{total}]" if total > 0 else ""
@@ -12782,10 +12838,12 @@ class MainWindow:
                         body, "them", sender=nick, is_me=False,
                         oob=oob, encrypted=is_enc, mid=mid,
                         reply_to=reply))
+                self._readsync().note_incoming(frm, mid, unread=False)
                 if live_action != "defer":
                     # Okundu bilgisi gönder
                     if mid and self.bot and self._send_read_receipts:
                         self.bot.send_marker(frm, mid, "displayed")
+                    self._mds_publish(frm, mid)         # diğer cihazlarımız (XEP-0490)
                     # Kaybolan mesaj zamanlayıcısı (kalan süreyle — [2I])
                     if ttl > 0:
                         last_row = self._bubble_widgets[-1] if self._bubble_widgets else None
@@ -12797,6 +12855,7 @@ class MainWindow:
                 self._note_inactive_live(frm)
                 # Okunmamış sayacı artır
                 self._unread_counts[frm] = self._unread_counts.get(frm, 0) + 1
+                self._readsync().note_incoming(frm, mid, unread=True)
                 self._refresh_contacts()
                 self._ai_assistant_refresh()    # "Neler kaçırdım? (n)"
                 total = sum(self._unread_counts.values())
@@ -12857,13 +12916,23 @@ class MainWindow:
                     body, "me", sender="Ben", is_me=True, oob=oob,
                     encrypted=is_enc, mid=mid, reply_to=reply))
             # Telefondan yanıt verildiyse sohbet masaüstünde okunmamış kalmaz
+            self._readsync().clear(to)
             if self._unread_counts.pop(to, None):
                 self._refresh_contacts()
                 self._ai_assistant_refresh()
             self._ai_caught_up(to)
 
+        elif kind == "msg_ids":
+            # XEP-0490: gelen mesajın sunucu stanza-id'si (okundu eşitleme)
+            if self._readsync().note_ids(data["jid"], data["mid"], data["sid"]):
+                self._mds_publish(data["jid"], data["mid"])
+
+        elif kind == "mds_displayed":
+            self._mds_apply(data["jid"], data["sid"])
+
         elif kind == "read_elsewhere":
             # Sohbet aynı hesabın başka cihazında okundu (XEP-0333 carbon)
+            self._readsync().clear(data)
             if self._unread_counts.pop(data, None):
                 self._refresh_contacts()
                 self._ai_assistant_refresh()

@@ -93,10 +93,13 @@ def test_carbon_events_are_registered():
     bot = object.__new__(xmpp.XMPPBot)
     bot._run_out_filters = None          # XMLStream.__del__ gürültüsü
     registered = {}
-    bot.add_event_handler = lambda ev, fn: registered.setdefault(ev, fn.__name__)
+    bot.add_event_handler = lambda ev, fn: registered.setdefault(
+        ev, []).append(fn.__name__)
     xmpp.XMPPBot._register_handlers(bot)
-    assert registered["carbon_sent"] == "_on_carbon_sent"
-    assert registered["carbon_received"] == "_on_carbon_received"
+    assert registered["carbon_sent"] == ["_on_carbon_sent"]
+    # XEP-0490 stanza-id gözlemcisi işleyiciden önce (test_mds.py)
+    assert registered["carbon_received"] == ["_mds_observe_carbon",
+                                             "_on_carbon_received"]
 
 
 def test_message_sent_from_phone_appears_as_own_message(bot):
