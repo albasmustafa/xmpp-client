@@ -918,3 +918,23 @@ def test_sidebar_right_click_opens_notify_menu_for_that_chat():
     assert "closeCtxMenu()" in set_notify
     # başlık menüsü ve sağ tık menüsü aynı öğeleri kullanır
     assert js.count("fillNotifyMenu(menu, c);") == 2
+
+
+def _narrow_screen_rules_ok(css: str) -> bool:
+    """Dar ekranda liste YA DA sohbet görünür; ← yalnız dar ekranda."""
+    import re
+    block = re.search(r"@media \(max-width: 720px\) \{(.*?)\n\}", css, re.S)
+    return bool(block) and all(rule in block.group(1) for rule in (
+        ".app:not(.chat-open) .chat { display: none; }",
+        ".app.chat-open .sidebar { display: none; }",
+        ".back { display: inline-flex; }")) and ".back { display: none; }" in css
+
+
+def test_narrow_screen_layout_rules_exist():
+    """JS sohbet açılınca .app'e chat-open ekliyordu ama CSS'te kuralı yoktu:
+    390 px'te liste 300 px kalıyor, sohbet ~90 px'e sıkışıyordu (telefonda
+    kullanılamıyordu); ← düğmesi masaüstünde de görünüyordu."""
+    css = (srv.STATIC_DIR / "app.css").read_text(encoding="utf-8")
+    assert _narrow_screen_rules_ok(css)
+    js = (srv.STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    assert 'classList.add("chat-open")' in js and 'classList.remove("chat-open")' in js

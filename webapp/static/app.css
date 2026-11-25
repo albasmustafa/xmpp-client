@@ -251,3 +251,31 @@ button.danger { color: var(--RED); border-color: var(--RED); }
 }
 .toast .t-actions { display: flex; gap: 6px; margin-top: 6px; }
 .toast.err { border-color: var(--RED); }
+
+/* ── Dar ekran (telefon): liste YA DA sohbet ──
+   JS sohbet açılınca .app'e chat-open ekler, ← düğmesi kaldırır; bu kurallar
+   yoktu: 390 px'te liste 300 px kalıyor, sohbet ~90 px'e sıkışıyordu. */
+.back { display: none; }
+@media (max-width: 720px) {
+  .back { display: inline-flex; }
+  .sidebar { width: 100%; min-width: 0; border-right: 0; }
+  .app:not(.chat-open) .chat { display: none; }
+  .app.chat-open .sidebar { display: none; }
+  .topbar { padding: 6px 8px; gap: 6px; }
+  .topbar-actions { gap: 4px; }
+  #presence-status { display: none; }       /* durum metni geniş ekranda */
+  .me-jid { max-width: 34vw; }
+  .chat-header { padding: 8px; }
+  .chat-actions { gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .bubble { max-width: 86%; }
+  .composer { padding: 8px; gap: 6px; }
+  #btn-send { padding: 8px 12px; }
+  .members, .ai-panel {                      /* yan paneller tam ekran katman */
+    position: fixed; inset: 0; width: auto; z-index: 40; border-left: 0;
+  }
+  dialog { min-width: 0; max-width: calc(100vw - 16px); }
+  .settings-body { min-width: 0; max-height: 86vh; }
+}
+@media (max-width: 480px) {
+  .me-jid { display: none; }                 /* durum noktası kalır; menülere yer */
+}
