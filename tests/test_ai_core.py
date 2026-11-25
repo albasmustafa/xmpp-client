@@ -382,6 +382,21 @@ def test_ollama_missing_model_hint(monkeypatch):
         ai.ollama_chat(_settings(), "S", "U")
 
 
+def test_ollama_http_error_body_is_closed(monkeypatch):
+    """HTTPError bir yanıt nesnesidir: gövdesi kapatılmazsa GC'de
+    "ResourceWarning: Implicitly cleaning up <HTTPError 404>" verir.
+    AIError zinciri HTTPError'ı canlı tuttuğu için GC kapatmış olamaz."""
+    body = io.BytesIO(b'{"error":"model not found"}')
+
+    def _h(req, payload):
+        raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, body)
+    _fake_urlopen(monkeypatch, _h)
+    with pytest.raises(ai.AIError) as exc:
+        ai.ollama_chat(_settings(), "S", "U")
+    assert exc.value.__cause__ is not None
+    assert body.closed
+
+
 def test_ollama_unreachable_hint(monkeypatch):
     def _h(req, payload):
         raise urllib.error.URLError(ConnectionRefusedError())

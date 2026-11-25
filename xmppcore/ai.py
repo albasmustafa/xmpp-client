@@ -260,6 +260,8 @@ def _ollama_open(settings: dict, path: str, payload: dict | None,
             detail = json.loads(e.read(65536) or b"{}").get("error", "")
         except Exception:
             pass
+        finally:
+            e.close()       # hata yanıtının gövdesi; açık kalırsa GC ResourceWarning verir
         model = (payload or {}).get("model", "")
         if e.code == 404 and model:
             raise AIError(

@@ -10183,6 +10183,7 @@ class MainWindow:
                 items = _parse_room_search(data, keywords)
                 self._safe_after(0, on_done, items)
             except urllib.error.HTTPError as ex:
+                ex.close()  # hata yanıtının gövdesi; açık kalırsa GC ResourceWarning verir
                 msg = too_short if ex.code == 400 else f"HTTP {ex.code}"
                 self._safe_after(0, on_error, msg)
             except Exception as ex:

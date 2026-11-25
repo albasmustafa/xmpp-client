@@ -14,6 +14,7 @@ Kanıtlar:
 - REST /api/draft: geçerli istek yalnız "api_draft" GUI olayı üretir,
   hiçbir şey göndermez; geçersiz alanlar 400, belirteçsiz 401.
 """
+import gc
 import io
 import json
 import os
@@ -21,6 +22,7 @@ import sqlite3
 import subprocess
 import sys
 import urllib.error
+import warnings
 
 import pytest
 
@@ -264,6 +266,20 @@ def test_draft_reply_errors(env, exc, needle):
     env.http_post = boom
     err, text = _call(env, "draft_reply", jid="ali@x", text="t")
     assert err and needle in text
+
+
+def test_draft_reply_http_error_body_is_closed(env):
+    """Gerçek urlopen HTTPError'ı gövdesiyle fırlatır; gövde açıkça kapatılır
+    (kapanmazsa GC "ResourceWarning: Implicitly cleaning up" verir)."""
+    def boom(*a):
+        raise urllib.error.HTTPError("u", 401, "x", {}, io.BytesIO(b"no"))
+    env.http_post = boom
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always", ResourceWarning)
+        err, _text = _call(env, "draft_reply", jid="ali@x", text="t")
+        gc.collect()
+    assert err
+    assert not [w for w in seen if issubclass(w.category, ResourceWarning)]
 
 
 def test_draft_reply_validation_and_missing_token(env):

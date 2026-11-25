@@ -315,6 +315,7 @@ class MCPServer:
                 {"to": jid, "text": text, "source": "MCP"},
                 {"Authorization": f"Bearer {token}"})
         except urllib.error.HTTPError as e:
+            e.close()       # hata yanıtının gövdesi; açık kalırsa GC ResourceWarning verir
             if e.code == 401:
                 raise ToolError("REST API belirteci eşleşmedi (istemci "
                                 "yeniden başlamış olabilir); tekrar "

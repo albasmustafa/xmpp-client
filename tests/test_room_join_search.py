@@ -18,12 +18,14 @@ B5 — Sonuçlar yalnız kullanıcı sayısına göre sıralanıyordu: sunucu ke
 """
 import asyncio
 import contextlib
+import gc
 import io
 import json
 import os
 import sys
 import types
 import urllib.error
+import warnings
 
 import pytest
 
@@ -297,6 +299,19 @@ def test_search_http_400_is_friendly(monkeypatch):
                                      io.BytesIO(b"parse error"))
     _reqs, done, errors = _run_search(monkeypatch, "linux", _bad)
     assert done == [] and "3 harf" in errors[0]
+
+
+def test_search_http_error_body_is_closed(monkeypatch):
+    """Hata yanıtının gövdesi açıkça kapatılır; kapanmazsa GC kapatırken
+    "ResourceWarning: Implicitly cleaning up <HTTPError 400>" verir."""
+    def _bad(req):
+        raise urllib.error.HTTPError(req.full_url, 400, "Bad Request", {},
+                                     io.BytesIO(b"parse error"))
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always", ResourceWarning)
+        _run_search(monkeypatch, "linux", _bad)
+        gc.collect()
+    assert not [w for w in seen if issubclass(w.category, ResourceWarning)]
 
 
 def test_parse_room_search_accepts_result_shape():
