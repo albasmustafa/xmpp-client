@@ -55,6 +55,12 @@ NOTIFY_MENU = {
     "🔔 Her Mesajda Bildir": ("_set_room_notify_all", True),
 }
 
+# Sadeleştirmeden sonra eklenen komutlar (üst düzeyde değil, alt menüde).
+# 2026-11-25: 💬 Sohbet → ⭐ Yıldızlı Mesajlar (test_starred_messages.py).
+NEW_MENU = {
+    "⭐ Yıldızlı Mesajlar": "_starred_dialog",
+}
+
 
 class _Menu:
     def __init__(self, *a, **k):
@@ -87,7 +93,8 @@ def _build(monkeypatch, *, room=False, compact=False):
     w.root = None
     ai_menu = _Menu()
     w._ai_build_chat_menu = lambda parent: ai_menu
-    for method in set(OLD_MENU.values()) | {m for m, _a in NOTIFY_MENU.values()}:
+    for method in (set(OLD_MENU.values()) | set(NEW_MENU.values())
+                   | {m for m, _a in NOTIFY_MENU.values()}):
         setattr(w, method, _Cap())
     xmpp.MainWindow._chat_header_menu(w, types.SimpleNamespace(
         x_root=0, y_root=0))
@@ -105,14 +112,15 @@ def _commands(menu):
 def test_every_old_command_still_reachable(monkeypatch):
     w, menu, ai_menu = _build(monkeypatch, room=True)
     found = dict(_commands(menu))
-    assert set(found) == set(OLD_MENU) | set(NOTIFY_MENU)   # eksik de fazla da yok
+    # eksik de fazla da yok
+    assert set(found) == set(OLD_MENU) | set(NOTIFY_MENU) | set(NEW_MENU)
     for label, cmd in found.items():
         cmd()
         if label in NOTIFY_MENU:
             method, arg = NOTIFY_MENU[label]
             assert getattr(w, method).calls[-1] == (("oda@conf.x", arg), {}), label
             continue
-        target = getattr(w, OLD_MENU[label])
+        target = getattr(w, {**OLD_MENU, **NEW_MENU}[label])
         assert len(target.calls) >= 1, label
     assert w._profile_card.calls[0] == (("oda@conf.x",), {})
     assert w._omemo_fingerprint_dialog.calls[0] == (("oda@conf.x",), {})

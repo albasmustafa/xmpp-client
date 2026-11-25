@@ -733,6 +733,7 @@ PLAIN = {   # dışarı tıklama hemen kapatır
     "ui.profile.show_avatar_dialog",            # kendi avatarına tıklayınca
     "ui.sidebar.show_quick_switch",
     "ui.dialogs.simple.show_shortcuts",
+    "ui.dialogs.starred.show_starred",
     "ui.dialogs.simple.show_reaction_details",
     "ui.dialogs.chat_options.show_disappearing",
     "ui.dialogs.chat_options.show_clear_history",
@@ -745,6 +746,7 @@ PLAIN = {   # dışarı tıklama hemen kapatır
     "ui.dialogs.contact.show_contact_groups",   # kapanış kaydeder (eskisi gibi)
 }
 FORMS = {   # yazılan/seçilen varsa ilk dışarı tıklama uyarır
+    "xmpp.MainWindow._canned_dialog",
     "xmpp.MainWindow._schedule_message_dialog",
     "xmpp.MainWindow._broadcast_dialog",
     "xmpp.MainWindow._auto_theme_dialog",

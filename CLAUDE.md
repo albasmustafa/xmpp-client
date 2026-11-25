@@ -89,13 +89,32 @@ gerçekten çalıştır.
   `WebSession._should_notify`): 1:1 ve oda mesajı aynı `"msg"` olayıdır; bildirim, ses ve
   toast yalnız politika izin verirse çıkar, okunmamış sayacı her durumda artar. Sessize
   alma config `"muted_chats"` {jid: bitiş epoch, 0 = süresiz}: ⋮ → 💬 Sohbet → 🔔
-  Bildirimler (1 sa / 8 sa / 1 gün / süresiz), kenar çubuğunda 🔕; web'de başlıktaki 🔔
-  düğmesi, WS `set_notify` → tüm sekmelere `notify_prefs` olayı, `msg` olayında
-  `notify` bayrağı. Odada varsayılan: takma ad tam sözcük olarak geçince ya da
+  Bildirimler (1 sa / 8 sa / 1 gün / süresiz) ve kişi/oda listesinde sağ tık → 🔔
+  Bildirimler (aynı `_notify_menu_spec` + `_notify_actions`; `ui/sidebar.py:
+  add_notify_cascade`), kenar çubuğunda 🔕; web'de başlıktaki 🔔 düğmesi ve listede
+  sağ tık / uzun basma (`openCtxMenu`, `#ctx-menu`), WS `set_notify` → tüm sekmelere
+  `notify_prefs` olayı, `msg` olayında `notify` bayrağı
+  (`test_sidebar_notify_menu.py`). Odada varsayılan: takma ad tam sözcük olarak geçince ya da
   mesajımıza yanıt gelince (`mentions`; İ/I/ı/i eş sayılır); `"room_notify_all"`
   listesindeki odada her mesaj. Meşgul (dnd) hepsini susturur. Karar her mesajda
   `_load_config_cached` (yol + mtime + boyut) ile okunur: web ve masaüstü aynı dosyayı
   yazar, yeniden başlatmadan eşitlenir (`test_notify_policy.py`).
+- **Hazır yanıtlar** (`xmppcore/canned.py`): config `"canned_replies"` — tek satırlık
+  metinler (masaüstü giriş kutusu tek satır), en çok 50 × 500 karakter, tekrarsız.
+  Masaüstü: giriş kutusundaki ✨ → 💬 Hazır yanıtlar (`_canned_menu`; seçim
+  `_canned_insert` ile metnin sonuna eklenir), ✏ Düzenle… → `_canned_dialog` (form
+  kartı, her satır bir yanıt). Web: giriş kutusundaki 💬 düğmesi (WS `get_canned` /
+  `set_canned`; imlecin olduğu yere ekler). Yanıt asla kendiliğinden gönderilmez
+  (`test_canned_replies.py`).
+- **⭐ Yıldızlı mesajlar** (DB `messages.starred`; `storage._db_set_starred` /
+  `_db_is_starred` / `_db_load_starred`): yıldız (jid, mid) kapsamlıdır ve satırın
+  kendisindedir — düzeltme gövdeyle gelir, geçmiş silinince yıldız da gider, geri
+  çekilmiş mesaj listelenmez. Masaüstü: mesaj sağ tık → ⭐ Yıldızla / ☆ Yıldızı Kaldır
+  (`caps["star"]`, 📌'dan sonra; yalnız DB'deki mesaj yıldızlanır — MAM'den belleğe
+  yüklenen geçmiş yıldızlanamaz), ⋮ → 💬 Sohbet → ⭐ Yıldızlı Mesajlar
+  (`ui/dialogs/starred.py`; tüm sohbetler, Aç → sohbet + mesaja kaydırma). Web: satır
+  araçlarında ☆/⭐, üst çubukta ⭐ (WS `star` → bütün sekmelere `star` olayı;
+  `starred` listesi; hello'da `starred` anahtarları) (`test_starred_messages.py`).
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.

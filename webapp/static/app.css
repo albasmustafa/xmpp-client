@@ -75,6 +75,8 @@ label.chk input { width: auto; }
 .contact {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 10px; border-radius: 10px; cursor: pointer;
+  /* uzun basma menüsü: telefonda metin seçimi/balonu açılmasın */
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
 }
 .contact:hover { background: var(--BG_HOVER); }
 .contact.active { background: var(--BG_HOVER); outline: 1px solid var(--ACCENT2); }
@@ -111,6 +113,12 @@ label.chk input { width: auto; }
 }
 .pop-menu button:hover, .pop-menu button:focus-visible { background: var(--BG_HOVER); }
 .pop-menu hr { border: 0; border-top: 1px solid var(--BORDER); margin: 4px 2px; }
+/* Kenar çubuğunda sağ tık / uzun basma menüsü (imlecin yanında açılır) */
+.pop-menu.ctx { position: fixed; top: 0; left: 0; right: auto; z-index: 30; }
+.pop-title {
+  padding: 4px 10px 6px; font-size: 12px; color: var(--FG_DIM);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .chat-title { display: flex; gap: 10px; align-items: center; min-width: 0; }
 .chat-title > div { min-width: 0; }
 #chat-name { font-weight: 600; }
@@ -164,7 +172,28 @@ label.chk input { width: auto; }
   border-top: 1px solid var(--BORDER);
 }
 .reply-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.composer { display: flex; gap: 8px; padding: 10px 14px; background: var(--BG_PANEL); }
+.composer { display: flex; gap: 8px; padding: 10px 14px; background: var(--BG_PANEL); position: relative; }
+/* 💬 Hazır yanıtlar menüsü: giriş kutusunun üstüne açılır */
+.pop-menu.up {
+  top: auto; bottom: calc(100% + 4px); left: 14px; right: auto;
+  max-height: 50vh; overflow-y: auto;
+}
+.pop-menu.up button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#canned-text { width: min(520px, 80vw); font: inherit; resize: vertical; }
+/* ⭐ Yıldızlı mesajlar */
+.meta .star { margin-right: 4px; }
+.row.flash .bubble { outline: 2px solid var(--ACCENT); outline-offset: 2px; }
+.starred-list {
+  list-style: none; margin: 0; padding: 0; width: min(560px, 82vw);
+  max-height: 60vh; overflow-y: auto;
+}
+.starred-list li {
+  display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px;
+  border-radius: 8px; cursor: pointer;
+}
+.starred-list li:hover { background: var(--BG_HOVER); }
+.starred-list .starred-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.starred-list button { border: 0; background: transparent; }
 .composer textarea { flex: 1; max-height: 140px; }
 #btn-send { padding: 8px 16px; }
 

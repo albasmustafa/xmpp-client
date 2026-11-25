@@ -74,6 +74,7 @@ from ui.dialogs import presence as _ui_presence
 from ui.dialogs import rooms as _ui_rooms
 from ui.dialogs import settings as _ui_settings
 from ui.dialogs import simple as _ui_simple
+from ui.dialogs import starred as _ui_starred
 from ui.timers import after_alive as _after_alive
 
 # Veri kökü burada çözülür: taşınmış profilin klasörü yoksa (disk takılı
@@ -92,6 +93,7 @@ except SystemExit as _missing:
 from xmppcore import aesgcm as _aesgcm
 from xmppcore import agent as _agent
 from xmppcore import ai as _ai
+from xmppcore import canned as _canned
 from xmppcore import i18n as _i18n
 from xmppcore import notify_policy as _notify
 from xmppcore import questions as _questions
@@ -164,8 +166,11 @@ from xmppcore.storage import (
     _db_clear_chat,
     _db_clear_my_reactions,
     _db_clear_reactions_mid,
+    _db_is_starred,
     _db_load_msgs,
+    _db_load_starred,
     _db_save_reaction,
+    _db_set_starred,
     _db_store_msg,
     _db_unanswered,
     _db_update_msg_body,
@@ -776,6 +781,7 @@ def _chat_header_menu_spec(*, is_room: bool, compact: bool,
         ("menu", _tr("🔔 Bildirimler"),
          _notify_menu_spec(is_room=is_room, **(notify or {}))),
         ("sep",),
+        ("item", _tr("⭐ Yıldızlı Mesajlar"), "starred"),
         ("item", _tr("⏱ Kaybolan Mesajlar"), "disappearing"),
         ("item", _tr("📜 Daha Eski Mesajları Yükle (MAM)"), "load_older"),
         ("item", _tr("⏰ Mesaj Zamanla"), "schedule"),
@@ -4777,7 +4783,10 @@ class MainWindow:
             "forward": bool(body and can_send and not retracted),
             "pin": bool(body and self.active and not retracted),
             "react": bool(mid and can_send and not retracted),
+            "star": bool(mid and self.active and not retracted),
         }
+        starred = caps["star"] and _db_is_starred(self.active, mid)
+        star_jid = self.active
         # Mesajın bir kısmı seçiliyse "Kopyala" yalnız seçimi alır
         chosen = _selectable.selected_text(getattr(row, "_body_text", None))
         callbacks = {
@@ -4792,6 +4801,8 @@ class MainWindow:
                 body, sender,
                 encrypted=bool(getattr(row, "_encrypted", False))),
             "on_pin": lambda: self._pin_message(body, sender),
+            "on_star": lambda: self._toggle_star(star_jid, mid, not starred,
+                                                 body),
             "on_react": lambda e: self._toggle_reaction(mid, e),
             "on_more_emoji": lambda: self._show_emoji_picker(mid),
             "on_reactions_details": lambda: self._reaction_details_dialog(mid),
@@ -4805,7 +4816,62 @@ class MainWindow:
             t=_t, caps=caps,
             mine=self._my_reactions.get(self._reaction_key(mid), set()) if mid else set(),
             has_reactions=bool(mid and self._reactions.get(self._reaction_key(mid))),
-            callbacks=callbacks)
+            callbacks=callbacks, starred=starred)
+
+    # ── ⭐ Yıldızlı mesajlar (DB: messages.starred) ───────────────────────────
+    def _toggle_star(self, jid, mid, on, body=""):
+        """Mesajı yıldızla / yıldızını kaldır. Yalnız DB'de duran mesaj
+        yıldızlanır (masaüstünde MAM'den yüklenen geçmiş bellektedir)."""
+        if not _db_set_starred(jid, mid, on):
+            self._show_toast(_tr("⭐ Yıldızlı Mesajlar"),
+                             _tr("Bu mesaj yerel geçmişte yok; yıldızlanamadı"))
+            return False
+        if on:
+            text = " ".join(str(body or "").split())
+            self._show_toast(_tr("⭐ Yıldızlı Mesajlar"),
+                             text[:60] + ("…" if len(text) > 60 else ""))
+        return True
+
+    def _starred_rows(self):
+        """Pencere satırları: [("Ali · 24.11.2026 14:05 — Ben: metin", (jid, mid))]."""
+        rows = []
+        for (jid, sender, body, is_me, ts, stored_at, mid,
+             _enc) in _db_load_starred(skip_bodies=(_ai.RETRACTED_BODY,)):
+            when = ts or ""
+            try:
+                when = datetime.strptime(stored_at, "%Y-%m-%dT%H:%M:%S") \
+                    .strftime("%d.%m.%Y %H:%M")
+            except (TypeError, ValueError):
+                pass
+            who = _tr("Ben") if is_me else (sender or "")
+            text = " ".join(_ai.display_text(body or "").split())
+            if len(text) > 160:
+                text = text[:159] + "…"
+            rows.append((f"{self._chat_label(jid)} · {when} — {who}: {text}",
+                         (jid, mid)))
+        return rows
+
+    def _starred_dialog(self):
+        """⋮ → ⭐ Yıldızlı Mesajlar: tüm sohbetlerden, yeniden eskiye."""
+        return _ui_starred.show_starred(
+            self.root, self._starred_rows(),
+            on_open=lambda key: self._open_starred(*key),
+            on_unstar=lambda key: _db_set_starred(key[0], key[1], False))
+
+    def _open_starred(self, jid, mid):
+        """Sohbeti aç ve mesaja kaydır; yüklü geçmişte yoksa not düş."""
+        if self.active != jid:
+            self._load_chat(jid)
+
+        def _jump():
+            row = _identity.find_row_by_mid(self._bubble_widgets, mid)
+            if row is None:
+                self._show_toast(_tr("⭐ Yıldızlı Mesajlar"),
+                                 _tr("Mesaj yüklenen geçmişte bulunamadı"))
+                return
+            self._scroll_to_row(row)
+            self._flash_row(row)
+        self.root.after_idle(_jump)
 
     def _apply_local_correction(self, frm, orig_id, new_body):
         """msg_correction/_edit yerel mutasyonu: protokol/network yok."""
@@ -5007,14 +5073,11 @@ class MainWindow:
             return
         jid = self.active
         actions = {
-            "unmute": lambda: self._set_chat_mute(jid, None),
-            **{f"mute_{c}": (lambda c=c: self._set_chat_mute(jid, c))
-               for c in _notify.MUTE_CHOICES},
-            "room_all": lambda: self._set_room_notify_all(jid, True),
-            "room_mention": lambda: self._set_room_notify_all(jid, False),
+            **self._notify_actions(jid),
             "profile": lambda: self._profile_card(self.active),
             "search": self._search_messages_dialog,
             "pinned": self._show_pinned,
+            "starred": self._starred_dialog,
             "disappearing": self._disappearing_dialog,
             "load_older": self._load_older_mam,
             "schedule": self._schedule_message_dialog,
@@ -5056,16 +5119,38 @@ class MainWindow:
                 else:
                     menu.add_command(label=item[1], command=actions[item[2]])
 
-        cfg = _load_config_cached()
         menu = new_menu(self.root)
         fill(menu, _chat_header_menu_spec(
             is_room=jid in self.rooms, compact=self._compact_mode,
-            notify={"muted_until": _notify.muted_until(cfg, jid),
-                    "room_all": _notify.room_notifies_all(cfg, jid)}))
+            notify=self._notify_state(jid)))
         if event:
             menu.tk_popup(event.x_root, event.y_root)
 
     # ── Bildirim kontrolü (kurallar xmppcore/notify_policy) ──────────────────
+    def _notify_state(self, jid) -> dict:
+        """🔔 Bildirimler menüsünün durumu (`_notify_menu_spec` girdisi)."""
+        cfg = _load_config_cached()
+        return {"muted_until": _notify.muted_until(cfg, jid),
+                "room_all": _notify.room_notifies_all(cfg, jid)}
+
+    def _notify_actions(self, jid) -> dict:
+        """🔔 Bildirimler menü anahtarları → komutlar (⋮ menüsü ve kenar
+        çubuğu sağ tık menüleri aynı eşlemeyi kullanır)."""
+        return {
+            "unmute": lambda: self._set_chat_mute(jid, None),
+            **{f"mute_{c}": (lambda c=c: self._set_chat_mute(jid, c))
+               for c in _notify.MUTE_CHOICES},
+            "room_all": lambda: self._set_room_notify_all(jid, True),
+            "room_mention": lambda: self._set_room_notify_all(jid, False),
+        }
+
+    def _notify_menu_args(self, jid, *, is_room) -> dict:
+        """Kenar çubuğu sağ tık menülerine 🔔 Bildirimler alt menüsü."""
+        actions = self._notify_actions(jid)
+        return {"notify_items": _notify_menu_spec(is_room=is_room,
+                                                  **self._notify_state(jid)),
+                "on_notify": lambda key: actions[key]()}
+
     def _should_notify(self, frm, body, reply=None) -> bool:
         """Gelen mesaj bildirim, ses ve toast çıkarsın mı? Sessize alınmış
         sohbet, adımızın geçmediği oda mesajı ve Meşgul durumu susar."""
@@ -5114,6 +5199,67 @@ class MainWindow:
         self._show_toast(_tr("🔔 Bildirimler"),
                          _tr("Her mesajda bildirilecek") if on
                          else _tr("Yalnız adınız geçince bildirilecek"))
+
+    # ── Hazır yanıtlar (kurallar xmppcore/canned) ────────────────────────────
+    def _canned_menu(self, parent):
+        """💬 Hazır yanıtlar alt menüsü: yanıta tıklamak onu giriş kutusuna
+        ekler (gönderilmez); en altta ✏ Düzenle…"""
+        sub = self._ai_new_menu(parent)
+        items = _canned.load(_load_config_cached())
+        for text in items:
+            sub.add_command(label=_canned.label(text),
+                            command=lambda t=text: self._canned_insert(t))
+        if not items:
+            sub.add_command(label=_tr("Henüz hazır yanıt yok"),
+                            state="disabled")
+        sub.add_separator()
+        sub.add_command(label=_tr("✏ Düzenle…"), command=self._canned_dialog)
+        return sub
+
+    def _canned_insert(self, text):
+        """Hazır yanıtı giriş kutusundaki metnin sonuna ekle; göndermek
+        kullanıcıya kalır."""
+        current = self._ai_composer_text()
+        self._ai_set_composer_text(current + _canned.joined(current, text))
+
+    def _canned_dialog(self):
+        """✏ Hazır yanıtları düzenle: her satır bir yanıt."""
+        dlg = tk.Toplevel(self.root)
+        dlg.title(_tr("💬 Hazır yanıtlar"))
+        dlg.configure(bg=BG_CARD)
+        dlg.transient(self.root)
+        _make_popover(dlg, form=True)
+
+        tk.Label(dlg, text=_tr("💬 Hazır yanıtlar"), font=(FONT, 12, "bold"),
+                 fg=FG, bg=BG_CARD).pack(padx=16, pady=(16, 6))
+        tk.Label(dlg, text=_tr("Her satıra bir yanıt yazın. Seçtiğiniz yanıt "
+                               "giriş kutusuna eklenir, kendiliğinden "
+                               "gönderilmez."),
+                 font=(FONT, 8), fg=FG_DIM, bg=BG_CARD, wraplength=400,
+                 justify="left").pack(anchor="w", padx=16)
+        box = tk.Text(dlg, width=54, height=12, wrap="none", undo=True,
+                      font=(FONT, 10), bg=BG_HOVER, fg=FG, relief="flat",
+                      insertbackground=FG, padx=8, pady=6)
+        box.pack(fill="both", expand=True, padx=16, pady=8)
+        box.insert("1.0", _canned.editor_text(_canned.load(_load_config())))
+
+        def _save():
+            items = _canned.parse_editor(box.get("1.0", "end-1c"))
+            cfg = _load_config()
+            _canned.set_items(cfg, items)
+            _save_config(cfg)
+            dlg.destroy()
+            self._show_toast(_tr("💬 Hazır yanıtlar"),
+                             _tr("Kaydedilen yanıt: {}").format(len(items)))
+
+        bar = tk.Frame(dlg, bg=BG_CARD)
+        bar.pack(fill="x", padx=16, pady=(0, 14))
+        ttk.Button(bar, text=_tr("Kaydet"), command=_save).pack(side="right")
+        ttk.Button(bar, text=_tr("İptal"), command=dlg.destroy).pack(
+            side="right", padx=(0, 8))
+        box.focus_set()
+        box.mark_set("insert", "end-1c")
+        return dlg
 
     # ── AI asistanı (çekirdek xmppcore/ai, pencereler ui/dialogs/ai) ─────────
     # Model/ağ çağrıları daemon worker thread'lerinde koşar; sonuç ve hatalar
@@ -5386,6 +5532,8 @@ class MainWindow:
         menu.add_command(label=_tr("💡 Yanıt öner"),
                          command=lambda: self._ai_assistant_run(
                              "suggest_replies", jid))
+        menu.add_cascade(label=_tr("💬 Hazır yanıtlar"),
+                         menu=self._canned_menu(menu))
         dictating = (getattr(self, "_recording", False)
                      and getattr(self, "_rec_mode", "voice") == "dictate")
         menu.add_command(label=(_tr("⏹ Dikteyi bitir") if dictating
@@ -9034,7 +9182,8 @@ class MainWindow:
             lambda: self._toggle_pin_chat(jid),
             lambda: self._common_groups_dialog(jid),
             lambda: self._remove_contact(jid),
-            event.x_root, event.y_root)
+            event.x_root, event.y_root,
+            **self._notify_menu_args(jid, is_room=False))
 
     def _remove_contact(self, jid):
         if messagebox.askyesno(_tr("Kişiyi Kaldır"),
@@ -9064,7 +9213,8 @@ class MainWindow:
             lambda: self._destroy_room_confirm(room),
             event.x_root, event.y_root,
             room in getattr(self, "_pinned_chats", []),
-            lambda: self._toggle_pin_chat(room))
+            lambda: self._toggle_pin_chat(room),
+            **self._notify_menu_args(room, is_room=True))
 
     def _leave_room(self, room):
         nick = self.my_nick.get(room, self.jid.split("@")[0])

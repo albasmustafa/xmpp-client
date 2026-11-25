@@ -2737,4 +2737,26 @@ CATALOG = {
         "Сповіщення про кожне повідомлення",
     "Yalnız adınız geçince bildirilecek":
         "Сповіщення лише при згадці",
+    "💬 Hazır yanıtlar":
+        "💬 Швидкі відповіді",
+    "Henüz hazır yanıt yok":
+        "Швидких відповідей ще немає",
+    "✏ Düzenle…":
+        "✏ Змінити…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "Пишіть по одній відповіді в рядку. Вибрана відповідь вставляється в поле введення і ніколи не надсилається автоматично.",
+    "Kaydedilen yanıt: {}":
+        "Збережено відповідей: {}",
+    "⭐ Yıldızla":
+        "⭐ До обраного",
+    "☆ Yıldızı Kaldır":
+        "☆ Прибрати з обраного",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ Обрані повідомлення",
+    "Henüz yıldızlı mesaj yok":
+        "Обраних повідомлень ще немає",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "Цього повідомлення немає в локальній історії; не вдалося додати до обраного",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "Повідомлення не знайдено в завантаженій історії",
 }

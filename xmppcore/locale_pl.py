@@ -2737,4 +2737,26 @@ CATALOG = {
         "Powiadomienia o każdej wiadomości",
     "Yalnız adınız geçince bildirilecek":
         "Powiadomienia tylko o wzmiankach",
+    "💬 Hazır yanıtlar":
+        "💬 Szybkie odpowiedzi",
+    "Henüz hazır yanıt yok":
+        "Brak szybkich odpowiedzi",
+    "✏ Düzenle…":
+        "✏ Edytuj…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "Wpisz jedną odpowiedź w wierszu. Wybrana odpowiedź trafia do pola wiadomości; nigdy nie jest wysyłana automatycznie.",
+    "Kaydedilen yanıt: {}":
+        "Zapisane odpowiedzi: {}",
+    "⭐ Yıldızla":
+        "⭐ Oznacz gwiazdką",
+    "☆ Yıldızı Kaldır":
+        "☆ Usuń gwiazdkę",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ Wiadomości z gwiazdką",
+    "Henüz yıldızlı mesaj yok":
+        "Brak wiadomości z gwiazdką",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "Tej wiadomości nie ma w lokalnej historii; nie można oznaczyć jej gwiazdką",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "Nie znaleziono wiadomości we wczytanej historii",
 }

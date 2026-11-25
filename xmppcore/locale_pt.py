@@ -2737,4 +2737,26 @@ CATALOG = {
         "Você será notificado a cada mensagem",
     "Yalnız adınız geçince bildirilecek":
         "Você será notificado só quando for mencionado",
+    "💬 Hazır yanıtlar":
+        "💬 Respostas rápidas",
+    "Henüz hazır yanıt yok":
+        "Nenhuma resposta rápida ainda",
+    "✏ Düzenle…":
+        "✏ Editar…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "Escreva uma resposta por linha. A resposta escolhida é adicionada à caixa de mensagem; nunca é enviada automaticamente.",
+    "Kaydedilen yanıt: {}":
+        "Respostas salvas: {}",
+    "⭐ Yıldızla":
+        "⭐ Favoritar",
+    "☆ Yıldızı Kaldır":
+        "☆ Desfavoritar",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ Mensagens favoritas",
+    "Henüz yıldızlı mesaj yok":
+        "Nenhuma mensagem favorita ainda",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "Esta mensagem não está no histórico local; não foi possível favoritá-la",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "Mensagem não encontrada no histórico carregado",
 }

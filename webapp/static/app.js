@@ -392,6 +392,7 @@ const S = {
   tasks: [],
   joining: new Set(),        // kullanıcının istediği oda katılımları (küçük harf)
   notifyPrefs: {muted: {}, room_all: []},   // sunucudan (notify_policy.snapshot)
+  starred: new Set(),        // ⭐ "jid\nmid" (sunucudan: snapshot.starred)
 };
 const RETRACTED = "🚫 Bu mesaj silindi";
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
@@ -471,6 +472,7 @@ const EVENTS = {
     S.contacts.clear();
     for (const c of data.contacts) S.contacts.set(c.jid, c);
     S.notifyPrefs = data.notify_prefs || {muted: {}, room_all: []};
+    S.starred = new Set((data.starred || []).map(([j, m]) => starKey(j, m)));
     renderContacts();
     const last = localStorage.getItem("xmpp_web_last_chat");
     if (last && S.contacts.has(last)) openChat(last);
@@ -669,6 +671,11 @@ const EVENTS = {
     renderContacts();
     renderChatHeader();
   },
+  star(data) {                 // başka sekme ya da bu sekme yıldızladı
+    const k = starKey(data.jid, data.mid);
+    if (data.on) S.starred.add(k); else S.starred.delete(k);
+    if (data.jid === S.active) renderMessages();
+  },
   sys_msg(data) { toast(data); },
   error(data) { toast(data, true); },
   disconnected() { toast(_t("Bağlantı koptu — yeniden bağlanıyor…"), true);
@@ -733,6 +740,12 @@ function renderContacts() {
         c.room ? (c.subject || c.jid) : c.jid)}</div></div>` +
       (c.unread ? `<span class="badge">${c.unread}</span>` : "");
     li.onclick = () => openChat(c.jid);
+    // Sağ tık (telefonda uzun basma) → o sohbetin 🔔 Bildirimler menüsü
+    li.oncontextmenu = (e) => {
+      e.preventDefault();
+      openCtxMenu(c, e.clientX, e.clientY);
+    };
+    bindLongPress(li, (x, y) => openCtxMenu(c, x, y));
     list.appendChild(li);
   }
   let total = 0;
@@ -833,10 +846,14 @@ function rowHtml(m, prev) {
       `title="${esc(senders.map(who).join(", "))}" data-react="${esc(emoji)}">` +
       `${esc(emoji)} ${senders.length}</span>`).join("");
   const canAct = m.mid && m.body !== RETRACTED;
+  const starred = canAct && S.starred.has(starKey(S.active, m.mid));
   const tools = canAct
     ? `<div class="row-tools">` +
       `<button data-act="reply" title="${esc(_t("Yanıtla"))}">↩</button>` +
       `<button data-act="react" title="${esc(_t("Tepki"))}">😊</button>` +
+      `<button data-act="star" title="${esc(starred ? _t("☆ Yıldızı Kaldır")
+                                                   : _t("⭐ Yıldızla"))}">` +
+      `${starred ? "⭐" : "☆"}</button>` +
       (m.is_me ? `<button data-act="edit" title="${esc(_t("Düzenle"))}">✎</button>` +
                  `<button data-act="retract" title="${esc(_t("Geri çek"))}">🗑</button>`
                : "") +
@@ -846,7 +863,8 @@ function rowHtml(m, prev) {
     `<div class="bubble">` +
     (showSender ? `<div class="sender">${esc(m.sender)}</div>` : "") +
     reply + bodyHtml +
-    `<div class="meta"><span>${esc(m.ts || "")}</span>${enc}${ticks}</div>` +
+    `<div class="meta">${starred ? `<span class="star">⭐</span>` : ""}` +
+    `<span>${esc(m.ts || "")}</span>${enc}${ticks}</div>` +
     (reacts ? `<div class="reactions">${reacts}</div>` : "") +
     `</div></div>`;
 }
@@ -974,10 +992,7 @@ function closeNotifyMenu() {
   $("btn-notify").setAttribute("aria-expanded", "false");
 }
 
-function openNotifyMenu() {
-  const c = S.active ? S.contacts.get(S.active) : null;
-  if (!c) return;
-  const menu = $("notify-menu");
+function fillNotifyMenu(menu, c) {
   menu.innerHTML = "";
   for (const item of notifyMenuItems(c)) {
     if (!item) { menu.appendChild(document.createElement("hr")); continue; }
@@ -988,13 +1003,130 @@ function openNotifyMenu() {
     b.onclick = () => setNotify(c, choice);
     menu.appendChild(b);
   }
+}
+
+function openNotifyMenu() {
+  const c = S.active ? S.contacts.get(S.active) : null;
+  if (!c) return;
+  closeCtxMenu();
+  const menu = $("notify-menu");
+  fillNotifyMenu(menu, c);
   menu.classList.remove("hidden");
   $("btn-notify").setAttribute("aria-expanded", "true");
   menu.querySelector("button")?.focus();
 }
 
+/* Kenar çubuğunda sağ tık / uzun basma: aynı menü, imlecin yanında */
+function openCtxMenu(c, x, y) {
+  closeNotifyMenu();
+  const menu = $("ctx-menu");
+  fillNotifyMenu(menu, c);
+  const title = document.createElement("div");
+  title.className = "pop-title";
+  title.textContent = c.room ? `# ${c.name}` : c.name;
+  menu.prepend(title);
+  menu.classList.remove("hidden");
+  const w = menu.offsetWidth, h = menu.offsetHeight;
+  menu.style.left = Math.max(8, Math.min(x, innerWidth - w - 8)) + "px";
+  menu.style.top = Math.max(8, Math.min(y, innerHeight - h - 8)) + "px";
+  menu.querySelector("button")?.focus();
+}
+
+function closeCtxMenu() {
+  $("ctx-menu").classList.add("hidden");
+}
+
+function bindLongPress(el, fn) {
+  // iOS Safari uzun basmada contextmenu olayı vermez; Android ikisini de
+  // verir (menü aynı yerde yeniden açılır). Uzun basmadan sonraki tıklama
+  // sohbeti açmasın.
+  let timer = null, fired = false;
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  el.addEventListener("touchstart", (e) => {
+    fired = false;
+    const t = e.touches[0];
+    timer = setTimeout(() => { fired = true; fn(t.clientX, t.clientY); }, 550);
+  }, {passive: true});
+  el.addEventListener("touchmove", cancel, {passive: true});
+  el.addEventListener("touchcancel", cancel);
+  el.addEventListener("touchend", (e) => {
+    cancel();
+    if (fired) e.preventDefault();
+  });
+}
+
+/* ── hazır yanıtlar (kurallar sunucuda: xmppcore/canned) ─────────────── */
+async function openCannedMenu() {
+  const r = await wsSend("get_canned", {});
+  if (!r.ok) {
+    toast(r.error || _t("Bağlantı koptu — yeniden bağlanıyor…"), true);
+    return;
+  }
+  const menu = $("canned-menu");
+  menu.innerHTML = "";
+  for (const text of r.items) {
+    const b = document.createElement("button");
+    b.setAttribute("role", "menuitem");
+    b.textContent = text;
+    b.title = text;
+    b.onclick = () => { closeCannedMenu(); insertCanned(text); };
+    menu.appendChild(b);
+  }
+  if (!r.items.length) {
+    const empty = document.createElement("div");
+    empty.className = "pop-title";
+    empty.textContent = _t("Henüz hazır yanıt yok");
+    menu.appendChild(empty);
+  }
+  menu.appendChild(document.createElement("hr"));
+  const edit = document.createElement("button");
+  edit.setAttribute("role", "menuitem");
+  edit.textContent = _t("✏ Düzenle…");
+  edit.onclick = () => { closeCannedMenu(); openCannedEditor(r.items); };
+  menu.appendChild(edit);
+  menu.classList.remove("hidden");
+  $("btn-canned").setAttribute("aria-expanded", "true");
+  menu.querySelector("button")?.focus();
+}
+
+function closeCannedMenu() {
+  $("canned-menu").classList.add("hidden");
+  $("btn-canned").setAttribute("aria-expanded", "false");
+}
+
+function insertCanned(text) {
+  // İmlecin olduğu yere eklenir; gönderilmez (masaüstüyle aynı)
+  const ta = $("composer");
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? start;
+  const before = ta.value.slice(0, start);
+  const pad = before && !/\s$/.test(before) ? " " : "";
+  ta.value = before + pad + text + ta.value.slice(end);
+  const pos = (before + pad + text).length;
+  ta.focus();
+  ta.setSelectionRange(pos, pos);
+  ta.dispatchEvent(new Event("input"));
+}
+
+function openCannedEditor(items) {
+  $("canned-text").value = items.join("\n");
+  $("dlg-canned").showModal();
+  $("canned-text").focus();
+}
+
+async function saveCanned() {
+  const r = await wsSend("set_canned", {text: $("canned-text").value});
+  if (!r.ok) {
+    toast(r.error || _t("Bağlantı koptu — yeniden bağlanıyor…"), true);
+    return;
+  }
+  $("dlg-canned").close();
+  toast(fmt("Kaydedilen yanıt: {}", r.items.length));
+}
+
 async function setNotify(c, choice) {
   closeNotifyMenu();
+  closeCtxMenu();
   const r = await wsSend("set_notify", {jid: c.jid, choice});
   if (!r.ok) {
     toast(r.error || _t("Bağlantı koptu — yeniden bağlanıyor…"), true);
@@ -1093,10 +1225,81 @@ function rowAction(act, rowEl) {
     $("composer").focus();
   } else if (act === "retract") {
     wsSend("retract", {to: S.active, mid});
+  } else if (act === "star") {
+    toggleStar(S.active, mid);
   } else if (act === "react") {
     const pick = prompt("Emoji: " + QUICK_EMOJIS.join(" "), "👍");
     if (pick) toggleReaction(mid, pick.trim());
   }
+}
+
+/* ── ⭐ yıldızlı mesajlar (masaüstüyle ortak DB: messages.starred) ───── */
+function starKey(jid, mid) {
+  return `${jid}\n${mid}`;
+}
+
+async function toggleStar(jid, mid) {
+  const on = !S.starred.has(starKey(jid, mid));
+  const r = await wsSend("star", {jid, mid, on});
+  if (!r.ok) {
+    toast(r.error || _t("Bağlantı koptu — yeniden bağlanıyor…"), true);
+    return;
+  }
+  if (on) S.starred.add(starKey(jid, mid)); else S.starred.delete(starKey(jid, mid));
+  if (jid === S.active) renderMessages();
+}
+
+async function openStarred() {
+  const r = await wsSend("starred", {});
+  if (!r.ok) {
+    toast(r.error || _t("Bağlantı koptu — yeniden bağlanıyor…"), true);
+    return;
+  }
+  S.starred = new Set(r.items.map((i) => starKey(i.jid, i.mid)));
+  const list = $("starred-list");
+  list.innerHTML = r.items.map((i, n) =>
+    `<li data-n="${n}"><div class="starred-text">` +
+    `<div class="dim small">${esc(i.chat)} · ` +
+    `${esc([dayLabel(i.stored_at), i.ts].filter(Boolean).join(" "))}</div>` +
+    `<div>${esc(i.is_me ? who("Ben") : i.sender)}: ${esc(i.body)}</div></div>` +
+    `<button data-unstar="${n}" title="${esc(_t("☆ Yıldızı Kaldır"))}">⭐</button>` +
+    `</li>`).join("") ||
+    `<li class="dim">${esc(_t("Henüz yıldızlı mesaj yok"))}</li>`;
+  list.querySelectorAll("li[data-n]").forEach((li) => {
+    const it = r.items[+li.dataset.n];
+    li.onclick = () => {
+      $("dlg-starred").close();
+      openStarredMessage(it.jid, it.mid);
+    };
+  });
+  list.querySelectorAll("[data-unstar]").forEach((b) => {
+    const it = r.items[+b.dataset.unstar];
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      const rr = await wsSend("star", {jid: it.jid, mid: it.mid, on: false});
+      if (!rr.ok) {
+        toast(rr.error || _t("Bağlantı koptu — yeniden bağlanıyor…"), true);
+        return;
+      }
+      S.starred.delete(starKey(it.jid, it.mid));
+      b.closest("li").remove();
+      if (it.jid === S.active) renderMessages();
+    };
+  });
+  $("dlg-starred").showModal();
+}
+
+async function openStarredMessage(jid, mid) {
+  await openChat(jid);
+  const el = [...$("messages").querySelectorAll(".row[data-mid]")]
+    .find((x) => x.dataset.mid === mid);
+  if (!el) {
+    toast(_t("Mesaj yüklenen geçmişte bulunamadı"));
+    return;
+  }
+  el.scrollIntoView({block: "center"});
+  el.classList.add("flash");
+  setTimeout(() => el.classList.remove("flash"), 1600);
 }
 
 async function toggleReaction(mid, emoji) {
@@ -1500,10 +1703,30 @@ function bind() {
     else closeNotifyMenu();
   };
   // Dışarı tıklama ya da Esc menüyü kapatır (masaüstü açılır kartları gibi)
+  $("btn-starred").onclick = () => openStarred();
+  $("starred-close").onclick = () => $("dlg-starred").close();
+  $("btn-canned").onclick = (e) => {
+    e.stopPropagation();
+    if ($("canned-menu").classList.contains("hidden")) openCannedMenu();
+    else closeCannedMenu();
+  };
+  $("canned-save").onclick = (e) => {
+    e.preventDefault();
+    saveCanned();
+  };
   document.addEventListener("click", (e) => {
     if (!$("notify-menu").contains(e.target)) closeNotifyMenu();
+    if (!$("ctx-menu").contains(e.target)) closeCtxMenu();
+    if (!$("canned-menu").contains(e.target)) closeCannedMenu();
   });
   document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("ctx-menu").classList.contains("hidden")) {
+      closeCtxMenu();
+    }
+    if (e.key === "Escape" && !$("canned-menu").classList.contains("hidden")) {
+      closeCannedMenu();
+      $("composer").focus();
+    }
     if (e.key === "Escape" && !$("notify-menu").classList.contains("hidden")) {
       closeNotifyMenu();
       $("btn-notify").focus();

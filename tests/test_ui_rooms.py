@@ -32,7 +32,7 @@ def _ev():
 def test_room_context_menu_delegates_and_routes(monkeypatch):
     captured = []
     monkeypatch.setattr(ui_rooms, "show_room_menu",
-                        lambda *a: captured.append(a))
+                        lambda *a, **k: captured.append(a))
     win = object.__new__(xmpp.MainWindow)
     win.root = "ROOT"
     win.jid = "ben@x"
@@ -65,7 +65,7 @@ def test_room_context_menu_delegates_and_routes(monkeypatch):
 def test_room_context_menu_member_flags(monkeypatch):
     captured = []
     monkeypatch.setattr(ui_rooms, "show_room_menu",
-                        lambda *a: captured.append(a))
+                        lambda *a, **k: captured.append(a))
     win = object.__new__(xmpp.MainWindow)
     win.root = "ROOT"
     win.jid = "ben@x"
@@ -82,7 +82,7 @@ def test_room_context_menu_member_flags(monkeypatch):
 def test_room_context_menu_out_of_range_noop(monkeypatch):
     captured = []
     monkeypatch.setattr(ui_rooms, "show_room_menu",
-                        lambda *a: captured.append(a))
+                        lambda *a, **k: captured.append(a))
     win = object.__new__(xmpp.MainWindow)
     win._room_jids = []
     win.room_list = _List(0)

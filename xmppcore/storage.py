@@ -52,6 +52,10 @@ def _init_db():
             conn.execute("PRAGMA table_info(messages)").fetchall()}
     if "local_path" not in cols:
         conn.execute("ALTER TABLE messages ADD COLUMN local_path TEXT DEFAULT ''")
+    # ⭐ Yıldızlı mesaj: bayrak satırın kendisindedir — düzeltme gövdeyle
+    # gelir, geçmiş silinince yıldız da gider (ayrı tablo öksüz kalmaz).
+    if "starred" not in cols:
+        conn.execute("ALTER TABLE messages ADD COLUMN starred INTEGER DEFAULT 0")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_jid ON messages(jid)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_ts ON messages(timestamp)")
     # AI türetilmiş verisi: mesaj gömmeleri (anlamsal arama) ve pahalı
@@ -333,6 +337,62 @@ def _db_unanswered(scan_limit=5000):
     except Exception:
         _log.error("Yanıt bekleyen mesajlar okunamadı", exc_info=True)
         return []
+
+# ── ⭐ Yıldızlı mesajlar ────────────────────────────────────────────────────
+
+def _db_set_starred(jid, mid, on=True) -> bool:
+    """(jid, mid) mesajını yıldızla / yıldızını kaldır. mid sohbetler arası
+    benzersiz olmadığından sohbet kapsamlıdır. Satır yoksa (ör. yalnız
+    bellekte duran MAM geçmişi) False."""
+    if not (jid and mid):
+        return False
+    try:
+        db = _get_db()
+        with _db_lock:
+            cur = db.execute("UPDATE messages SET starred=? WHERE jid=? AND mid=?",
+                             (1 if on else 0, jid, mid))
+            db.commit()
+        return cur.rowcount > 0
+    except Exception:
+        _log.error("Yıldız kaydedilemedi (jid=%s, mid=%s)", jid, mid,
+                   exc_info=True)
+        return False
+
+
+def _db_is_starred(jid, mid) -> bool:
+    if not (jid and mid):
+        return False
+    try:
+        db = _get_db()
+        with _db_lock:
+            row = db.execute("SELECT 1 FROM messages WHERE jid=? AND mid=? "
+                             "AND starred=1 LIMIT 1", (jid, mid)).fetchone()
+        return row is not None
+    except Exception:
+        _log.error("Yıldız okunamadı (jid=%s, mid=%s)", jid, mid, exc_info=True)
+        return False
+
+
+def _db_load_starred(limit=500, skip_bodies=()):
+    """Yıldızlı mesajlar, yeniden eskiye (aynı (jid, mid) bir kez):
+    [(jid, sender, body, is_me, timestamp, stored_at, mid, encrypted)].
+    `skip_bodies`: listelenmeyecek gövdeler (geri çekilmiş işaret metni)."""
+    try:
+        db = _get_db()
+        with _db_lock:
+            rows = db.execute(
+                "SELECT jid, sender, body, is_me, timestamp, "
+                "COALESCE(stored_at, ''), mid, encrypted FROM messages "
+                "WHERE id IN (SELECT MAX(id) FROM messages WHERE starred=1 "
+                "AND COALESCE(mid, '') != '' GROUP BY jid, mid) "
+                "ORDER BY COALESCE(NULLIF(stored_at, ''), '0') DESC, id DESC "
+                "LIMIT ?", (int(limit),)).fetchall()
+        skip = set(skip_bodies)
+        return [r for r in rows if r[2] not in skip]
+    except Exception:
+        _log.error("Yıldızlı mesajlar okunamadı", exc_info=True)
+        return []
+
 
 def _db_clear_chat(jid):
     try:

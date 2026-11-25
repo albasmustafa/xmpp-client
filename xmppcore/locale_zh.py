@@ -2737,4 +2737,26 @@ CATALOG = {
         "每条消息都会通知",
     "Yalnız adınız geçince bildirilecek":
         "仅在被提及时通知",
+    "💬 Hazır yanıtlar":
+        "💬 快捷回复",
+    "Henüz hazır yanıt yok":
+        "暂无快捷回复",
+    "✏ Düzenle…":
+        "✏ 编辑…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "每行写一条回复。所选回复会插入输入框，绝不会自动发送。",
+    "Kaydedilen yanıt: {}":
+        "已保存的回复：{}",
+    "⭐ Yıldızla":
+        "⭐ 星标",
+    "☆ Yıldızı Kaldır":
+        "☆ 取消星标",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ 星标消息",
+    "Henüz yıldızlı mesaj yok":
+        "暂无星标消息",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "此消息不在本地历史中，无法加星标",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "在已加载的历史中找不到该消息",
 }

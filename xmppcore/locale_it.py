@@ -2737,4 +2737,26 @@ CATALOG = {
         "Riceverai una notifica per ogni messaggio",
     "Yalnız adınız geçince bildirilecek":
         "Riceverai una notifica solo se menzionato",
+    "💬 Hazır yanıtlar":
+        "💬 Risposte rapide",
+    "Henüz hazır yanıt yok":
+        "Ancora nessuna risposta rapida",
+    "✏ Düzenle…":
+        "✏ Modifica…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "Scrivi una risposta per riga. La risposta scelta viene aggiunta alla casella del messaggio; non viene mai inviata automaticamente.",
+    "Kaydedilen yanıt: {}":
+        "Risposte salvate: {}",
+    "⭐ Yıldızla":
+        "⭐ Contrassegna con stella",
+    "☆ Yıldızı Kaldır":
+        "☆ Rimuovi stella",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ Messaggi con stella",
+    "Henüz yıldızlı mesaj yok":
+        "Ancora nessun messaggio con stella",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "Questo messaggio non è nella cronologia locale; impossibile aggiungere la stella",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "Messaggio non trovato nella cronologia caricata",
 }

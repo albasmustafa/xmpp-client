@@ -2737,4 +2737,26 @@ CATALOG = {
         "Уведомления о каждом сообщении",
     "Yalnız adınız geçince bildirilecek":
         "Уведомления только при упоминании",
+    "💬 Hazır yanıtlar":
+        "💬 Быстрые ответы",
+    "Henüz hazır yanıt yok":
+        "Быстрых ответов пока нет",
+    "✏ Düzenle…":
+        "✏ Изменить…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "Пишите по одному ответу в строке. Выбранный ответ вставляется в поле ввода и никогда не отправляется автоматически.",
+    "Kaydedilen yanıt: {}":
+        "Сохранено ответов: {}",
+    "⭐ Yıldızla":
+        "⭐ В избранное",
+    "☆ Yıldızı Kaldır":
+        "☆ Убрать из избранного",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ Избранные сообщения",
+    "Henüz yıldızlı mesaj yok":
+        "Избранных сообщений пока нет",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "Этого сообщения нет в локальной истории; не удалось добавить в избранное",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "Сообщение не найдено в загруженной истории",
 }

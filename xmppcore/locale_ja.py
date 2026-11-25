@@ -2737,4 +2737,26 @@ CATALOG = {
         "すべてのメッセージを通知します",
     "Yalnız adınız geçince bildirilecek":
         "メンションされたときのみ通知します",
+    "💬 Hazır yanıtlar":
+        "💬 クイック返信",
+    "Henüz hazır yanıt yok":
+        "クイック返信はまだありません",
+    "✏ Düzenle…":
+        "✏ 編集…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "1 行に 1 つずつ返信を書いてください。選んだ返信は入力欄に挿入され、自動で送信されることはありません。",
+    "Kaydedilen yanıt: {}":
+        "保存した返信：{}",
+    "⭐ Yıldızla":
+        "⭐ スターを付ける",
+    "☆ Yıldızı Kaldır":
+        "☆ スターを外す",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ スター付きメッセージ",
+    "Henüz yıldızlı mesaj yok":
+        "スター付きメッセージはまだありません",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "このメッセージはローカル履歴にないため、スターを付けられませんでした",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "読み込んだ履歴にメッセージが見つかりません",
 }

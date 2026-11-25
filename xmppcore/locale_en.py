@@ -2909,4 +2909,26 @@ EN = {
         "You will be notified for every message",
     "Yalnız adınız geçince bildirilecek":
         "You will be notified only when mentioned",
+    "💬 Hazır yanıtlar":
+        "💬 Quick replies",
+    "Henüz hazır yanıt yok":
+        "No quick replies yet",
+    "✏ Düzenle…":
+        "✏ Edit…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "Write one reply per line. The reply you pick is added to the message box; it is never sent automatically.",
+    "Kaydedilen yanıt: {}":
+        "Replies saved: {}",
+    "⭐ Yıldızla":
+        "⭐ Star",
+    "☆ Yıldızı Kaldır":
+        "☆ Unstar",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ Starred Messages",
+    "Henüz yıldızlı mesaj yok":
+        "No starred messages yet",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "This message is not in the local history; it could not be starred",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "Message not found in the loaded history",
 }

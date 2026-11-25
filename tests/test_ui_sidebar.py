@@ -194,7 +194,7 @@ def test_update_sidebar_avatar_none_data_fallback(monkeypatch):
 def test_contact_context_menu_delegates_and_routes(monkeypatch):
     captured = []
     monkeypatch.setattr(ui_sidebar, "show_contact_menu",
-                        lambda *a: captured.append(a))
+                        lambda *a, **k: captured.append(a))
     win = object.__new__(xmpp.MainWindow)
     win.root = "ROOT"
     win._contact_jids = ["a@x", "b@x"]
@@ -234,7 +234,7 @@ def test_contact_context_menu_delegates_and_routes(monkeypatch):
 def test_contact_context_menu_out_of_range_noop(monkeypatch):
     captured = []
     monkeypatch.setattr(ui_sidebar, "show_contact_menu",
-                        lambda *a: captured.append(a))
+                        lambda *a, **k: captured.append(a))
     win = object.__new__(xmpp.MainWindow)
     win.root = "ROOT"
     win._contact_jids = []

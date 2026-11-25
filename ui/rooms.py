@@ -10,6 +10,8 @@ Kurallar:
 """
 import tkinter as tk
 
+from ui.sidebar import add_notify_cascade
+
 
 def _app():
     import xmpp as _app_mod
@@ -23,8 +25,10 @@ def _tr(text):
 
 def show_room_menu(parent, room, subject, can_admin, is_owner,
                     on_change_subject, on_invite, on_config, on_leave,
-                   on_destroy, x_root, y_root, is_pinned=False, on_toggle_pin=None):
-    """Oda sağ tık menüsü (MainWindow._room_context_menu)."""
+                   on_destroy, x_root, y_root, is_pinned=False, on_toggle_pin=None,
+                   *, notify_items=None, on_notify=None):
+    """Oda sağ tık menüsü (MainWindow._room_context_menu). `notify_items` +
+    `on_notify` verilirse 🔔 Bildirimler alt menüsü eklenir."""
     A = _app()
     menu = tk.Menu(parent, tearoff=0,
                    bg=A.BG_CARD, fg=A.FG, activebackground=A.ACCENT2,
@@ -37,9 +41,13 @@ def show_room_menu(parent, room, subject, can_admin, is_owner,
         menu.add_command(label=f"  📌 {short}", state="disabled")
     menu.add_separator()
 
+    has_notify = bool(notify_items) and on_notify is not None
     if on_toggle_pin is not None:
         menu.add_command(label=f"📌 {A._t('unpin' if is_pinned else 'pin')}",
                          command=on_toggle_pin)
+    if has_notify:
+        add_notify_cascade(menu, notify_items, on_notify)
+    if on_toggle_pin is not None or has_notify:
         menu.add_separator()
 
     menu.add_command(label=_tr("  📝 Konu Değiştir"), command=on_change_subject)

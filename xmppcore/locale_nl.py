@@ -2737,4 +2737,26 @@ CATALOG = {
         "Je krijgt een melding bij elk bericht",
     "Yalnız adınız geçince bildirilecek":
         "Je krijgt alleen een melding bij vermelding",
+    "💬 Hazır yanıtlar":
+        "💬 Snelle antwoorden",
+    "Henüz hazır yanıt yok":
+        "Nog geen snelle antwoorden",
+    "✏ Düzenle…":
+        "✏ Bewerken…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "Schrijf één antwoord per regel. Het gekozen antwoord komt in het berichtvak; het wordt nooit automatisch verzonden.",
+    "Kaydedilen yanıt: {}":
+        "Opgeslagen antwoorden: {}",
+    "⭐ Yıldızla":
+        "⭐ Ster toevoegen",
+    "☆ Yıldızı Kaldır":
+        "☆ Ster verwijderen",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ Berichten met ster",
+    "Henüz yıldızlı mesaj yok":
+        "Nog geen berichten met ster",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "Dit bericht staat niet in de lokale geschiedenis; ster toevoegen mislukt",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "Bericht niet gevonden in de geladen geschiedenis",
 }

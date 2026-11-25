@@ -53,6 +53,7 @@
         <option value="dnd">Meşgul</option>
       </select>
       <input id="presence-status" type="text" placeholder="durum mesajı">
+      <button id="btn-starred" title="⭐ Yıldızlı Mesajlar">⭐</button>
       <button id="btn-ai" title="AI Asistanı">✨</button>
       <button id="btn-settings" title="Ayarlar">⚙</button>
       <button id="btn-logout" title="Çıkış">⎋</button>
@@ -113,6 +114,9 @@
       </div>
       <div class="composer">
         <button id="btn-attach" title="Dosya gönder">📎</button>
+        <button id="btn-canned" title="💬 Hazır yanıtlar"
+                aria-haspopup="menu" aria-expanded="false">💬</button>
+        <div id="canned-menu" class="pop-menu up hidden" role="menu"></div>
         <input id="file-input" type="file" multiple class="hidden">
         <textarea id="composer" rows="1"
           placeholder="Mesaj yazın — Enter gönder, Shift+Enter satır"></textarea>
@@ -252,6 +256,29 @@
   </div>
 </dialog>
 
+<dialog id="dlg-starred">
+  <div class="dlg-body">
+    <h3>⭐ Yıldızlı Mesajlar</h3>
+    <ul id="starred-list" class="starred-list"></ul>
+    <menu>
+      <button id="starred-close">Kapat</button>
+    </menu>
+  </div>
+</dialog>
+
+<dialog id="dlg-canned">
+  <form method="dialog" class="dlg-body">
+    <h3>💬 Hazır yanıtlar</h3>
+    <p class="dim small">Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.</p>
+    <textarea id="canned-text" rows="10"></textarea>
+    <menu>
+      <button value="cancel">İptal</button>
+      <button id="canned-save" value="ok" class="primary">Kaydet</button>
+    </menu>
+  </form>
+</dialog>
+
+<div id="ctx-menu" class="pop-menu ctx hidden" role="menu"></div>
 <div id="toasts"></div>
 <script src="/static/app.js"></script>
 </body>

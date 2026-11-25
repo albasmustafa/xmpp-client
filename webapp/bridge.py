@@ -14,10 +14,11 @@ import time
 from datetime import datetime
 
 from webapp import media as _media
+from xmppcore import canned as _canned
 from xmppcore import notify_policy as _notify
 from xmppcore import sensitive as _sensitive
 from xmppcore import storage as _storage
-from xmppcore.ai import RETRACTED_BODY
+from xmppcore.ai import RETRACTED_BODY, display_text
 from xmppcore.config import _load_config, _load_config_cached, _save_config
 from xmppcore.constants import _log
 from xmppcore.helpers import _new_msg_id
@@ -605,6 +606,15 @@ class WebSession:
             return {"ok": True}
         if cmd == "set_notify":
             return self._cmd_set_notify(args)
+        if cmd == "star":
+            return self._cmd_star(args)
+        if cmd == "starred":
+            return {"ok": True, "items": self._starred_items()}
+        if cmd == "get_canned":
+            return {"ok": True,
+                    "items": _canned.load(_load_config_cached())}
+        if cmd == "set_canned":
+            return self._cmd_set_canned(args)
         if cmd == "approve_subscribe":
             if bot:
                 bot.approve_subscribe(args.get("jid", ""),
@@ -656,6 +666,47 @@ class WebSession:
         prefs = _notify.snapshot(cfg)
         self._broadcast({"ev": "notify_prefs", "data": prefs})
         return {"ok": True, "prefs": prefs}
+
+    # ── ⭐ Yıldızlı mesajlar (masaüstüyle ortak DB: messages.starred) ───────
+    def _starred_items(self) -> list:
+        """Yeniden eskiye; geri çekilmiş mesaj listelenmez."""
+        items = []
+        for (jid, sender, body, is_me, ts, stored_at, mid,
+             enc) in _storage._db_load_starred(skip_bodies=(RETRACTED_BODY,)):
+            chat = (self.contacts.get(jid)
+                    or (jid.split("@")[0] if jid in self.rooms else jid))
+            items.append({"jid": jid, "mid": mid, "chat": chat,
+                          "sender": sender or "", "body": display_text(body or ""),
+                          "is_me": bool(is_me), "ts": ts or "",
+                          "stored_at": stored_at or "", "encrypted": bool(enc)})
+        return items
+
+    def _cmd_star(self, args) -> dict:
+        """{jid, mid, on}: yıldızla / yıldızı kaldır; bütün sekmelere `star`."""
+        jid = (args.get("jid") or "").strip()
+        mid = (args.get("mid") or "").strip()
+        if "@" not in jid or not mid:
+            return {"ok": False,
+                    "error": _tr("Geçersiz parametre: {}").format("mid")}
+        on = bool(args.get("on", True))
+        if not _storage._db_set_starred(jid, mid, on):
+            return {"ok": False,
+                    "error": _tr("Bu mesaj yerel geçmişte yok; yıldızlanamadı")}
+        self._broadcast({"ev": "star", "data": {"jid": jid, "mid": mid,
+                                                "on": on}})
+        return {"ok": True, "on": on}
+
+    def _cmd_set_canned(self, args) -> dict:
+        """💬 Hazır yanıtlar düzenleyicisi: her satır bir yanıt
+        (masaüstüyle ortak config "canned_replies")."""
+        text = args.get("text")
+        if not isinstance(text, str):
+            return {"ok": False,
+                    "error": _tr("Geçersiz parametre: {}").format("text")}
+        cfg = _load_config()
+        _canned.set_items(cfg, _canned.parse_editor(text))
+        _save_config(cfg)
+        return {"ok": True, "items": cfg[_canned.KEY]}
 
     def _cmd_send(self, args) -> dict:
         to = (args.get("to") or "").strip()
@@ -793,7 +844,9 @@ class WebSession:
             })
         return {"jid": self.jid, "contacts": contacts,
                 "unread_total": sum(self.unread.values()),
-                "notify_prefs": _notify.snapshot(_load_config_cached())}
+                "notify_prefs": _notify.snapshot(_load_config_cached()),
+                "starred": [[it["jid"], it["mid"]]
+                            for it in self._starred_items()]}
 
     def history(self, jid: str, before: tuple | None = None,
                 limit: int = 60) -> dict:

@@ -2737,4 +2737,26 @@ CATALOG = {
         "모든 메시지를 알립니다",
     "Yalnız adınız geçince bildirilecek":
         "언급될 때만 알립니다",
+    "💬 Hazır yanıtlar":
+        "💬 빠른 답장",
+    "Henüz hazır yanıt yok":
+        "아직 빠른 답장이 없습니다",
+    "✏ Düzenle…":
+        "✏ 편집…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "한 줄에 답장을 하나씩 입력하세요. 선택한 답장은 입력란에 추가되며 자동으로 전송되지 않습니다.",
+    "Kaydedilen yanıt: {}":
+        "저장된 답장: {}",
+    "⭐ Yıldızla":
+        "⭐ 별표",
+    "☆ Yıldızı Kaldır":
+        "☆ 별표 해제",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ 별표 메시지",
+    "Henüz yıldızlı mesaj yok":
+        "아직 별표 메시지가 없습니다",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "이 메시지는 로컬 기록에 없어 별표를 표시할 수 없습니다",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "불러온 기록에서 메시지를 찾을 수 없습니다",
 }

@@ -268,12 +268,35 @@ def update_sidebar_avatar(canvas, jid, data, photo_refs=None):
                        width=2)
 
 
+def add_notify_cascade(menu, items, on_pick):
+    """Sağ tık menülerine "🔔 Bildirimler" alt menüsü ekler.
+
+    `items` `xmpp._notify_menu_spec` çıktısıdır (("item", etiket, anahtar) /
+    ("sep",)); seçilen anahtar `on_pick(anahtar)` ile MainWindow'a döner.
+    """
+    A = _app()
+    sub = tk.Menu(menu, tearoff=0,
+                  bg=A.BG_CARD, fg=A.FG, activebackground=A.ACCENT2,
+                  activeforeground=A.FG_ME, borderwidth=1,
+                  relief="flat", font=(A.FONT, 9))
+    for item in items:
+        if item[0] == "sep":
+            sub.add_separator()
+        else:
+            sub.add_command(label=item[1],
+                            command=lambda key=item[2]: on_pick(key))
+    menu.add_cascade(label=_tr("🔔 Bildirimler"), menu=sub)
+    return sub
+
+
 def show_contact_menu(parent, jid, is_pinned, on_open_chat, on_toggle_pin,
-                      on_common_groups, on_remove_contact, x_root, y_root):
+                      on_common_groups, on_remove_contact, x_root, y_root,
+                      *, notify_items=None, on_notify=None):
     """Kişi sağ tık menüsü (Faz 4B-2B).
 
     Menü yalnızca görsel kabuktur; eylemler callback'lere delege edilir
-    (domain/XMPP çağrısı yapılmaz).
+    (domain/XMPP çağrısı yapılmaz). `notify_items` + `on_notify` verilirse
+    🔔 Bildirimler alt menüsü (sessize alma) eklenir.
     """
     A = _app()
     menu = tk.Menu(parent, tearoff=0,
@@ -287,6 +310,8 @@ def show_contact_menu(parent, jid, is_pinned, on_open_chat, on_toggle_pin,
         menu.add_command(label=_tr("📌 Sabitlemeyi Kaldır"), command=on_toggle_pin)
     else:
         menu.add_command(label=_tr("📌 Sohbeti Sabitle"), command=on_toggle_pin)
+    if notify_items and on_notify is not None:
+        add_notify_cascade(menu, notify_items, on_notify)
     menu.add_command(label=_tr("🏠 Ortak Gruplar"), command=on_common_groups)
     menu.add_command(label=_tr("  Kişiyi Kaldır"), command=on_remove_contact)
     menu.tk_popup(x_root, y_root)

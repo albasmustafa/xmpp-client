@@ -887,3 +887,18 @@ def test_api_key_field_is_not_autofilled_with_login_password():
     html = (srv.STATIC_DIR / "index.html").read_text(encoding="utf-8")
     line = next(ln for ln in html.splitlines() if 'id="s-api-key"' in ln)
     assert 'autocomplete="new-password"' in line
+
+
+def test_sidebar_right_click_opens_notify_menu_for_that_chat():
+    """🔔 Bildirimler yalnız açık sohbetin başlık düğmesindeydi; kenar
+    çubuğunda sağ tık (telefonda uzun basma) o sohbetin menüsünü açar."""
+    js = (srv.STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    html = (srv.STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    assert 'id="ctx-menu"' in html
+    render = js.split("function renderContacts()", 1)[1].split("\nfunction ", 1)[0]
+    assert "li.oncontextmenu" in render and "openCtxMenu(c," in render
+    assert "bindLongPress(li," in render
+    set_notify = js.split("async function setNotify(", 1)[1].split("\nfunction ", 1)[0]
+    assert "closeCtxMenu()" in set_notify
+    # başlık menüsü ve sağ tık menüsü aynı öğeleri kullanır
+    assert js.count("fillNotifyMenu(menu, c);") == 2

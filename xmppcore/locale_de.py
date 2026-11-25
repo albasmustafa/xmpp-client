@@ -2737,4 +2737,26 @@ CATALOG = {
         "Benachrichtigung bei jeder Nachricht",
     "Yalnız adınız geçince bildirilecek":
         "Benachrichtigung nur bei Erwähnung",
+    "💬 Hazır yanıtlar":
+        "💬 Schnellantworten",
+    "Henüz hazır yanıt yok":
+        "Noch keine Schnellantworten",
+    "✏ Düzenle…":
+        "✏ Bearbeiten…",
+    "Her satıra bir yanıt yazın. Seçtiğiniz yanıt giriş kutusuna eklenir, kendiliğinden gönderilmez.":
+        "Eine Antwort pro Zeile. Die gewählte Antwort wird ins Eingabefeld eingefügt und nie automatisch gesendet.",
+    "Kaydedilen yanıt: {}":
+        "Gespeicherte Antworten: {}",
+    "⭐ Yıldızla":
+        "⭐ Mit Stern markieren",
+    "☆ Yıldızı Kaldır":
+        "☆ Stern entfernen",
+    "⭐ Yıldızlı Mesajlar":
+        "⭐ Markierte Nachrichten",
+    "Henüz yıldızlı mesaj yok":
+        "Noch keine markierten Nachrichten",
+    "Bu mesaj yerel geçmişte yok; yıldızlanamadı":
+        "Diese Nachricht ist nicht im lokalen Verlauf; sie konnte nicht markiert werden",
+    "Mesaj yüklenen geçmişte bulunamadı":
+        "Nachricht im geladenen Verlauf nicht gefunden",
 }

@@ -76,8 +76,9 @@ def position_action_bar(row, bar):
 
 
 def show_context_menu(parent, x, y, *, theme, t, caps, mine, has_reactions,
-                      callbacks):
-    """Sağ tık menüsü. `caps` MainWindow'da hesaplanır; burada yalnız görünüm."""
+                      callbacks, starred=False):
+    """Sağ tık menüsü. `caps` MainWindow'da hesaplanır; burada yalnız görünüm.
+    `caps["star"]` + `starred`: ⭐ Yıldızla / ☆ Yıldızı Kaldır (📌'dan sonra)."""
     menu = tk.Menu(parent, tearoff=0, bg=theme["BG_CARD"], fg=theme["FG"],
                    activebackground=theme["SEL_BG"],
                    activeforeground=theme["SEL_FG"],
@@ -102,6 +103,10 @@ def show_context_menu(parent, x, y, *, theme, t, caps, mine, has_reactions,
     if caps.get("pin"):
         menu.add_command(label=f"📌 {t('pin')}",
                          command=callbacks["on_pin"])
+    if caps.get("star"):
+        menu.add_command(label=(_tr("☆ Yıldızı Kaldır") if starred
+                                else _tr("⭐ Yıldızla")),
+                         command=callbacks["on_star"])
     if caps.get("react"):
         menu.add_separator()
         react_menu = tk.Menu(menu, tearoff=0, bg=theme["BG_CARD"],
