@@ -33,6 +33,15 @@ def db(monkeypatch, tmp_path):
     xmpp._db_conn = None
 
 
+@pytest.fixture()
+def ro(db):
+    """Betiğin salt okunur bağlantısı; test bitince kapanır (açık kalınca
+    GC'de "ResourceWarning: unclosed database" veriyordu)."""
+    conn = pc.connect(db)
+    yield conn
+    conn.close()
+
+
 def _writer():
     return st._get_db()
 
@@ -50,8 +59,7 @@ def test_wait_for_times_out_without_real_sleep():
     assert pc.wait_for(lambda: "ok", 5, sleep=lambda s: None) == "ok"
 
 
-def test_full_flow_detects_each_phone_action(db, monkeypatch, capsys):
-    ro = pc.connect(db)
+def test_full_flow_detects_each_phone_action(ro, monkeypatch, capsys):
     w = _writer()
     state = {}
 
@@ -86,8 +94,7 @@ def test_full_flow_detects_each_phone_action(db, monkeypatch, capsys):
     assert "telefondan" not in capsys.readouterr().out   # metin yazdırılmaz
 
 
-def test_missing_phone_message_fails_and_skips_dependents(db, monkeypatch):
-    ro = pc.connect(db)
+def test_missing_phone_message_fails_and_skips_dependents(ro, monkeypatch):
     answers = iter(["", "a", "a", "a", "a"])            # 1 dene, gerisini atla
     monkeypatch.setattr("builtins.input", lambda p: next(answers, "a"))
     monkeypatch.setattr(pc, "wait_for", lambda check, timeout: check() or None)
@@ -96,8 +103,7 @@ def test_missing_phone_message_fails_and_skips_dependents(db, monkeypatch):
     assert results["2 düzenleme"] == results["4 geri çekme"] == "ATLANDI"
 
 
-def test_plain_image_is_not_counted_as_encrypted(db):
-    ro = pc.connect(db)
+def test_plain_image_is_not_counted_as_encrypted(ro):
     start = pc.last_id(ro)
     st._db_store_msg("ali@x.im", "Ben", "", True, "10:03", "me",
                      oob="https://h/plain.png", mid="p1")
@@ -105,8 +111,7 @@ def test_plain_image_is_not_counted_as_encrypted(db):
     assert not pc.new_own_rows(ro, start, encrypted_file=True)
 
 
-def test_db_is_opened_read_only(db):
+def test_db_is_opened_read_only(ro):
     import sqlite3
-    ro = pc.connect(db)
     with pytest.raises(sqlite3.OperationalError):
         ro.execute("DELETE FROM messages")
