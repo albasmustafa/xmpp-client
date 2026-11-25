@@ -6,13 +6,15 @@ oyunlar…); bu kurallar yalnız bu klasördeki **xmpp.py projesi** içindir.
 
 ## xmpp.py — Tkinter + slixmpp XMPP istemcisi (Türkçe arayüz)
 
-Dosyalar: `xmpp.py` (facade, ~12,8K satır) · `xmppcore/` (config, storage, i18n, theme, helpers,
+Dosyalar: `xmpp.py` (facade, ~14,3K satır) · `xmppcore/` (config, storage, i18n, theme, helpers,
 XMPPBot mixin'leri, `ai.py`) · `ui/` (durumsuz Tk görünüm katmanı: `chat/`, `dialogs/`,
 `sidebar.py`…) · `jingle_ft.py` (P2P dosya aktarımı) · `xmpp_mcp.py` (MCP sunucusu) ·
 `webapp/` (tarayıcı arayüzü: headless köprü + aiohttp sunucusu; aşağıda) ·
 `tests/` · `tools/` (uçtan uca betikler; `phone_check.py`: telefonla çoklu cihaz
 denetimi, kullanıcıyla birlikte) · `docs/` (tasarım belgeleri) · `xmpp-client.sh`
-(başlatıcı) · `xmpp-web.sh` (web başlatıcısı) · `_arsiv/` (eski yedekler; git dışı).
+(başlatıcı) · `xmpp-web.sh` (web başlatıcısı) · `README.md` (GitHub tanıtımı: kullanıcıya
+görünen özellik, kurulum ya da çalıştırma değişince güncelle) · `_arsiv/` (eski yedekler;
+git dışı).
 
 > Dikkat: Klasör Ekim 2026'da diskin kökünden buraya taşındı (taşıma commit'i `90f32f8f`).
 > Depo başka projelerin commit edilmemiş değişikliklerini de barındırır: commit atarken
@@ -22,7 +24,7 @@ denetimi, kullanıcıyla birlikte) · `docs/` (tasarım belgeleri) · `xmpp-clie
 ```bash
 ./xmpp-client.sh                                   # uygulama (.venv-xmpp içindeki Python)
 cd /run/media/albas/albas/xmpp-istemcisi && \
-  .venv-xmpp/bin/python -m pytest tests/ -q        # ~2300 test, ~70 sn, ağ kullanmaz
+  .venv-xmpp/bin/python -m pytest tests/ -q        # ~2430 test, ~70 sn, ağ kullanmaz
 ```
 Paket kurulumu: `.venv-xmpp/bin/python -m pip install <paket>`. "Test geçti" demek için testi
 gerçekten çalıştır.
