@@ -12,6 +12,13 @@ istemcisi. Aynı çekirdeği kullanan bir **tarayıcı arayüzü** ve isteğe ba
 > translated into 13 more languages (English, German, French, Spanish, Italian, Portuguese,
 > Dutch, Polish, Russian, Ukrainian, Chinese, Japanese, Korean).
 
+![Web arayüzü: kişi listesi ve şifreli bir sohbet](docs/screenshots/web-masaustu.png)
+
+<p align="center"><img src="docs/screenshots/web-telefon.png" width="560"
+     alt="Telefonda web arayüzü: kişi listesi ve sohbet"></p>
+
+<sub>Görüntülerdeki kişiler ve mesajlar uydurmadır.</sub>
+
 ## Öne çıkanlar
 
 **Mesajlaşma**
