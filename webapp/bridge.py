@@ -565,21 +565,21 @@ class WebSession:
                 bot.send_chatstate(args["to"], "active", mtype)
             return {"ok": True}
         if cmd == "correct":
-            if bot:
-                mtype = "groupchat" if args.get("to") in self.rooms else "chat"
-                bot.send_correction(args["to"], args["body"], args["mid"],
-                                    mtype)
-                self._mutate_entry(args["to"], args["mid"], args["body"])
-                _storage._db_update_msg_body(args["to"], args["mid"],
-                                             args["body"])
-                self._broadcast({"ev": "corrected",
-                                 "data": {"jid": args["to"],
-                                          "mid": args["mid"],
-                                          "body": args["body"]}})
+            if not bot:     # sessizce {"ok": True} dönmek düzeltmeyi kaybettiriyordu
+                return {"ok": False, "error": _tr("Bağlı değil")}
+            mtype = "groupchat" if args.get("to") in self.rooms else "chat"
+            bot.send_correction(args["to"], args["body"], args["mid"], mtype)
+            self._mutate_entry(args["to"], args["mid"], args["body"])
+            _storage._db_update_msg_body(args["to"], args["mid"], args["body"])
+            self._broadcast({"ev": "corrected",
+                             "data": {"jid": args["to"], "mid": args["mid"],
+                                      "body": args["body"]}})
             return {"ok": True}
         if cmd == "retract":
             to, mid = args.get("to"), args.get("mid")
-            if bot and to and mid:
+            if not bot:
+                return {"ok": False, "error": _tr("Bağlı değil")}
+            if to and mid:
                 mtype = "groupchat" if to in self.rooms else "chat"
                 bot.retract_message(to, mid, mtype)
                 if self._mutate_entry(to, mid, RETRACTED_BODY):

@@ -1241,7 +1241,9 @@ function rowAction(act, rowEl) {
     $("edit-bar").classList.remove("hidden");
     $("composer").focus();
   } else if (act === "retract") {
-    wsSend("retract", {to: S.active, mid});
+    wsSend("retract", {to: S.active, mid}).then((res) => {
+      if (!res.ok) toast(res.error || _t("Bağlantı koptu — yeniden bağlanıyor…"), true);
+    });
   } else if (act === "star") {
     toggleStar(S.active, mid);
   } else if (act === "react") {
@@ -1338,14 +1340,29 @@ function clearReplyEdit() {
   $("edit-bar").classList.add("hidden");
 }
 
+function takeSentText(box, raw) {
+  // Yalnız gönderilen metin kalkar: yanıt beklenirken yazılan devamı silinmez
+  box.value = box.value.startsWith(raw) ? box.value.slice(raw.length).trimStart()
+                                         : box.value;
+}
+
 async function sendCurrent(force = false, spoiler = null) {
   const box = $("composer");
-  const body = box.value.trim();
+  const raw = box.value;
+  const body = raw.trim();
   if (!body || !S.active) return;
   const enc = S.contacts.get(S.active)?.enc || "none";
+  // Başarısız gönderimde metin ve yanıt/düzeltme bağlamı kutuda kalır;
+  // WebSocket kopukken wsSend hata metni olmadan {ok: false} döner.
+  const failed = (res) => {
+    if (res.ok) return false;
+    toast(res.error || _t("Bağlantı koptu — yeniden bağlanıyor…"), true);
+    return true;
+  };
   if (S.editing) {
-    await wsSend("correct", {to: S.editing.to, mid: S.editing.mid, body});
-    box.value = "";
+    const res = await wsSend("correct", {to: S.editing.to, mid: S.editing.mid, body});
+    if (failed(res)) return;
+    takeSentText(box, raw);
     clearReplyEdit();
     return;
   }
@@ -1360,8 +1377,8 @@ async function sendCurrent(force = false, spoiler = null) {
     showLeakDialog(res.findings, () => sendCurrent(true, spoiler));
     return;
   }
-  if (!res.ok && res.error) toast(res.error, true);
-  box.value = "";
+  if (failed(res)) return;
+  takeSentText(box, raw);
   clearReplyEdit();
 }
 

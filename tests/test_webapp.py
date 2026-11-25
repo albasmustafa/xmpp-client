@@ -246,6 +246,22 @@ def test_react_correct_retract_commands(session):
         in session.bot.calls
 
 
+def test_correct_and_retract_report_offline_instead_of_silent_ok(session):
+    """Bağlantı yokken düzeltme/geri çekme hiçbir şey göndermiyordu ama
+    {"ok": True} dönüyordu: web kutuyu temizleyip düzenleme modundan çıkıyor,
+    düzeltme sessizce kayboluyordu. Artık `send` gibi "Bağlı değil" döner."""
+    from xmppcore import storage as st
+    session._apply("msg", {"from": "ali@x.im", "nick": "ali", "body": "x",
+                           "mid": "q2", "encrypted": False})
+    session.bot = None
+    res = session.command("correct", {"to": "ali@x.im", "mid": "q2",
+                                      "body": "düzeltilmiş"})
+    assert res == {"ok": False, "error": "Bağlı değil"}
+    res = session.command("retract", {"to": "ali@x.im", "mid": "q2"})
+    assert res == {"ok": False, "error": "Bağlı değil"}
+    assert st._db_load_msgs("ali@x.im")[-1][1] == "x"     # hiçbir şey değişmedi
+
+
 def test_omemo_auto_enables_on_incoming(session):
     session._apply("msg", {"from": "ali@x.im", "nick": "ali", "body": "gizli",
                            "mid": "e1", "encrypted": "omemo"})
