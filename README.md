@@ -131,3 +131,9 @@ dosyalarındadır. Masaüstünde dil değişikliği yeniden başlatınca geçerl
 | Odalar | MUC (0045), yer imleri (0048, 0402), doğrudan davet (0249), MUC self-ping (0410) |
 | Dosya | HTTP File Upload (0363), Jingle File Transfer (0234), IBB (0047), SOCKS5 (0065), OOB (0066) |
 | Kişiler | Engelleme (0191), avatar (0084, 0153), vCard (0054, 0292), takma ad (0172) |
+
+## Lisans
+
+[GPL-3.0-or-later](LICENSE): GNU Genel Kamu Lisansı'nın 3. sürümü ya da (isteğinize göre)
+daha sonraki bir sürümü. Kodu değiştirip dağıtan, kaynağını da aynı lisansla paylaşır.
+OMEMO için kullanılan `slixmpp-omemo` ve `oldmemo` kitaplıkları AGPL-3.0 lisanslıdır.
