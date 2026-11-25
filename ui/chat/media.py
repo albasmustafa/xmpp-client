@@ -19,6 +19,16 @@ def image_placeholder(parent, theme, bg):
     return lbl
 
 
+def spoiler_cover(parent, theme, bg, text, on_reveal):
+    """🙈 Metinsiz (yalnız medya) spoiler'ın örtüsü; tıklayınca `on_reveal()`.
+    Metin, çağıranın çevirdiği hazır örtü yazısıdır."""
+    lbl = tk.Label(parent, text=text, fg=theme["FG_DIM"], bg=bg,
+                   font=(theme["FONT"], 9, "italic"), cursor="hand2")
+    lbl.pack(anchor="w", pady=(4, 2))
+    lbl.bind("<Button-1>", lambda _e: on_reveal())
+    return lbl
+
+
 def place_image(holder, photo, bg, on_fullscreen):
     """Canlı holder'a resmi yerleştir + tıklama bağla."""
     holder.config(image=photo, text="", bg=bg)

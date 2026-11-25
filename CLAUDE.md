@@ -129,8 +129,10 @@ gerçekten çalıştır.
   içindir). Web: ➤ düğmesinde sağ tık / uzun basma → gönder menüsü (`#send-menu`),
   satırda `data-reveal`, geçmiş satırında `spoiler` alanı (`test_spoiler.py`). MAM
   arşivi öğesi de `spoiler` taşır (`archive.py`; masaüstü haritaya, web DB'ye işler);
-  ayrı sohbet sekmesi düz etiketi `_cover_tab_spoiler` ile örter. Bilinen sınır:
-  masaüstündeki medya önizlemesi örtülmez.
+  ayrı sohbet sekmesi düz etiketi `_cover_tab_spoiler` ile örter. Masaüstünde medya
+  (resim, ses, bağlantı önizlemesi; `_render_message_media`) örtü açılana kadar
+  ertelenir: görünmez ve ağdan çekilmez; metinsiz mesaja `_cover_media_only_spoiler`
+  ayrı örtü koyar, açılınca yeni ögeler zaman satırının önüne taşınır.
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.

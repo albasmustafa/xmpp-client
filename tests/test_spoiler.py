@@ -436,3 +436,55 @@ def test_chat_tab_add_uses_spoiler_cover():
     import inspect
     src = inspect.getsource(xmpp.MainWindow._open_chat_tab)
     assert "_cover_tab_spoiler(" in src and "_spoiler_map()" in src
+
+
+# ── Masaüstü medya önizlemesi ───────────────────────────────────────────────
+def _media_mw(monkeypatch):
+    from test_chat_media import _MW
+    from test_media_per_message_bounds import _bounds_mw
+
+    mw, c = _bounds_mw(monkeypatch)
+    monkeypatch.setattr(xmpp.tk, "Frame", _MW)          # bağlantı önizlemesi çerçevesi
+    monkeypatch.setattr(xmpp.tk, "Label", _MW)
+    monkeypatch.setattr(_MW, "cget", lambda self, k: self.kw.get(k),
+                        raising=False)
+    monkeypatch.setattr(_MW, "destroy", lambda self: c.setdefault(
+        "destroyed", []).append(self), raising=False)
+    mw._spoilers = {("a@b", "m1"): "film"}
+    return mw, c
+
+
+def test_spoiler_media_preview_deferred_until_reveal(monkeypatch):
+    """Spoiler'lı mesajdaki resim ve bağlantı önizlemesi örtü açılana kadar
+    çizilmez ve ağdan çekilmez (çekmek gönderenin sunucusuna da haber verir)."""
+    mw, c = _media_mw(monkeypatch)
+    row = mw._append("bak http://x/i0.png http://x/page", "them", sender="A",
+                     mid="m1")
+    assert c["rich_img"] == c["req_img"] == c["preview"] == []
+    assert row._spoiler_hidden
+    assert row._body_text.binds["<Button-1>"][-1](None) == "break"
+    assert c["req_img"] == ["http://x/i0.png"]
+    assert c["preview"] == ["http://x/page"]
+    row._body_text.binds["<Button-1>"][-1](None)       # ikinci tık: yeniden çekmez
+    assert c["req_img"] == ["http://x/i0.png"]
+
+
+def test_spoiler_image_only_message_gets_own_cover(monkeypatch):
+    """Metinsiz (yalnız resim) spoiler'da örtülecek gövde yok: ayrı örtü çıkar."""
+    mw, c = _media_mw(monkeypatch)
+    row = mw._append("http://x/i0.png", "them", sender="A", mid="m1")
+    assert c["req_img"] == []
+    covers = [w for w in row._bubble.children
+              if w.kw.get("text") == sp.cover("film")]
+    assert len(covers) == 1 and row._spoiler_hidden
+    covers[0].binds["<Button-1>"][-1](None)
+    assert c["req_img"] == ["http://x/i0.png"]
+    assert covers[0] in c["destroyed"] and not row._spoiler_hidden
+
+
+def test_plain_message_media_unchanged(monkeypatch):
+    mw, c = _media_mw(monkeypatch)
+    mw._append("bak http://x/i0.png http://x/page", "them", sender="A",
+               mid="m9")                                # spoiler'sız
+    assert c["req_img"] == ["http://x/i0.png"]
+    assert c["preview"] == ["http://x/page"]

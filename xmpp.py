@@ -3531,6 +3531,79 @@ class MainWindow:
             # güncelleme/düzeltme, vurgu ve seçimi kopyalama referansı
             row._body_text = view.body_widget
 
+        # Medya: resim, ses ve bağlantı önizlemesi. 🙈 Spoiler'lı mesajda örtü
+        # açılana kadar ertelenir: görünmez, ağdan da çekilmez (çekmek
+        # gönderenin sunucusuna haber verir).
+        media_args = (bubble, bubble_bg, body, img_urls, audio_urls)
+        deferred_media = None
+        if mid and self._spoiler_map().get(
+                (getattr(self, "active", None), mid)) is not None:
+            deferred_media = media_args
+        else:
+            self._render_message_media(*media_args)
+
+        # Zaman damgası + şifreleme + gönderildi işareti — sağ alt
+        meta_frame = _render.render_meta_row(bubble, _chat_theme(), time_str,
+                                             is_me, encrypted, bubble_bg)
+
+        # Mesaj ID'si kaydet (düzenleme/silme/tepki için)
+        row._msg_index = len(self._bubble_widgets)
+        row._is_me = is_me
+        row._body = body
+        row._tag = tag
+        row._mid = mid
+        row._sender = sender
+        row._bubble_bg = bubble_bg
+        row._spoiler_media = deferred_media   # 🙈 örtü açılınca çizilecek medya
+        row._reply_to = reply_to
+        row._retracted = False
+        row._edited = False
+        row._bubble = bubble
+        row._oob = oob                # AI: ses/görsel kaynağı
+        row._local_path = local_path
+        row._encrypted = encrypted    # AI: bulut gizlilik kapısı
+        row._meta_frame = meta_frame  # AI: ses dökümü bunun önüne girer
+        self._ai_inline_transcript(row)
+        self._ai_inline_translation(row)
+
+        # Sağ tık menüsü + çift tık ile yanıtla (tüm alt widget'lar)
+        self._bind_message_menu(row)
+        def _dbl_reply(_e, r=row):
+            if getattr(r, "_mid", "") and not getattr(r, "_retracted", False):
+                self._set_reply(r._mid, getattr(r, "_body", ""),
+                                getattr(r, "_sender", ""))
+        row.bind("<Double-Button-1>", _dbl_reply)
+        for child in row.winfo_children():
+            child.bind("<Double-Button-1>", _dbl_reply)
+
+        if local_path:
+            self._attach_file_card(bubble, bubble_bg, local_path)
+        for url in aes_files:
+            _media_ui.file_card(
+                bubble, _chat_theme(), _aesgcm.file_name(url),
+                _tr("🔒 Şifreli dosya (OMEMO)"), _tr("⬇ İndir ve aç"), _tr("📂 Klasörde göster"),
+                lambda u=url: self._open_aesgcm_file(u),
+                lambda u=url: self._open_aesgcm_file(u, reveal=True))
+
+        self._bubble_widgets.append(row)
+        self._bind_scroll_widget(row)
+        # [2M] Önizleme sahipliği kaydı append'ten kaldırıldı: tek sahiplik
+        # kaynağı _store'un (target, örnek-UID) yazımıdır — append örnek
+        # kimliğini bilemez, eski mid-only kaydı çapraz bulaşma üretirdi.
+        if mid:
+            # [2M] Tepki sunumu (jid, mid) kapsamlı; render aktif sohbet
+            # bağlamındadır — her yeni satır mevcut durumu taşır (Policy C).
+            self._render_reactions(
+                row,
+                self._reactions.get((getattr(self, "active", ""), mid), {}))
+            self._apply_spoiler(row)
+        self._scroll_bottom()
+        return row  # [2I] render yolu kalan-TTL zamanlaması için satırı alır
+
+    def _render_message_media(self, bubble, bubble_bg, body, img_urls,
+                              audio_urls):
+        """Mesaj balonunun medyası: resimler, ses, bağlantı önizlemesi.
+        `_append` hemen çağırır; 🙈 spoiler'da örtü açılınca çağrılır."""
         # Resimler — mesaj başına zengin görsel sınırı (2E): ilk
         # _MAX_INLINE_IMAGES benzersiz URL zengin akış; fazlası URL başına
         # widget DEĞİL — tek taşan denetimiyle erişilebilir kalır.
@@ -3583,62 +3656,6 @@ class MainWindow:
                 # Arka planda önizleme çek (cache/in-flight'lı; slot yoksa
                 # ya da tekrar eden URL ise sessizce atlanır)
                 self._request_url_preview(url, prev_inner)
-
-        # Zaman damgası + şifreleme + gönderildi işareti — sağ alt
-        meta_frame = _render.render_meta_row(bubble, _chat_theme(), time_str,
-                                             is_me, encrypted, bubble_bg)
-
-        # Mesaj ID'si kaydet (düzenleme/silme/tepki için)
-        row._msg_index = len(self._bubble_widgets)
-        row._is_me = is_me
-        row._body = body
-        row._tag = tag
-        row._mid = mid
-        row._sender = sender
-        row._reply_to = reply_to
-        row._retracted = False
-        row._edited = False
-        row._bubble = bubble
-        row._oob = oob                # AI: ses/görsel kaynağı
-        row._local_path = local_path
-        row._encrypted = encrypted    # AI: bulut gizlilik kapısı
-        row._meta_frame = meta_frame  # AI: ses dökümü bunun önüne girer
-        self._ai_inline_transcript(row)
-        self._ai_inline_translation(row)
-
-        # Sağ tık menüsü + çift tık ile yanıtla (tüm alt widget'lar)
-        self._bind_message_menu(row)
-        def _dbl_reply(_e, r=row):
-            if getattr(r, "_mid", "") and not getattr(r, "_retracted", False):
-                self._set_reply(r._mid, getattr(r, "_body", ""),
-                                getattr(r, "_sender", ""))
-        row.bind("<Double-Button-1>", _dbl_reply)
-        for child in row.winfo_children():
-            child.bind("<Double-Button-1>", _dbl_reply)
-
-        if local_path:
-            self._attach_file_card(bubble, bubble_bg, local_path)
-        for url in aes_files:
-            _media_ui.file_card(
-                bubble, _chat_theme(), _aesgcm.file_name(url),
-                _tr("🔒 Şifreli dosya (OMEMO)"), _tr("⬇ İndir ve aç"), _tr("📂 Klasörde göster"),
-                lambda u=url: self._open_aesgcm_file(u),
-                lambda u=url: self._open_aesgcm_file(u, reveal=True))
-
-        self._bubble_widgets.append(row)
-        self._bind_scroll_widget(row)
-        # [2M] Önizleme sahipliği kaydı append'ten kaldırıldı: tek sahiplik
-        # kaynağı _store'un (target, örnek-UID) yazımıdır — append örnek
-        # kimliğini bilemez, eski mid-only kaydı çapraz bulaşma üretirdi.
-        if mid:
-            # [2M] Tepki sunumu (jid, mid) kapsamlı; render aktif sohbet
-            # bağlamındadır — her yeni satır mevcut durumu taşır (Policy C).
-            self._render_reactions(
-                row,
-                self._reactions.get((getattr(self, "active", ""), mid), {}))
-            self._apply_spoiler(row)
-        self._scroll_bottom()
-        return row  # [2I] render yolu kalan-TTL zamanlaması için satırı alır
 
     def _bind_message_menu(self, widget, row=None):
         """Mesaja ve tüm alt widget'larına sağ tık + hover eylemlerini bağla."""
@@ -5220,12 +5237,17 @@ class MainWindow:
         return hint
 
     def _apply_spoiler(self, row):
-        """Spoiler'lı mesajın gövdesi tıklanana kadar örtülü kalır."""
+        """Spoiler'lı mesajın gövdesi (ve ertelenen medyası) tıklanana kadar
+        örtülü kalır."""
         mid = getattr(row, "_mid", "")
         hint = self._spoiler_map().get((getattr(self, "active", None), mid))
+        if hint is None or not mid or getattr(row, "_retracted", False):
+            return
         box = getattr(row, "_body_text", None)
-        if (hint is None or not mid or box is None
-                or getattr(row, "_retracted", False)):
+        if box is None:
+            # Metinsiz (yalnız medya) mesaj: örtülecek gövde yok, ayrı örtü
+            if getattr(row, "_spoiler_media", None):
+                self._cover_media_only_spoiler(row, hint)
             return
         # Kutu bir çerçevedir; tıklamayı içindeki Text alır (selectable_text)
         target = getattr(box, "text", box)
@@ -5235,6 +5257,7 @@ class MainWindow:
             box.set_content(_spoiler.cover(hint), fg=FG_DIM,
                             font=(FONT, 9, "italic"))
         except Exception:
+            self._reveal_spoiler_media(row)     # örtülemedi: medya da açık kalsın
             return
         row._spoiler_hidden = True
 
@@ -5247,8 +5270,56 @@ class MainWindow:
             _identity.update_bubble_text(
                 row, row._body, edited=getattr(row, "_edited", False),
                 formatter=self._format_markdown, theme=_chat_theme())
+            self._reveal_spoiler_media(row)
             return "break"
         target.bind("<Button-1>", _reveal, add="+")
+
+    def _cover_media_only_spoiler(self, row, hint):
+        """Yalnız resim/ses taşıyan spoiler'a tıklanabilir örtü etiketi."""
+        def _open():
+            row._spoiler_hidden = False
+            try:
+                cover.destroy()
+            except Exception:
+                pass
+            self._reveal_spoiler_media(row)
+        cover = _media_ui.spoiler_cover(
+            row._bubble, _chat_theme(), getattr(row, "_bubble_bg", BG_THEM),
+            _spoiler.cover(hint), _open)
+        row._spoiler_hidden = True
+        self._pack_before_meta(row, [cover])
+        self._bind_scroll_widget(cover)
+        self._bind_message_menu(cover, row)
+
+    def _reveal_spoiler_media(self, row):
+        """Ertelenen medyayı çiz (bir kez); yeni ögeler zaman satırının önüne."""
+        args = getattr(row, "_spoiler_media", None)
+        if not args:
+            return
+        row._spoiler_media = None
+        bubble = args[0]
+        before = {id(w) for w in bubble.winfo_children()}
+        self._render_message_media(*args)
+        fresh = [w for w in bubble.winfo_children() if id(w) not in before]
+        self._pack_before_meta(row, fresh)
+        for w in fresh:
+            self._bind_scroll_widget(w)
+            self._bind_message_menu(w, row)
+
+    @staticmethod
+    def _pack_before_meta(row, widgets):
+        """Sonradan eklenen ögeleri balonun zaman satırının önüne taşı."""
+        meta = getattr(row, "_meta_frame", None)
+        if meta is None:
+            return
+        for w in widgets:
+            try:
+                info = dict(w.pack_info())
+                info.pop("in", None)
+                w.pack_forget()
+                w.pack(before=meta, **info)
+            except Exception:
+                pass                # paketlenmemiş/sahte öge: yerinde kalır
 
     def _cover_tab_spoiler(self, label, body, hint, fg):
         """Ayrı sohbet sekmesinde 🙈 örtü (düz tk.Label): tıklayınca gövde görünür."""
