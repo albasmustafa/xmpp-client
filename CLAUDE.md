@@ -416,6 +416,14 @@ girmezse CI kırılır; yeni sistem paketi gerekirse workflow'daki apt satırın
   önizlemeleri `remote_previews` ayarıyla kapatılabilir. Bilinen kalıntı riskler
   (kabul edilmiş): Fernet anahtarı anahtarlık yoksa şifreli parolanın yanındadır (aşağıda),
   (oturum süresi artık sınırlı: aşağıda).
+- **Yerel ağ (`--lan`, `webapp/lan_tls.py`):** telefon PWA'yı yalnız güvenilen sertifikayla
+  kurar. `--lan` profilde (`web-tls/`) ad kısıtlı yerel CA (özel IPv4 aralıkları, 127/8,
+  localhost, .local, makine adı; anahtar 0600) ve LAN IP'leri için sunucu sertifikası
+  üretir (397 gün; 30 gün kala ya da IP değişince yenilenir, CA aynı kalır), `--host
+  0.0.0.0` + `--public-host` (IP'ler + adlar) ile Host/Origin denetimi AÇIK kalır.
+  CA telefona `/ca.crt`'den bir kez kurulur (yalnız LAN kipinde yönlendirilir).
+  `test_lan_tls.py` gerçek TLS el sıkışmasını ve ad kısıtının başka siteyi
+  reddettiğini ("permitted subtree violation") sınar.
 - **Oturum süresi:** token 7 gün kullanılmazsa, her durumda 30 günde düşer
   (`server._IDLE_TTL/_MAX_TTL`, `_TOKEN_TIMES`); oturuma bağlı açık WebSocket kullanım
   sayılır. REST/WS her kullanımda tazeler (`_touch`), zamanlayıcı 30 sn'de bir süpürür

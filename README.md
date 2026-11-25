@@ -88,9 +88,31 @@ ollama pull bge-m3
 ./xmpp-web.sh           # tarayıcı arayüzü → http://127.0.0.1:8420/
 ```
 
-Web sunucusu seçenekleri: `--port 8420`, `--cert` / `--key` (HTTPS). Başka bir cihazdan
-erişim için `--host` vermek ayrıca `--insecure` ister; bu kipte güvenlik denetimleri
-kapanır ve trafik düz HTTP'dir, yalnız güvendiğiniz bir ağda kullanın.
+Web sunucusu seçenekleri: `--port 8420`, `--cert` / `--key` (HTTPS), `--lan` (aşağıda).
+Başka bir cihazdan erişim için ya HTTPS (`--cert`/`--key` ile `--public-host <ad>`, ya da
+kısaca `--lan`) ya da `--insecure` gerekir. `--insecure` kipinde güvenlik denetimleri
+kapanır ve trafik düz HTTP'dir; yalnız güvendiğiniz bir ağda kullanın.
+
+### Telefonda uygulama olarak kullanma (yerel ağ, HTTPS)
+
+```bash
+./xmpp-web.sh --lan
+```
+
+İlk çalıştırmada veri klasörünüzde (`web-tls/`) yerel bir kök sertifika ve bu bilgisayarın
+yerel IP adresi için bir sunucu sertifikası üretilir; terminal adresi yazar.
+
+1. Telefon aynı Wi-Fi'deyken terminaldeki `https://<ip>:8420/ca.crt` adresini açın ve
+   kök sertifikayı indirin (bu ilk seferde tarayıcı uyarısını geçmeniz gerekir).
+2. Kurun. Android: Ayarlar → Güvenlik → Şifreleme ve kimlik bilgileri → Sertifika yükle →
+   CA sertifikası. iOS: Ayarlar'da indirilen profili yükleyin, sonra Genel → Hakkında →
+   Sertifika Güven Ayarları'ndan tam güveni açın.
+3. `https://<ip>:8420/` adresini açıp tarayıcı menüsünden "Uygulamayı yükle" / "Ana ekrana
+   ekle"yi seçin.
+
+Kök sertifika bir kez kurulur; yerel IP değişince yalnız sunucu sertifikası yenilenir.
+Kök sertifika ad kısıtlıdır: yalnız yerel ağ adresleri ve bu bilgisayarın adı için geçerli
+sertifika imzalayabilir, anahtarı çalınsa bile başka siteleri taklit etmekte kullanılamaz.
 
 ## Verileriniz nerede?
 

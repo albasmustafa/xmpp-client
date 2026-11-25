@@ -21,6 +21,7 @@ import asyncio
 import collections
 import functools
 import json
+import os
 import re
 import secrets
 import ssl
@@ -37,7 +38,7 @@ from webapp import media as _media
 from webapp.bridge import WebSession
 from xmppcore import aesgcm as _aesgcm
 from xmppcore import i18n as _i18n
-from xmppcore.constants import _log
+from xmppcore.constants import _log, _user_home
 from xmppcore.i18n import tr as _tr
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -59,6 +60,7 @@ APP_INSECURE = web.AppKey("insecure", bool)
 APP_LOGIN_RATE = web.AppKey("login_rate", object)   # değer: _LoginRate
 APP_HOSTS = web.AppKey("hosts", frozenset)          # izinli Host/Origin adları
 APP_TICKER = web.AppKey("ticker", object)           # asyncio.Task
+APP_CA = web.AppKey("ca", str)                       # --lan: yerel kök sertifika (PEM)
 _TICK_S = 30.0                  # hatırlatıcı + sabah özeti denetimi
 _MORNING_SETTLE_S = 45.0        # bağlandıktan sonra çevrimdışı mesajlar
 _SETTINGS_BOOL = ("notifications", "sounds", "send_read_receipts",
@@ -740,15 +742,26 @@ async def handle_sw(request) -> web.FileResponse:
         "Content-Type": "text/javascript", "Cache-Control": "no-cache"})
 
 
+async def handle_ca(request) -> web.FileResponse:
+    """--lan: telefona bir kez kurulacak yerel kök sertifika (yalnız açık
+    anahtar; gizli değildir)."""
+    return web.FileResponse(request.app[APP_CA], headers={
+        "Content-Type": "application/x-x509-ca-cert",
+        "Content-Disposition": 'attachment; filename="xmpp-istemcisi-ca.crt"'})
+
+
 async def handle_manifest(request) -> web.FileResponse:
     return web.FileResponse(STATIC_DIR / "manifest.webmanifest", headers={
         "Content-Type": "application/manifest+json"})
 
 
-def make_app(insecure: bool = False, public_hosts=()) -> web.Application:
+def make_app(insecure: bool = False, public_hosts=(), ca_path: str = "") -> web.Application:
     app = web.Application(client_max_size=_MAX_BODY,
                           middlewares=[_origin_guard])
     app[APP_INSECURE] = insecure
+    if ca_path:
+        app[APP_CA] = ca_path
+        app.router.add_get("/ca.crt", handle_ca)
     app[APP_HOSTS] = _LOCAL_HOSTS | {h.strip().lower() for h in public_hosts
                                      if h and h.strip()}
     app[APP_LOGIN_RATE] = _LoginRate()
@@ -776,6 +789,28 @@ def make_app(insecure: bool = False, public_hosts=()) -> web.Application:
     return app
 
 
+def _apply_lan(args) -> str:
+    """--lan: yerel ağ adreslerini bul, sertifikaları hazırla, argümanları
+    güvenli LAN kipine çevir (HTTPS + izinli adlar; Host/Origin denetimi
+    açık kalır). Döner: telefona kurulacak kök sertifikanın yolu."""
+    from webapp import lan_tls
+    if args.cert or args.key or args.insecure:
+        raise SystemExit("✗ --lan, --cert/--key ya da --insecure ile birlikte "
+                         "verilmez.")
+    ips = lan_tls.lan_addresses()
+    if not ips:
+        raise SystemExit("✗ Yerel ağ adresi bulunamadı (Wi-Fi/Ethernet bağlı mı?).")
+    tls = lan_tls.ensure_certs(os.path.join(_user_home(), "web-tls"), ips)
+    args.cert, args.key = tls["cert"], tls["key"]
+    args.public_host = [*ips, *tls["dns"], *args.public_host]
+    if args.host == "127.0.0.1":
+        args.host = "0.0.0.0"
+    if tls["issued"]:
+        print("Sunucu sertifikası üretildi: " + ", ".join(tls["ips"] + tls["dns"]),
+              flush=True)
+    return tls["ca"]
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="xmpp.py — tarayıcı arayüzü")
@@ -791,7 +826,13 @@ def main():
         "--public-host", action="append", default=[],
         help="HTTPS'te kabul edilecek ad (ör. dizustu.tailnet.ts.net); "
              "telefondan PWA kurulumu için. Birden çok verilebilir.")
+    parser.add_argument(
+        "--lan", action="store_true",
+        help="Yerel ağdan HTTPS ile aç (telefona uygulama olarak kurulum): "
+             "yerel kök sertifika üretilir, telefona bir kez /ca.crt "
+             "adresinden kurulur.")
     args = parser.parse_args()
+    ca_path = _apply_lan(args) if args.lan else ""
     insecure = args.insecure
     if bool(args.cert) != bool(args.key):
         raise SystemExit("✗ --cert ve --key birlikte verilmeli.")
@@ -806,11 +847,18 @@ def main():
             "--cert/--key ile --public-host verin (HTTPS) ya da --insecure "
             "ekleyin (trafik şifrelenmez, düz HTTP'dir).")
     _i18n.set_language(_load_cfg().get("language"))
-    app = make_app(insecure=insecure, public_hosts=args.public_host)
+    app = make_app(insecure=insecure, public_hosts=args.public_host,
+                   ca_path=ca_path)
     scheme = "https" if ssl_ctx else "http"
     shown = args.public_host[0] if args.public_host else args.host
     print(f"XMPP web arayüzü: {scheme}://{shown}:{args.port}/"
-          + ("  [GÜVENSİZ MOD — ağa açık]" if insecure else ""))
+          + ("  [GÜVENSİZ MOD — ağa açık]" if insecure else ""), flush=True)
+    if ca_path:
+        print(f"Telefonda ilk kez: https://{shown}:{args.port}/ca.crt adresinden kök\n"
+              "sertifikayı indirip kurun (Android: Ayarlar → Güvenlik → Şifreleme ve\n"
+              "kimlik bilgileri → Sertifika yükle → CA sertifikası). Sonra adresi açıp\n"
+              "tarayıcı menüsünden \"Ana ekrana ekle\" / \"Uygulamayı yükle\".",
+              flush=True)
     try:
         web.run_app(app, host=args.host, port=args.port, print=None,
                     ssl_context=ssl_ctx)
