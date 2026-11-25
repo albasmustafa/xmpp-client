@@ -8,6 +8,7 @@ tkinterdnd2>=0.4
 pystray>=0.19
 qrcode>=7.4
 anthropic>=1.12     # AI asistanı: isteğe bağlı bulut sağlayıcı (Claude)
+keyring>=25         # parola şifreleme anahtarı sistem anahtarlığında (Secret Service)
 # İsteğe bağlı — AI asistanı yerel ses→metin (büyük indirme, ~300 MB):
 # faster-whisper>=1.1
 # av<19    # faster-whisper 1.2.1, PyAV 19'da kaldırılan metadata_errors'u kullanıyor

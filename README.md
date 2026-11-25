@@ -28,8 +28,9 @@ istemcisi. Aynı çekirdeği kullanan bir **tarayıcı arayüzü** ve isteğe ba
   (`aesgcm://`). Şifreleme yapılamazsa dosya düz olarak yüklenmez.
 - Hassas veri uyarısı: şifresiz sohbete parola, IBAN, kart numarası, T.C. kimlik no ya da
   API anahtarı gibi bir bilgi gidecekse önce sorulur (yerel tarama, model kullanılmaz).
-- Kayıtlı parola şifrelenir; ayar, log ve OMEMO dosyaları yalnız sahibinin okuyabileceği
-  izinlerle (0600) yazılır.
+- Kayıtlı parola şifrelenir; şifre anahtarı sistem anahtarlığında (GNOME Keyring, KWallet)
+  durur, kilidi masaüstü girişinizle açılır. Anahtarlık yoksa anahtar veri klasöründe kalır.
+  Ayar, log ve OMEMO dosyaları yalnız sahibinin okuyabileceği izinlerle (0600) yazılır.
 - SOCKS5 / SOCKS4a / HTTP CONNECT proxy desteği (proxy varken yerel DNS sorgusu yapılmaz).
 
 **Çoklu cihaz**
@@ -102,6 +103,8 @@ tutulur. Klasör şu sırayla seçilir:
 3. ev dizini (`~`).
 
 Mesaj geçmişi yerel veritabanında şifrelenmeden durur; disk şifrelemesi (LUKS vb.) önerilir.
+Veri klasörünü başka bir bilgisayara taşırsanız kayıtlı parolayı orada yeniden girmeniz
+gerekir (şifre anahtarı o bilgisayarın anahtarlığında yoktur).
 
 ## Geliştirme
 

@@ -46,6 +46,12 @@ girmezse CI kırılır; yeni sistem paketi gerekirse workflow'daki apt satırın
   sahipliği), SQLite'a yazılmaz.
 - **Kalıcılık:** `xmppcore/storage.py` (tek bağlantı `_db_conn`, işlemler `_db_lock` altında).
   Mesaj gövdesi değişiklikleri ve silmeler yalnız buradan yapılır.
+- **Parola anahtarı:** kayıtlı parolalar Fernet'le şifreli (`config._encode_pw`); anahtar
+  sistem anahtarlığında (Secret Service: GNOME Keyring/KWallet; `keyring` paketi), profildeki
+  `.xmpp_client.keyring` öge adını tutar. Eski `.xmpp_client.key` ilk açılışta taşınır ve
+  AYNI anahtarsa silinir; anahtarlık yoksa/yazılamazsa dosya kalır (eski davranış). Testler
+  ve CI `XMPP_NO_KEYRING=1` ile gerçek anahtarlığa dokunmaz (conftest). Profil başka
+  bilgisayara taşınırsa kayıtlı parola yeniden girilir (`test_keyring.py`).
 - Ayar: `.xmpp_client.json` · DB: `.xmpp_client_messages.db` · Log: `.xmpp_client.log` ·
   anahtar, `.xmpp_omemo/`, `.xmpp_avatars/` — hepsi veri kökünde (`constants._user_home`):
   `XMPP_CLIENT_HOME` → ev dizinindeki `.xmpp_client_home` dosyasının gösterdiği klasör
@@ -408,7 +414,7 @@ girmezse CI kırılır; yeni sistem paketi gerekirse workflow'daki apt satırın
   kapalı) ve dakikada 10 denemeyle sınırlıdır. Loopback dışı `--host` yalnız
   `--insecure` ile açılır (denetimler atlanır, düz metin HTTP). Uzak görsel
   önizlemeleri `remote_previews` ayarıyla kapatılabilir. Bilinen kalıntı riskler
-  (kabul edilmiş): Fernet anahtarı şifreli parolanın yanındadır (ev LUKS altında),
+  (kabul edilmiş): Fernet anahtarı anahtarlık yoksa şifreli parolanın yanındadır (aşağıda),
   (oturum süresi artık sınırlı: aşağıda).
 - **Oturum süresi:** token 7 gün kullanılmazsa, her durumda 30 günde düşer
   (`server._IDLE_TTL/_MAX_TTL`, `_TOKEN_TIMES`); oturuma bağlı açık WebSocket kullanım

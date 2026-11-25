@@ -78,18 +78,109 @@ def _key_path() -> str:
     return os.path.join(_user_home(), ".xmpp_client.key")
 
 
-def _get_fernet_key() -> bytes:
-    """Makine-bazlı Fernet anahtarı üret/oku."""
-    key_path = _key_path()
-    if os.path.isfile(key_path):
-        with open(key_path, "rb") as f:
-            return f.read()
+# ── Parola şifreleme anahtarı: sistem anahtarlığı (Secret Service) ──────────
+# Kayıtlı parola Fernet ile şifrelenir. Anahtar eskiden yanındaki dosyadaydı
+# (.xmpp_client.key): ikisini okuyabilen parolayı da okurdu. Anahtarlık varsa
+# (GNOME Keyring, KWallet…) anahtar orada tutulur, kilidi masaüstü girişiyle
+# açılır; eski dosya anahtarlığa taşınıp silinir. Anahtarlık yoksa eski
+# davranış. Profilin anahtarlıktaki öge adı profilde durur (.xmpp_client.keyring,
+# gizli değil): profil taşınsa da aynı bilgisayarda bulunur. Başka bilgisayarda
+# anahtarlıkta öge olmadığından kayıtlı parola yeniden girilir.
+_KEYRING_SERVICE = "xmpp-istemcisi"
+_KEYRING_CACHE: dict = {}        # öge adı → anahtar (her şifre çözmede D-Bus'a gitmesin)
+
+
+def _keyring():
+    """Kullanılabilir anahtarlık modülü ya da None (XMPP_NO_KEYRING=1 kapatır:
+    testler ve CI gerçek anahtarlığa dokunmaz)."""
+    if os.environ.get("XMPP_NO_KEYRING"):
+        return None
+    try:
+        import keyring
+        if getattr(keyring.get_keyring(), "priority", 0) <= 0:
+            return None             # yalnız "fail"/"null" arka uç var
+        return keyring
+    except Exception:
+        return None
+
+
+def _keyring_item_path() -> str:
+    return os.path.join(_user_home(), ".xmpp_client.keyring")
+
+
+def _keyring_item_name() -> str:
+    """Bu profilin anahtarlıktaki öge adı (ilk kez üretilip profile yazılır)."""
+    path = _keyring_item_path()
+    try:
+        with open(path, encoding="utf-8") as f:
+            name = f.read().strip()
+        if name:
+            return name
+    except OSError:
+        pass
+    import uuid
+    name = f"fernet-key-{uuid.uuid4().hex}"
+    old_umask = os.umask(0o077)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(name + "\n")
+    finally:
+        os.umask(old_umask)
+    return name
+
+
+def _keyring_put(kr, name: str, key: bytes) -> bool:
+    """Anahtarı anahtarlığa yaz ve geri okuyarak doğrula."""
+    try:
+        kr.set_password(_KEYRING_SERVICE, name, key.decode("ascii"))
+        return kr.get_password(_KEYRING_SERVICE, name) == key.decode("ascii")
+    except Exception:
+        _log.warning("Şifreleme anahtarı anahtarlığa yazılamadı", exc_info=True)
+        return False
+
+
+def _new_fernet_key() -> bytes:
     try:
         from cryptography.fernet import Fernet
-        key = Fernet.generate_key()
+        return Fernet.generate_key()
     except ImportError:
         seed = (os.getlogin() + str(os.getuid())).encode()
-        key = base64.urlsafe_b64encode(hashlib.sha256(seed).digest())
+        return base64.urlsafe_b64encode(hashlib.sha256(seed).digest())
+
+
+def _get_fernet_key() -> bytes:
+    """Parola şifreleme anahtarını oku/üret: önce anahtarlık, yoksa dosya."""
+    key_path = _key_path()
+    kr = _keyring()
+    name = ""
+    if kr is not None:
+        name = _keyring_item_name()
+        if name in _KEYRING_CACHE:
+            return _KEYRING_CACHE[name]
+        try:
+            stored = kr.get_password(_KEYRING_SERVICE, name)
+        except Exception:
+            _log.warning("Anahtarlık okunamadı; dosyadaki anahtar kullanılıyor",
+                         exc_info=True)
+            stored, kr = None, None
+        if stored:
+            key = stored.encode("ascii")
+            _KEYRING_CACHE[name] = key
+            _retire_key_file(key_path, key)
+            return key
+    if os.path.isfile(key_path):
+        with open(key_path, "rb") as f:
+            key = f.read()
+        if kr is not None and _keyring_put(kr, name, key):
+            _KEYRING_CACHE[name] = key
+            _retire_key_file(key_path, key)
+            _log.info("Şifreleme anahtarı sistem anahtarlığına taşındı")
+        return key
+    key = _new_fernet_key()
+    if kr is not None and _keyring_put(kr, name, key):
+        _KEYRING_CACHE[name] = key
+        _log.info("Yeni şifreleme anahtarı sistem anahtarlığında oluşturuldu")
+        return key
     old_umask = os.umask(0o077)
     try:
         with open(key_path, "wb") as f:
@@ -98,6 +189,23 @@ def _get_fernet_key() -> bytes:
         os.umask(old_umask)
     _log.info("Yeni şifreleme anahtarı oluşturuldu: %s", key_path)
     return key
+
+
+def _retire_key_file(key_path: str, key: bytes) -> None:
+    """Anahtarlıktakiyle AYNI anahtarı taşıyan eski dosyayı sil; farklıysa
+    (başka bir anahtar) dokunma — veri kaybı olmasın."""
+    try:
+        if not os.path.isfile(key_path):
+            return
+        with open(key_path, "rb") as f:
+            if f.read() != key:
+                _log.warning("Anahtar dosyası anahtarlıktakinden farklı; "
+                             "silinmedi: %s", key_path)
+                return
+        os.remove(key_path)
+    except OSError:
+        _log.warning("Eski anahtar dosyası silinemedi: %s", key_path,
+                     exc_info=True)
 
 
 def _encode_pw(pw: str) -> str:
