@@ -2759,4 +2759,16 @@ CATALOG = {
         "Ce message n'est pas dans l'historique local ; impossible d'ajouter une étoile",
     "Mesaj yüklenen geçmişte bulunamadı":
         "Message introuvable dans l'historique chargé",
+    "🙈 Gizli içerik":
+        "🙈 Divulgâcheur",
+    "🙈 Gizli içerik: {}":
+        "🙈 Divulgâcheur : {}",
+    "{} — göstermek için tıklayın":
+        "{} — cliquez pour afficher",
+    "🙈 Gizli içerik olarak gönder…":
+        "🙈 Envoyer comme divulgâcheur…",
+    "Uyarı metni (isteğe bağlı):":
+        "Avertissement (facultatif) :",
+    "Şifreli sohbette gizli içerik gönderilemez":
+        "Impossible d'envoyer un divulgâcheur dans une discussion chiffrée",
 }

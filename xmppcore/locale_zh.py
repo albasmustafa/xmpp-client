@@ -2759,4 +2759,16 @@ CATALOG = {
         "此消息不在本地历史中，无法加星标",
     "Mesaj yüklenen geçmişte bulunamadı":
         "在已加载的历史中找不到该消息",
+    "🙈 Gizli içerik":
+        "🙈 剧透",
+    "🙈 Gizli içerik: {}":
+        "🙈 剧透：{}",
+    "{} — göstermek için tıklayın":
+        "{} — 点击显示",
+    "🙈 Gizli içerik olarak gönder…":
+        "🙈 作为剧透发送…",
+    "Uyarı metni (isteğe bağlı):":
+        "提示（可选）：",
+    "Şifreli sohbette gizli içerik gönderilemez":
+        "加密聊天中无法发送剧透",
 }

@@ -2759,4 +2759,16 @@ CATALOG = {
         "이 메시지는 로컬 기록에 없어 별표를 표시할 수 없습니다",
     "Mesaj yüklenen geçmişte bulunamadı":
         "불러온 기록에서 메시지를 찾을 수 없습니다",
+    "🙈 Gizli içerik":
+        "🙈 스포일러",
+    "🙈 Gizli içerik: {}":
+        "🙈 스포일러: {}",
+    "{} — göstermek için tıklayın":
+        "{} — 클릭하여 보기",
+    "🙈 Gizli içerik olarak gönder…":
+        "🙈 스포일러로 보내기…",
+    "Uyarı metni (isteğe bağlı):":
+        "경고 문구(선택):",
+    "Şifreli sohbette gizli içerik gönderilemez":
+        "암호화된 채팅에서는 스포일러를 보낼 수 없습니다",
 }

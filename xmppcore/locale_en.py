@@ -2931,4 +2931,16 @@ EN = {
         "This message is not in the local history; it could not be starred",
     "Mesaj yüklenen geçmişte bulunamadı":
         "Message not found in the loaded history",
+    "🙈 Gizli içerik":
+        "🙈 Spoiler",
+    "🙈 Gizli içerik: {}":
+        "🙈 Spoiler: {}",
+    "{} — göstermek için tıklayın":
+        "{} — click to reveal",
+    "🙈 Gizli içerik olarak gönder…":
+        "🙈 Send as spoiler…",
+    "Uyarı metni (isteğe bağlı):":
+        "Hint (optional):",
+    "Şifreli sohbette gizli içerik gönderilemez":
+        "Spoilers can't be sent in encrypted chats",
 }

@@ -2759,4 +2759,16 @@ CATALOG = {
         "Questo messaggio non è nella cronologia locale; impossibile aggiungere la stella",
     "Mesaj yüklenen geçmişte bulunamadı":
         "Messaggio non trovato nella cronologia caricata",
+    "🙈 Gizli içerik":
+        "🙈 Spoiler",
+    "🙈 Gizli içerik: {}":
+        "🙈 Spoiler: {}",
+    "{} — göstermek için tıklayın":
+        "{} — clicca per mostrare",
+    "🙈 Gizli içerik olarak gönder…":
+        "🙈 Invia come spoiler…",
+    "Uyarı metni (isteğe bağlı):":
+        "Avviso (facoltativo):",
+    "Şifreli sohbette gizli içerik gönderilemez":
+        "Non si possono inviare spoiler nelle chat cifrate",
 }

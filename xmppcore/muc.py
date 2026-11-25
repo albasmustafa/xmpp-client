@@ -7,6 +7,7 @@ import asyncio
 
 from slixmpp.exceptions import PresenceError
 
+from xmppcore import spoiler as _spoiler
 from xmppcore.constants import _log
 from xmppcore.helpers import (
     _CORRECTION,
@@ -137,16 +138,16 @@ class MucMixin:
             return
         oob = self._extract_oob(msg)
         if own == "other":
-            self.gui_q.put(("own_msg", {
+            self.gui_q.put(("own_msg", _spoiler.mark({
                 "to": room,
                 "body": _strip_quoted_fallback(msg, msg["body"]),
                 "oob": oob,
                 "encrypted": False,
                 "mid": _stanza_msg_id(msg),
                 "reply": self._reply_info(msg),
-            }))
+            }, msg.xml)))
             return
-        self.gui_q.put(("msg", {
+        self.gui_q.put(("msg", _spoiler.mark({
             "from": room,
             "nick": sender,
             "body": _strip_quoted_fallback(msg, msg["body"]),
@@ -155,7 +156,7 @@ class MucMixin:
             "encrypted": False,
             "mid": _stanza_msg_id(msg),
             "reply": self._reply_info(msg),
-        }))
+        }, msg.xml)))
 
     # ── Aynı hesabın odadaki diğer oturumları ─────────────────────────────────
     def _remember_sent_id(self, stanza):
@@ -252,15 +253,16 @@ class MucMixin:
         }))
 
     # ── Oda mesajı gönder (thread-safe) ──────────────────────────────────────
-    def send_gc(self, room, body, encryption="none", mid=None):
-        coroutine = self._send_gc(room, body, encryption, mid)
+    def send_gc(self, room, body, encryption="none", mid=None, spoiler=None):
+        coroutine = self._send_gc(room, body, encryption, mid, spoiler)
         try:
             return asyncio.run_coroutine_threadsafe(coroutine, self.loop)
         except Exception:
             coroutine.close()
             raise
 
-    async def _send_gc(self, room, body, encryption="none", mid=None):
+    async def _send_gc(self, room, body, encryption="none", mid=None,
+                       spoiler=None):
         try:
             if encryption == "omemo":
                 if not self._omemo_enabled():
@@ -276,6 +278,7 @@ class MucMixin:
                 self._send_pgp(room, body, "groupchat", mid)
             else:
                 msg = self.make_message(mto=room, mbody=body, mtype="groupchat")
+                _spoiler.add(msg, spoiler)      # XEP-0382 yalnız düz mesajda
                 sent_mid = _add_origin_id(msg, mid)
                 msg.send()
                 self.gui_q.put(("sent_mid", {"to": room, "mid": sent_mid}))

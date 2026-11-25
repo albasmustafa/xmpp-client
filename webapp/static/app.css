@@ -179,6 +179,13 @@ label.chk input { width: auto; }
   max-height: 50vh; overflow-y: auto;
 }
 .pop-menu.up button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pop-menu.up.end { left: auto; right: 14px; }   /* ➤ düğmesinin üstü */
+/* 🙈 Spoiler (XEP-0382): gövde tıklanana kadar örtülü */
+.spoiler {
+  border: 1px dashed var(--BORDER); background: var(--BG_HOVER);
+  color: var(--FG_DIM); font-style: italic; border-radius: 8px;
+  padding: 6px 10px; text-align: left; white-space: normal;
+}
 #canned-text { width: min(520px, 80vw); font: inherit; resize: vertical; }
 /* ⭐ Yıldızlı mesajlar */
 .meta .star { margin-right: 4px; }

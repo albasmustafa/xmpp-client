@@ -2759,4 +2759,16 @@ CATALOG = {
         "このメッセージはローカル履歴にないため、スターを付けられませんでした",
     "Mesaj yüklenen geçmişte bulunamadı":
         "読み込んだ履歴にメッセージが見つかりません",
+    "🙈 Gizli içerik":
+        "🙈 ネタバレ",
+    "🙈 Gizli içerik: {}":
+        "🙈 ネタバレ：{}",
+    "{} — göstermek için tıklayın":
+        "{} — クリックして表示",
+    "🙈 Gizli içerik olarak gönder…":
+        "🙈 ネタバレとして送信…",
+    "Uyarı metni (isteğe bağlı):":
+        "注意書き（任意）：",
+    "Şifreli sohbette gizli içerik gönderilemez":
+        "暗号化されたチャットではネタバレを送信できません",
 }

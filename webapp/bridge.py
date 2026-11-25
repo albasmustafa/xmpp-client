@@ -17,6 +17,7 @@ from webapp import media as _media
 from xmppcore import canned as _canned
 from xmppcore import notify_policy as _notify
 from xmppcore import sensitive as _sensitive
+from xmppcore import spoiler as _spoiler
 from xmppcore import storage as _storage
 from xmppcore.ai import RETRACTED_BODY, display_text
 from xmppcore.config import _load_config, _load_config_cached, _save_config
@@ -201,6 +202,7 @@ class WebSession:
             reply = self._resolve_reply(data.get("reply"), frm)
             self._store(frm, body, tag="them", sender=nick, is_me=False,
                         oob=oob, encrypted=bool(enc), mid=mid, reply_to=reply)
+            self._note_spoiler(frm, mid, data.get("spoiler"))
             unread_total = 0
             if self.active == frm:
                 if mid and self.bot and self._send_read_receipts:
@@ -223,6 +225,7 @@ class WebSession:
             self._store(to, body, tag="me", sender="Ben", is_me=True,
                         oob=data.get("oob", ""), encrypted=enc,
                         mid=data.get("mid", ""), reply_to=reply)
+            self._note_spoiler(to, data.get("mid", ""), data.get("spoiler"))
             self._broadcast({"ev": "own_msg", "data": {**data,
                                                        "reply": reply}})
 
@@ -696,6 +699,12 @@ class WebSession:
                                                 "on": on}})
         return {"ok": True, "on": on}
 
+    def _note_spoiler(self, jid, mid, hint):
+        """XEP-0382: spoiler'ı DB'ye işle (satır `_store` ile az önce yazıldı)."""
+        hint = _spoiler.clean_hint(hint)
+        if hint is not None and mid:
+            _storage._db_set_spoiler(jid, mid, hint)
+
     def _cmd_set_canned(self, args) -> dict:
         """💬 Hazır yanıtlar düzenleyicisi: her satır bir yanıt
         (masaüstüyle ortak config "canned_replies")."""
@@ -723,22 +732,30 @@ class WebSession:
                     {"kind": f.kind, "label": f.label, "sample": f.sample}
                     for f in findings]}
         reply = args.get("reply_to") or None
+        # XEP-0382: yalnız şifresiz sohbette (OMEMO/PGP yollarına dokunulmaz)
+        spoiler = _spoiler.clean_hint(args.get("spoiler"))
+        if spoiler is not None and enc != "none":
+            return {"ok": False,
+                    "error": _tr("Şifreli sohbette gizli içerik gönderilemez")}
+        extra = {"spoiler": spoiler} if spoiler is not None else {}
         mid = _new_msg_id()
         self._store(to, body, tag="me", sender="Ben", is_me=True,
                     encrypted=enc != "none", mid=mid, reply_to=reply)
+        self._note_spoiler(to, mid, spoiler)
         mtype = "groupchat" if to in self.rooms else "chat"
         if reply:
             self.bot.send_reply(to, body, reply["id"],
                                 reply.get("body", ""), mtype, enc, mid=mid,
-                                reply_to_jid=reply.get("to"))
+                                reply_to_jid=reply.get("to"), **extra)
         elif mtype == "groupchat":
-            self.bot.send_gc(to, body, encryption=enc, mid=mid)
+            self.bot.send_gc(to, body, encryption=enc, mid=mid, **extra)
         else:
-            self.bot.send_chat(to, body, encryption=enc, mid=mid)
+            self.bot.send_chat(to, body, encryption=enc, mid=mid, **extra)
         if self._send_typing:
             self.bot.send_chatstate(to, "active", mtype)
         entry = {"to": to, "body": body, "mid": mid, "enc": enc,
-                 "reply": reply, "ts": datetime.now().strftime("%H:%M")}
+                 "reply": reply, "ts": datetime.now().strftime("%H:%M"),
+                 **extra}
         self._broadcast({"ev": "own_sent", "data": entry})
         return {"ok": True, "mid": mid}
 
@@ -852,12 +869,15 @@ class WebSession:
                 limit: int = 60) -> dict:
         rows = _storage._db_load_msgs_full(jid, limit=limit, before=before)
         reactions = self.reactions_map(jid)
+        spoilers = _storage._db_load_spoilers(jid)
         msgs = [{"id": r[0], "sender": r[1] or jid, "body": r[2],
                  "is_me": r[3], "ts": r[4], "tag": r[5], "oob": r[6],
                  "encrypted": r[7], "mid": r[9],
                  "stored_at": r[13],
                  "reply": ({"id": r[10], "sender": r[11], "body": r[12]}
                            if r[10] else None),
-                 "reactions": reactions.get(r[9], {})} for r in rows]
+                 "reactions": reactions.get(r[9], {}),
+                 **({"spoiler": spoilers[r[9]]} if r[9] in spoilers else {})}
+                for r in rows]
         return {"jid": jid, "messages": msgs,
                 "has_more": len(msgs) == limit}

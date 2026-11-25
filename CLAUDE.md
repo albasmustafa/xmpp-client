@@ -115,6 +115,19 @@ gerçekten çalıştır.
   (`ui/dialogs/starred.py`; tüm sohbetler, Aç → sohbet + mesaja kaydırma). Web: satır
   araçlarında ☆/⭐, üst çubukta ⭐ (WS `star` → bütün sekmelere `star` olayı;
   `starred` listesi; hello'da `starred` anahtarları) (`test_starred_messages.py`).
+- **🙈 Gizli içerik — spoiler (XEP-0382)** (`xmppcore/spoiler.py`; DB `messages.spoiler`,
+  NULL = spoiler değil, "" = uyarısız): yalnız şifresiz mesajda gönderilir ve okunur —
+  OMEMO/PGP yollarına dokunulmadı (kural 1), şifreli mesajdaki işaret yok sayılır. Olay
+  yüküne `"spoiler"` YALNIZ spoiler'da eklenir (`spoiler.mark`; eski yük sözleşmeleri
+  aynı). Masaüstü: ✨ → 🙈 Gizli içerik olarak gönder… (uyarı sorulur; şifreli sohbette
+  kapalı) → `_send_message(spoiler=)` ("/" komut sayılmaz); balon `_apply_spoiler` ile
+  tıklanana kadar örtülü — bağlama `selectable_text`'in İÇ Text'ine (`box.text`; çerçeve
+  tıklama almaz), açınca özgün renk/yazı tipi geri gelir; bildirim/toast da örtülü.
+  Harita `_spoilers` bellektedir (masaüstü geçmişi bellekten çizilir; DB işareti web
+  içindir). Web: ➤ düğmesinde sağ tık / uzun basma → gönder menüsü (`#send-menu`),
+  satırda `data-reveal`, geçmiş satırında `spoiler` alanı (`test_spoiler.py`). Bilinen
+  sınırlar: ayrı sohbet sekmesi, MAM'den gelen geçmiş ve masaüstündeki medya önizlemesi
+  örtülmez.
 - **Proxy:** `xmppcore/proxy.py` SOCKS5/SOCKS4a/HTTP CONNECT tüneli kurar; XMPPBot
   `_attempt_connection`/`get_dns_records`'u ezer (proxy varken yerel DNS yok). Yalnız XMPP
   akışını kapsar; HTTP istekleri (dosya, önizleme, GIF, AI) proxy'den geçmez.

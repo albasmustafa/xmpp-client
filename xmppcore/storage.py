@@ -56,6 +56,9 @@ def _init_db():
     # gelir, geçmiş silinince yıldız da gider (ayrı tablo öksüz kalmaz).
     if "starred" not in cols:
         conn.execute("ALTER TABLE messages ADD COLUMN starred INTEGER DEFAULT 0")
+    # XEP-0382 spoiler: NULL = spoiler değil; metin = uyarı ("" = uyarısız)
+    if "spoiler" not in cols:
+        conn.execute("ALTER TABLE messages ADD COLUMN spoiler TEXT DEFAULT NULL")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_jid ON messages(jid)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_ts ON messages(timestamp)")
     # AI türetilmiş verisi: mesaj gömmeleri (anlamsal arama) ve pahalı
@@ -337,6 +340,40 @@ def _db_unanswered(scan_limit=5000):
     except Exception:
         _log.error("Yanıt bekleyen mesajlar okunamadı", exc_info=True)
         return []
+
+# ── XEP-0382 spoiler ────────────────────────────────────────────────────────
+
+def _db_set_spoiler(jid, mid, hint):
+    """(jid, mid) mesajını spoiler işaretle (`hint` "" olabilir; None
+    işareti kaldırır). Satır `_db_store_msg` ile az önce yazılmış olmalı."""
+    if not (jid and mid):
+        return False
+    try:
+        db = _get_db()
+        with _db_lock:
+            cur = db.execute("UPDATE messages SET spoiler=? WHERE jid=? AND mid=?",
+                             (hint, jid, mid))
+            db.commit()
+        return cur.rowcount > 0
+    except Exception:
+        _log.error("Spoiler kaydedilemedi (jid=%s, mid=%s)", jid, mid,
+                   exc_info=True)
+        return False
+
+
+def _db_load_spoilers(jid) -> dict:
+    """Sohbetin spoiler'lı mesajları: {mid: uyarı}."""
+    try:
+        db = _get_db()
+        with _db_lock:
+            rows = db.execute(
+                "SELECT mid, spoiler FROM messages WHERE jid=? AND spoiler IS "
+                "NOT NULL AND COALESCE(mid, '') != ''", (jid,)).fetchall()
+        return {mid: hint for mid, hint in rows}
+    except Exception:
+        _log.error("Spoiler'lar okunamadı (jid=%s)", jid, exc_info=True)
+        return {}
+
 
 # ── ⭐ Yıldızlı mesajlar ────────────────────────────────────────────────────
 

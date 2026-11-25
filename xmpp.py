@@ -98,6 +98,7 @@ from xmppcore import i18n as _i18n
 from xmppcore import notify_policy as _notify
 from xmppcore import questions as _questions
 from xmppcore import sensitive as _sensitive
+from xmppcore import spoiler as _spoiler
 from xmppcore import tts as _tts
 from xmppcore.archive import ArchiveMixin
 from xmppcore.config import (
@@ -170,6 +171,7 @@ from xmppcore.storage import (
     _db_load_msgs,
     _db_load_starred,
     _db_save_reaction,
+    _db_set_spoiler,
     _db_set_starred,
     _db_store_msg,
     _db_unanswered,
@@ -3634,6 +3636,7 @@ class MainWindow:
             self._render_reactions(
                 row,
                 self._reactions.get((getattr(self, "active", ""), mid), {}))
+            self._apply_spoiler(row)
         self._scroll_bottom()
         return row  # [2I] render yolu kalan-TTL zamanlaması için satırı alır
 
@@ -5200,6 +5203,69 @@ class MainWindow:
                          _tr("Her mesajda bildirilecek") if on
                          else _tr("Yalnız adınız geçince bildirilecek"))
 
+    # ── XEP-0382 spoiler (kurallar xmppcore/spoiler) ─────────────────────────
+    # Masaüstü geçmişi bellekten çizilir: (jid, mid) → uyarı haritası olay
+    # işleyicilerinde dolar, çizimde DB'ye gidilmez. DB işareti web içindir.
+    def _spoiler_map(self) -> dict:
+        return self.__dict__.setdefault("_spoilers", {})
+
+    def _note_spoiler(self, jid, mid, hint):
+        """Olaydaki spoiler'ı haritaya ve DB'ye işle (satır `_store` ile az
+        önce yazıldı). Dönüş: temiz uyarı ya da None (spoiler değil)."""
+        hint = _spoiler.clean_hint(hint)
+        if hint is None or not mid:
+            return None
+        self._spoiler_map()[(jid, mid)] = hint
+        _db_set_spoiler(jid, mid, hint)
+        return hint
+
+    def _apply_spoiler(self, row):
+        """Spoiler'lı mesajın gövdesi tıklanana kadar örtülü kalır."""
+        mid = getattr(row, "_mid", "")
+        hint = self._spoiler_map().get((getattr(self, "active", None), mid))
+        box = getattr(row, "_body_text", None)
+        if (hint is None or not mid or box is None
+                or getattr(row, "_retracted", False)):
+            return
+        # Kutu bir çerçevedir; tıklamayı içindeki Text alır (selectable_text)
+        target = getattr(box, "text", box)
+        try:
+            orig_fg = target.cget("fg")
+            orig_font = getattr(box, "_font", None)
+            box.set_content(_spoiler.cover(hint), fg=FG_DIM,
+                            font=(FONT, 9, "italic"))
+        except Exception:
+            return
+        row._spoiler_hidden = True
+
+        def _reveal(_e=None):
+            if not getattr(row, "_spoiler_hidden", False):
+                return None             # açıldı: tıklama yine seçim yapar
+            row._spoiler_hidden = False
+            # Örtünün soluk italiği gövdede kalmasın: özgün renk ve yazı tipi
+            box.set_content("", fg=orig_fg, font=orig_font)
+            _identity.update_bubble_text(
+                row, row._body, edited=getattr(row, "_edited", False),
+                formatter=self._format_markdown, theme=_chat_theme())
+            return "break"
+        target.bind("<Button-1>", _reveal, add="+")
+
+    def _send_spoiler_dialog(self):
+        """✨ → 🙈 Gizli içerik olarak gönder…: giriş kutusundaki metni isteğe
+        bağlı uyarıyla gönderir (yalnız şifresiz sohbette)."""
+        if not self.active or not self._ai_composer_text().strip():
+            return
+        if self._encryption_mode.get() != "none":
+            self._show_toast(_tr("🙈 Gizli içerik"),
+                             _tr("Şifreli sohbette gizli içerik gönderilemez"))
+            return
+        hint = simpledialog.askstring(_tr("🙈 Gizli içerik olarak gönder…"),
+                                      _tr("Uyarı metni (isteğe bağlı):"),
+                                      parent=self.root)
+        if hint is None:
+            return                      # vazgeçildi
+        self._send_message(spoiler=_spoiler.clean_hint(hint))
+
     # ── Hazır yanıtlar (kurallar xmppcore/canned) ────────────────────────────
     def _canned_menu(self, parent):
         """💬 Hazır yanıtlar alt menüsü: yanıta tıklamak onu giriş kutusuna
@@ -5534,6 +5600,11 @@ class MainWindow:
                              "suggest_replies", jid))
         menu.add_cascade(label=_tr("💬 Hazır yanıtlar"),
                          menu=self._canned_menu(menu))
+        mode = getattr(getattr(self, "_encryption_mode", None), "get",
+                       lambda: "none")()
+        menu.add_command(label=_tr("🙈 Gizli içerik olarak gönder…"),
+                         command=self._send_spoiler_dialog,
+                         state="normal" if mode == "none" else "disabled")
         dictating = (getattr(self, "_recording", False)
                      and getattr(self, "_rec_mode", "voice") == "dictate")
         menu.add_command(label=(_tr("⏹ Dikteyi bitir") if dictating
@@ -9350,13 +9421,20 @@ class MainWindow:
         self._typing_send_id = None
 
     # ── Gönder ────────────────────────────────────────────────────────────────
-    def _send_message(self, _=None):
+    def _send_message(self, _=None, spoiler=None):
+        """Giriş kutusundaki metni gönder. `spoiler` (None değilse) XEP-0382
+        uyarısıdır: yalnız şifresiz sohbette, "/" komut sayılmadan gider."""
         if not self.active:
             return
         body = self._composer.get_text().strip()
         if not body:
             return
-        is_command = body.startswith("/") and not body.startswith("//")
+        if spoiler is not None and self._encryption_mode.get() != "none":
+            self._show_toast(_tr("🙈 Gizli içerik"),
+                             _tr("Şifreli sohbette gizli içerik gönderilemez"))
+            return                      # metin kutuda kalır
+        is_command = (spoiler is None and body.startswith("/")
+                      and not body.startswith("//"))
         if not is_command and not self._leak_guard_ok(
                 self.active, body, self._encryption_mode.get()):
             return                      # taslak kutuda kalır, gönderilmez
@@ -9370,13 +9448,15 @@ class MainWindow:
         reply = self._composer.consume_reply()
 
         # Bot komutları kontrol
-        if body.startswith("/") and not body.startswith("//"):
+        if is_command:
             self._handle_bot_command(body)
             return
 
         mid = _new_msg_id()
         self._store(self.active, body, tag="me", sender="Ben", is_me=True,
                     encrypted=is_encrypted, mid=mid, reply_to=reply)
+        self._note_spoiler(self.active, mid, spoiler)
+        extra = {"spoiler": spoiler} if spoiler is not None else {}
         self._ai_caught_up(self.active)
         # [2I][2J.b][2L] TTL vadesi teslim/sekmeye beslemeden ÖNCE kaydedilir:
         # sekme kalan süreyi yetkili haritadan çözer. Defter anahtarı girişin
@@ -9408,11 +9488,13 @@ class MainWindow:
         if reply:
             self.bot.send_reply(self.active, body, reply["mid"],
                                 reply["body"], mtype, enc_mode,
-                                mid=mid, reply_to_jid=reply.get("to"))
+                                mid=mid, reply_to_jid=reply.get("to"), **extra)
         elif mtype == "groupchat":
-            self.bot.send_gc(self.active, body, encryption=enc_mode, mid=mid)
+            self.bot.send_gc(self.active, body, encryption=enc_mode, mid=mid,
+                             **extra)
         else:
-            self.bot.send_chat(self.active, body, encryption=enc_mode, mid=mid)
+            self.bot.send_chat(self.active, body, encryption=enc_mode, mid=mid,
+                               **extra)
 
         # Gönderimde "active" chatstate gönder
         if self.bot and self._send_typing_notif:
@@ -12574,6 +12656,7 @@ class MainWindow:
                 return
             self._store(frm, body, tag="them", sender=nick, is_me=False,
                         oob=oob, encrypted=is_enc, mid=mid, reply_to=reply)
+            spoiler = self._note_spoiler(frm, mid, data.get("spoiler"))
             self._ai_away_note_message(frm)
             # [2I][2J.b][2L] TTL vadesi teslim anında kaydedilir — defer
             # (history modu) dahil; dönüşte kalan süre geçerlidir, sıfırlanmaz.
@@ -12638,6 +12721,8 @@ class MainWindow:
                 # bildirim geçmişine düşmesin, yer tutucu gösterilir
                 notify_body = (_ai.strip_media_urls(body)
                                if "aesgcm://" in (body or "").lower() else body)
+                if spoiler is not None:         # gizli içerik bildirimde de gizli
+                    notify_body = _spoiler.label(spoiler)
                 # Sessize alınmış sohbet / adım geçmeyen oda mesajı / Meşgul:
                 # okunmamış sayılır ama dikkat çekmez (notify_policy)
                 if self._should_notify(frm, body, reply):
@@ -12670,6 +12755,7 @@ class MainWindow:
                 return
             self._store(to, body, tag="me", sender="Ben", is_me=True,
                         oob=oob, encrypted=is_enc, mid=mid, reply_to=reply)
+            self._note_spoiler(to, mid, data.get("spoiler"))
             tab = self._chat_tabs.get(to)
             if tab and tab["win"].winfo_exists():
                 try:

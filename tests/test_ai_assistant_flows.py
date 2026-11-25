@@ -869,12 +869,13 @@ def test_composer_menu_opens_assistant_and_offers_writing_tools(monkeypatch):
     xmpp.MainWindow._ai_composer_menu(w, ev)
     main = made[0]
     labels = [lbl for lbl, _a, _c in main.items]
-    # 2026-11-25: 💬 Hazır yanıtlar (yanıt önerisinin yanında; test_canned_replies)
+    # 2026-11-25: 💬 Hazır yanıtlar ve 🙈 Spoiler (test_canned_replies,
+    # test_spoiler)
     assert labels == ["✨ Asistan (bu sohbet)…", "💡 Yanıt öner",
-                      "💬 Hazır yanıtlar",
+                      "💬 Hazır yanıtlar", "🙈 Gizli içerik olarak gönder…",
                       "🎙 Sesle yaz (dikte)", "✍ Taslağı düzenle", "—",
                       "⚙ AI Ayarları…"]
-    rewrite = main.items[4][2]
+    rewrite = main.items[5][2]
     assert [lbl for lbl, _a, _c in rewrite.items] == [
         label for label, _i in xmpp._ai.REWRITE_MODES.values()]
     main.items[0][2]()
@@ -884,7 +885,7 @@ def test_composer_menu_opens_assistant_and_offers_writing_tools(monkeypatch):
     made.clear()
     w._recording, w._rec_mode = True, "dictate"
     xmpp.MainWindow._ai_composer_menu(w, ev)
-    assert made[0].items[3][0] == "⏹ Dikteyi bitir"
+    assert made[0].items[4][0] == "⏹ Dikteyi bitir"
 
 
 def test_composer_menu_keeps_grab_so_outside_click_closes_it(monkeypatch):
@@ -910,7 +911,7 @@ def test_composer_menu_shows_undo_only_when_available(monkeypatch):
     w._ai_undo = (w.active, "eski")
     xmpp.MainWindow._ai_composer_menu(w, types.SimpleNamespace(
         x_root=1, y_root=2))
-    assert made[0].items[5][0] == "↶ AI değişikliğini geri al"
+    assert made[0].items[6][0] == "↶ AI değişikliğini geri al"
 
 
 def test_shortcuts_route_ai_actions_into_assistant(monkeypatch):

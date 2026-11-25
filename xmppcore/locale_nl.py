@@ -2759,4 +2759,16 @@ CATALOG = {
         "Dit bericht staat niet in de lokale geschiedenis; ster toevoegen mislukt",
     "Mesaj yüklenen geçmişte bulunamadı":
         "Bericht niet gevonden in de geladen geschiedenis",
+    "🙈 Gizli içerik":
+        "🙈 Spoiler",
+    "🙈 Gizli içerik: {}":
+        "🙈 Spoiler: {}",
+    "{} — göstermek için tıklayın":
+        "{} — klik om te tonen",
+    "🙈 Gizli içerik olarak gönder…":
+        "🙈 Als spoiler verzenden…",
+    "Uyarı metni (isteğe bağlı):":
+        "Waarschuwing (optioneel):",
+    "Şifreli sohbette gizli içerik gönderilemez":
+        "In versleutelde chats kunnen geen spoilers worden verzonden",
 }

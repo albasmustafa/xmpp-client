@@ -393,6 +393,7 @@ const S = {
   joining: new Set(),        // kullanıcının istediği oda katılımları (küçük harf)
   notifyPrefs: {muted: {}, room_all: []},   // sunucudan (notify_policy.snapshot)
   starred: new Set(),        // ⭐ "jid\nmid" (sunucudan: snapshot.starred)
+  revealed: new Set(),       // 🙈 açılmış spoiler'lar "jid\nmid" (oturumluk)
 };
 const RETRACTED = "🚫 Bu mesaj silindi";
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
@@ -508,6 +509,7 @@ const EVENTS = {
       ts: nowHHMM(), mid: data.mid, encrypted: !!data.encrypted,
       oob: data.oob || "", reply: data.reply || null,
       reactions: {}, stored_at: new Date().toISOString(),
+      spoiler: data.spoiler,
     });
     if (jid !== S.active || document.hidden) {
       const c = S.contacts.get(jid) || mkUnknown(jid);
@@ -519,7 +521,10 @@ const EVENTS = {
       // bildirimi sekme görünür olunca gider (visibilitychange). Sessize
       // alınmış sohbet, adın geçmediği oda mesajı ve Meşgul durumu susar
       // (karar sunucuda: notify_policy).
-      if (data.notify !== false) notify(data.nick || jid, data.body);
+      if (data.notify !== false) {
+        notify(data.nick || jid,
+               data.spoiler != null ? spoilerLabel(data.spoiler) : data.body);
+      }
       renderContacts();
     } else {
       wsSend("mark_displayed", {to: jid, mid: data.mid});
@@ -531,7 +536,7 @@ const EVENTS = {
       sender: "Ben", body: data.body, is_me: true,
       ts: nowHHMM(), mid: data.mid, encrypted: !!data.encrypted,
       oob: data.oob || "", reply: data.reply || null, reactions: {},
-      stored_at: new Date().toISOString(),
+      stored_at: new Date().toISOString(), spoiler: data.spoiler,
     });
   },
   own_sent(data) {
@@ -539,7 +544,7 @@ const EVENTS = {
       sender: "Ben", body: data.body, is_me: true, ts: data.ts,
       mid: data.mid, encrypted: data.enc !== "none", oob: data.oob || "",
       reply: data.reply, reactions: {},
-      stored_at: new Date().toISOString(),
+      stored_at: new Date().toISOString(), spoiler: data.spoiler,
     });
   },
   typing(data) {
@@ -845,6 +850,12 @@ function rowHtml(m, prev) {
       `<span class="${senders.includes("Ben") ? "mine" : ""}" ` +
       `title="${esc(senders.map(who).join(", "))}" data-react="${esc(emoji)}">` +
       `${esc(emoji)} ${senders.length}</span>`).join("");
+  // XEP-0382: spoiler gövdesi tıklanana kadar örtülü (medya önizlemesi dahil)
+  const revealKey = `${S.active}\n${m.mid || m.id || ""}`;
+  if (m.spoiler != null && m.body !== RETRACTED && !S.revealed.has(revealKey)) {
+    bodyHtml = `<button class="spoiler" data-reveal="${esc(revealKey)}">` +
+      `${esc(spoilerCover(m.spoiler))}</button>`;
+  }
   const canAct = m.mid && m.body !== RETRACTED;
   const starred = canAct && S.starred.has(starKey(S.active, m.mid));
   const tools = canAct
@@ -900,6 +911,12 @@ function renderMessages() {
   box.innerHTML = html || `<div class="empty-hint">${esc(_t("Henüz mesaj yok"))}</div>`;
   box.querySelectorAll("[data-act]").forEach((b) => {
     b.onclick = () => rowAction(b.dataset.act, b.closest(".row"));
+  });
+  box.querySelectorAll("[data-reveal]").forEach((b) => {
+    b.onclick = () => {
+      S.revealed.add(b.dataset.reveal);
+      renderMessages();
+    };
   });
   hydrateMedia(box);
   const autoStt = !!S.settings?.ai?.auto_transcribe;
@@ -1321,7 +1338,7 @@ function clearReplyEdit() {
   $("edit-bar").classList.add("hidden");
 }
 
-async function sendCurrent(force = false) {
+async function sendCurrent(force = false, spoiler = null) {
   const box = $("composer");
   const body = box.value.trim();
   if (!body || !S.active) return;
@@ -1332,15 +1349,58 @@ async function sendCurrent(force = false) {
     clearReplyEdit();
     return;
   }
+  if (spoiler !== null && enc !== "none") {
+    toast(_t("Şifreli sohbette gizli içerik gönderilemez"), true);
+    return;                             // metin kutuda kalır
+  }
   const res = await wsSend("send",
-    {to: S.active, body, enc, force, reply_to: S.reply});
+    {to: S.active, body, enc, force, reply_to: S.reply,
+     ...(spoiler !== null ? {spoiler} : {})});
   if (res.leak && !force) {
-    showLeakDialog(res.findings, () => sendCurrent(true));
+    showLeakDialog(res.findings, () => sendCurrent(true, spoiler));
     return;
   }
   if (!res.ok && res.error) toast(res.error, true);
   box.value = "";
   clearReplyEdit();
+}
+
+/* ── 🙈 spoiler (XEP-0382; yalnız şifresiz sohbet) ──────────────────── */
+function spoilerLabel(hint) {
+  return hint ? fmt("🙈 Gizli içerik: {}", hint) : _t("🙈 Gizli içerik");
+}
+
+function spoilerCover(hint) {
+  return fmt("{} — göstermek için tıklayın", spoilerLabel(hint));
+}
+
+function openSendMenu() {
+  // ➤ düğmesinde sağ tık / uzun basma
+  const menu = $("send-menu");
+  menu.innerHTML = "";
+  const b = document.createElement("button");
+  b.setAttribute("role", "menuitem");
+  b.textContent = _t("🙈 Gizli içerik olarak gönder…");
+  b.onclick = () => sendSpoiler();
+  menu.appendChild(b);
+  menu.classList.remove("hidden");
+  b.focus();
+}
+
+function closeSendMenu() {
+  $("send-menu").classList.add("hidden");
+}
+
+async function sendSpoiler() {
+  closeSendMenu();
+  if (!$("composer").value.trim() || !S.active) return;
+  if ((S.contacts.get(S.active)?.enc || "none") !== "none") {
+    toast(_t("Şifreli sohbette gizli içerik gönderilemez"), true);
+    return;
+  }
+  const hint = prompt(_t("Uyarı metni (isteğe bağlı):"), "");
+  if (hint === null) return;            // vazgeçildi
+  await sendCurrent(false, hint.trim());
 }
 
 function showLeakDialog(findings, onConfirm) {
@@ -1718,10 +1778,14 @@ function bind() {
     if (!$("notify-menu").contains(e.target)) closeNotifyMenu();
     if (!$("ctx-menu").contains(e.target)) closeCtxMenu();
     if (!$("canned-menu").contains(e.target)) closeCannedMenu();
+    if (!$("send-menu").contains(e.target)) closeSendMenu();
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !$("ctx-menu").classList.contains("hidden")) {
       closeCtxMenu();
+    }
+    if (e.key === "Escape" && !$("send-menu").classList.contains("hidden")) {
+      closeSendMenu();
     }
     if (e.key === "Escape" && !$("canned-menu").classList.contains("hidden")) {
       closeCannedMenu();
@@ -1772,6 +1836,12 @@ function bind() {
   });
   composer.addEventListener("input", composerInput);
   $("btn-send").onclick = () => sendCurrent();
+  $("btn-send").oncontextmenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openSendMenu();
+  };
+  bindLongPress($("btn-send"), () => openSendMenu());
   $("btn-attach").onclick = () => S.active && $("file-input").click();
   $("file-input").onchange = () => {
     for (const f of $("file-input").files) uploadBlob(S.active, f, f.name);

@@ -2759,4 +2759,16 @@ CATALOG = {
         "Diese Nachricht ist nicht im lokalen Verlauf; sie konnte nicht markiert werden",
     "Mesaj yüklenen geçmişte bulunamadı":
         "Nachricht im geladenen Verlauf nicht gefunden",
+    "🙈 Gizli içerik":
+        "🙈 Spoiler",
+    "🙈 Gizli içerik: {}":
+        "🙈 Spoiler: {}",
+    "{} — göstermek için tıklayın":
+        "{} — zum Anzeigen klicken",
+    "🙈 Gizli içerik olarak gönder…":
+        "🙈 Als Spoiler senden…",
+    "Uyarı metni (isteğe bağlı):":
+        "Hinweis (optional):",
+    "Şifreli sohbette gizli içerik gönderilemez":
+        "In verschlüsselten Chats können keine Spoiler gesendet werden",
 }

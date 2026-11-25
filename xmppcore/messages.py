@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 
 from slixmpp import Message
 
+from xmppcore import spoiler as _spoiler
 from xmppcore.constants import _log
 from xmppcore.format import _forward_body, _reply_preview
 from xmppcore.helpers import (
@@ -90,7 +91,7 @@ class MessagesMixin:
             return
         if msg["body"]:
             oob = self._extract_oob(msg)
-            self.gui_q.put(("msg", {
+            self.gui_q.put(("msg", _spoiler.mark({
                 "from": str(msg["from"].bare),
                 "nick": str(msg["from"].user),
                 "body": _strip_quoted_fallback(msg, msg["body"]),
@@ -99,7 +100,7 @@ class MessagesMixin:
                 "encrypted": encrypted,
                 "mid": _stanza_msg_id(msg),
                 "reply": self._reply_info(msg),
-            }))
+            }, msg.xml)))
         else:
             # [2P-BUG B] Şifreli gövde işlenememişse sessiz kayıp yerine
             # observable bildirim (OMEMO hazır değilken gelen ilk mesajlar).
@@ -179,14 +180,14 @@ class MessagesMixin:
             self._on_message_correction(inner, own_to=to)
             return
         if inner["body"]:
-            self.gui_q.put(("own_msg", {
+            self.gui_q.put(("own_msg", _spoiler.mark({
                 "to": to,
                 "body": _strip_quoted_fallback(inner, inner["body"]),
                 "oob": self._extract_oob(inner),
                 "encrypted": False,
                 "mid": _stanza_msg_id(inner),
                 "reply": self._reply_info(inner),
-            }))
+            }, xml)))
 
     @staticmethod
     def _extract_oob(msg):
@@ -205,15 +206,16 @@ class MessagesMixin:
         self.gui_q.put(("typing", {"jid": str(msg["from"].bare), "active": False}))
 
     # ── Mesaj gönder (thread-safe) ────────────────────────────────────────────
-    def send_chat(self, to, body, encryption="none", mid=None):
-        coroutine = self._send_chat(to, body, encryption, mid)
+    def send_chat(self, to, body, encryption="none", mid=None, spoiler=None):
+        coroutine = self._send_chat(to, body, encryption, mid, spoiler)
         try:
             return asyncio.run_coroutine_threadsafe(coroutine, self.loop)
         except Exception:
             coroutine.close()
             raise
 
-    async def _send_chat(self, to, body, encryption="none", mid=None):
+    async def _send_chat(self, to, body, encryption="none", mid=None,
+                         spoiler=None):
         try:
             if encryption == "omemo":
                 if not self._omemo_enabled():
@@ -229,6 +231,7 @@ class MessagesMixin:
                 self._send_pgp(to, body, "chat", mid)
             else:
                 msg = self.make_message(mto=to, mbody=body, mtype="chat")
+                _spoiler.add(msg, spoiler)      # XEP-0382 yalnız düz mesajda
                 sent_mid = _add_origin_id(msg, mid)
                 msg.send()
                 self.gui_q.put(("sent_mid", {"to": to, "mid": sent_mid}))
@@ -372,14 +375,16 @@ class MessagesMixin:
 
     # ── Yanıtlama (XEP-0461 Message Replies) ─────────────────────────────────
     def send_reply(self, to, body, reply_to_id, reply_to_body, mtype="chat",
-                   encryption="none", mid=None, reply_to_jid=None):
+                   encryption="none", mid=None, reply_to_jid=None,
+                   spoiler=None):
         """Bir mesajı alıntılayarak yanıtla."""
         asyncio.run_coroutine_threadsafe(
             self._send_reply(to, body, reply_to_id, reply_to_body, mtype,
-                             encryption, mid, reply_to_jid), self.loop)
+                             encryption, mid, reply_to_jid, spoiler), self.loop)
 
     async def _send_reply(self, to, body, reply_to_id, reply_to_body, mtype,
-                          encryption, mid=None, reply_to_jid=None):
+                          encryption, mid=None, reply_to_jid=None,
+                          spoiler=None):
         try:
             if encryption == "omemo" and self._omemo_enabled() and self.omemo_ready:
                 await self._send_omemo(to, body, mtype,
@@ -408,6 +413,7 @@ class MessagesMixin:
                 fallback.set("for", "urn:xmpp:reply:0")
                 if reply_to_body:
                     ET.SubElement(fallback, "body").text = reply_to_body[:200]
+            _spoiler.add(msg, spoiler)          # XEP-0382 yalnız düz yanıtta
             sent_mid = _add_origin_id(msg, mid)
             msg.send()
             self.gui_q.put(("sent_mid", {"to": to, "mid": sent_mid}))

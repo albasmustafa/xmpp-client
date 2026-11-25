@@ -2759,4 +2759,16 @@ CATALOG = {
         "Esta mensagem não está no histórico local; não foi possível favoritá-la",
     "Mesaj yüklenen geçmişte bulunamadı":
         "Mensagem não encontrada no histórico carregado",
+    "🙈 Gizli içerik":
+        "🙈 Spoiler",
+    "🙈 Gizli içerik: {}":
+        "🙈 Spoiler: {}",
+    "{} — göstermek için tıklayın":
+        "{} — clique para mostrar",
+    "🙈 Gizli içerik olarak gönder…":
+        "🙈 Enviar como spoiler…",
+    "Uyarı metni (isteğe bağlı):":
+        "Aviso (opcional):",
+    "Şifreli sohbette gizli içerik gönderilemez":
+        "Não é possível enviar spoilers em conversas criptografadas",
 }
