@@ -17,9 +17,32 @@ _db_lock = threading.Lock()
 STORED_AT_FMT = "%Y-%m-%dT%H:%M:%S"     # messages.stored_at biçimi
 
 
+def _set_journal(conn):
+    """WAL + synchronous=NORMAL: commit diske fsync beklemez.
+
+    Eski kipte (DELETE + FULL) her commit HDD'de ~60 ms sürüyor, canlı
+    mesaj/yıldız/tepki kaydı GUI thread'ini donduruyordu; şimdi ~0,03 ms.
+    NORMAL yalnız WAL'da güvenlidir: uygulama çökünce veri kaybolmaz,
+    elektrik kesilirse son işlemler geri alınabilir ama DB bozulmaz. WAL
+    kurulamazsa (bellek içi DB, desteklemeyen dosya sistemi, kilit) SQLite
+    varsayılanı kalır. WAL kalıcıdır; salt okunur okuyucular (phone_check,
+    MCP) WAL'daki satırları da görür. Profil kopyalanırken `-wal`/`-shm`
+    dosyaları da kopyalanır (uygulama kapalıyken yoktur).
+    """
+    try:
+        mode = conn.execute("PRAGMA journal_mode=WAL").fetchone()[0]
+    except sqlite3.Error:
+        _log.warning("Mesaj DB'si WAL kipine geçemedi; eski kiple devam",
+                     exc_info=True)
+        return
+    if str(mode).lower() == "wal":
+        conn.execute("PRAGMA synchronous=NORMAL")
+
+
 def _init_db():
     import xmpp as _app
     conn = sqlite3.connect(_app._DB_PATH, check_same_thread=False)
+    _set_journal(conn)
     conn.execute("""CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         jid TEXT NOT NULL,

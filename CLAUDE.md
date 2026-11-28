@@ -24,7 +24,7 @@ git dışı).
 ```bash
 ./xmpp-client.sh                                   # uygulama (.venv-xmpp içindeki Python)
 cd /run/media/albas/albas/xmpp-istemcisi && \
-  .venv-xmpp/bin/python -m pytest tests/ -q        # ~2430 test, ~70 sn, ağ kullanmaz
+  .venv-xmpp/bin/python -m pytest tests/ -q        # ~2500 test, ~70 sn, ağ kullanmaz
 ```
 Paket kurulumu: `.venv-xmpp/bin/python -m pip install <paket>`. "Test geçti" demek için testi
 gerçekten çalıştır. CI: `.github/workflows/ci.yml` (GitHub, her push/PR: ruff + pytest,
@@ -45,7 +45,13 @@ girmezse CI kırılır; yeni sistem paketi gerekirse workflow'daki apt satırın
   local_path, inst_uid)`. `mid` = wire kimliği; `inst_uid` yalnız bellekte tutulur (TTL ve yanıt
   sahipliği), SQLite'a yazılmaz.
 - **Kalıcılık:** `xmppcore/storage.py` (tek bağlantı `_db_conn`, işlemler `_db_lock` altında).
-  Mesaj gövdesi değişiklikleri ve silmeler yalnız buradan yapılır.
+  Mesaj gövdesi değişiklikleri ve silmeler yalnız buradan yapılır. DB WAL +
+  `synchronous=NORMAL` ile açılır (`_set_journal`): eski kipte (DELETE + FULL) her commit
+  HDD'de ~60 ms GUI thread'ini donduruyordu, şimdi ~0,03 ms. WAL kurulamazsa SQLite
+  varsayılanı (FULL) kalır; NORMAL rollback journal'da kullanılmaz. Uygulama açıkken
+  profilde `-wal`/`-shm` dosyaları durur: profil kopyalanırken onlar da kopyalanır.
+  Salt okunur okuyucular (`tools/phone_check.py`, MCP) WAL'daki satırları da görür
+  (`test_db_journal.py`).
 - **Parola anahtarı:** kayıtlı parolalar Fernet'le şifreli (`config._encode_pw`); anahtar
   sistem anahtarlığında (Secret Service: GNOME Keyring/KWallet; `keyring` paketi), profildeki
   `.xmpp_client.keyring` öge adını tutar. Eski `.xmpp_client.key` ilk açılışta taşınır ve
